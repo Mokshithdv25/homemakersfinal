@@ -295,16 +295,15 @@ function archCardByLabel(label) {
   return [...ARCH_TRADITIONAL_VARIANTS, ...ARCH_PRIMARY_OPTIONS].find((o) => o.label === label) || ARCH_PRIMARY_OPTIONS[0];
 }
 
-/** Outside shell — plain names, no jargon (multi-select) */
 const EXTERIOR_OPTION_TILES = [
-  { label: "Wall paint", img: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=150&q=60" },
-  { label: "Stone cladding", img: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=150&q=60" },
-  { label: "Exposed brickwork", img: "https://images.unsplash.com/photo-1504307651254-39680f361fdc?w=150&q=60" },
-  { label: "Wooden panels", img: "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=150&q=60" },
-  { label: "Jali & lattice patterns", img: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=150&q=60" },
-  { label: "Tile / terracotta", img: "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=150&q=60" },
-  { label: "Flat / terrace roof", img: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=150&q=60" },
-  { label: "Sloping roof", img: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=150&q=60" },
+  { label: "Wall paint", img: `${process.env.PUBLIC_URL || ""}/ext_wall_paint_1777777542006.png` },
+  { label: "Stone cladding", img: `${process.env.PUBLIC_URL || ""}/ext_stone_cladding_1777777555080.png` },
+  { label: "Exposed brickwork", img: `${process.env.PUBLIC_URL || ""}/ext_brickwork_1777777568811.png` },
+  { label: "Wooden panels", img: `${process.env.PUBLIC_URL || ""}/ext_wood_panels_1777777585476.png` },
+  { label: "Jali & lattice patterns", img: `${process.env.PUBLIC_URL || ""}/ext_jali_1777777599024.png` },
+  { label: "Tile / terracotta", img: `${process.env.PUBLIC_URL || ""}/ext_tile_terracotta_1777777611685.png` },
+  { label: "Flat / terrace roof", img: `${process.env.PUBLIC_URL || ""}/ext_flat_roof_1777777624695.png` },
+  { label: "Sloping roof", img: `${process.env.PUBLIC_URL || ""}/ext_sloping_roof_1777777637758.png` },
 ];
 
 export default function BuildNewHome() {
