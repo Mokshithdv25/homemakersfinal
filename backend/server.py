@@ -346,112 +346,14 @@ def _gemini_client():
 
 @api_router.post("/ai/v0-images", response_model=AIV0ImagesResponse)
 async def ai_v0_images(payload: AIV0ImagesRequest):
-    client = _gemini_client()
-    if not client:
-        logger.info("No GEMINI_API_KEY — returning mock images.")
-        return _mock_v0_images(payload.flow, payload.brief)
-
-    brief = payload.brief
-    loc = str(brief.get("location") or "India").split(",")[0].strip()
-    floors = brief.get("floors", "G+1")
-    plot = brief.get("plotArea", "2400")
-    facing = brief.get("facing", "North")
-    style = brief.get("aesthetic", "modern")
-
-    prompt = (
-        f"Photorealistic exterior render of a {style} Indian residential house. "
-        f"{floors} floors, {plot} sq ft plot, {facing}-facing, located in {loc}. "
-        f"Warm afternoon lighting, clean architecture, no people, high detail."
-    )
-
-    try:
-        response = client.models.generate_images(
-            model="models/imagen-3.0-generate-002",
-            prompt=prompt,
-            config=genai_types.GenerateImagesConfig(number_of_images=3),
-        )
-        images = []
-        for i, img in enumerate(response.generated_images):
-            b64 = base64.b64encode(img.image.image_bytes).decode()
-            images.append({
-                "url": f"data:image/png;base64,{b64}",
-                "label": f"Direction {chr(65 + i)}",
-                "hint": prompt,
-            })
-        mock_data = _mock_v0_images(payload.flow, payload.brief)
-        return AIV0ImagesResponse(
-            images=images, 
-            floor_plans=mock_data.floor_plans,
-            mock=False
-        )
-    except Exception as exc:
-        logger.error(f"Gemini image generation failed: {exc}")
-        return _mock_v0_images(payload.flow, payload.brief)
+    # Always return mock design and floor plans as requested by user
+    return _mock_v0_images(payload.flow, payload.brief)
 
 
 @api_router.post("/ai/estimate-plan", response_model=AIEstimatePlanResponse)
 async def ai_estimate_plan(payload: AIEstimatePlanRequest):
-    client = _gemini_client()
-    if not client:
-        logger.info("No GEMINI_API_KEY — returning mock estimate.")
-        return _mock_estimate_plan(payload.flow, payload.brief, payload.image_bundle)
-
-    brief = payload.brief
-    loc = str(brief.get("location") or "India").split(",")[0].strip()
-    floors = brief.get("floors", "G+1")
-    plot = brief.get("plotArea", "2400")
-    bedrooms = brief.get("bedrooms", 3)
-    finish = brief.get("finishTier", "mid-range")
-
-    prompt = f"""You are a construction cost estimator in India.
-
-Generate a cost estimate for:
-- Location: {loc}
-- Plot: {plot} sq ft
-- Floors: {floors}
-- Bedrooms: {bedrooms}
-- Finish: {finish}
-
-Return ONLY valid JSON (no markdown, no explanation) in exactly this format:
-{{
-  "estimate_lines": [
-    {{"label": "Structure & shell", "amount_inr": 2800000, "note": "RCC frame, brick walls"}},
-    {{"label": "Interior fit-out", "amount_inr": 1200000, "note": "Tiles, paint, fixtures"}},
-    {{"label": "MEP (plumbing & electrical)", "amount_inr": 600000, "note": "Rough-in + fittings"}},
-    {{"label": "External works", "amount_inr": 300000, "note": "Boundary wall, driveway"}},
-    {{"label": "Contingency (10%)", "amount_inr": 490000, "note": "Buffer"}}
-  ],
-  "milestones": [
-    {{"title": "Design lock", "timeframe": "Weeks 1–4"}},
-    {{"title": "Working drawings", "timeframe": "Weeks 5–10"}},
-    {{"title": "Foundation & plinth", "timeframe": "Weeks 11–18"}},
-    {{"title": "Structure complete", "timeframe": "Weeks 19–36"}},
-    {{"title": "Finishing & handover", "timeframe": "Weeks 37–52"}}
-  ],
-  "project_summary": "2-sentence plain-English summary of cost and timeline."
-}}"""
-
-    try:
-        response = client.models.generate_content(
-            model="models/gemini-2.5-flash",
-            contents=prompt,
-        )
-        text = response.text.strip()
-        # strip markdown fences if model wraps in ```json
-        if text.startswith("```"):
-            text = "\n".join(text.split("\n")[1:])
-            if text.endswith("```"):
-                text = text[:-3].strip()
-        data = json.loads(text)
-        return AIEstimatePlanResponse(
-            estimate_lines=data["estimate_lines"],
-            milestones=data["milestones"],
-            project_summary=data.get("project_summary"),
-            mock=False,
-        )
-    except Exception as exc:
-        logger.error(f"Gemini estimate failed: {exc}")
-        return _mock_estimate_plan(payload.flow, payload.brief, payload.image_bundle)
+    # Always return mock estimate as requested by user
+    return _mock_estimate_plan(payload.flow, payload.brief, payload.image_bundle)
 
 
 app.include_router(api_router)
