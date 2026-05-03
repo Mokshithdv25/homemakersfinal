@@ -46,21 +46,18 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              <h1 className="mb-3 font-display text-5xl font-bold leading-[1.05] tracking-[-0.02em] text-[#faf6f1] drop-shadow-lg sm:text-6xl md:text-[5rem]">
-                Where your vision transforms
-              </h1>
-              <h2 className="mb-6 font-display text-3xl font-semibold leading-tight text-[#f0e8df] sm:text-4xl md:text-[2.75rem] md:leading-tight drop-shadow-md">
-                Into your{" "}
+              <h1 className="mb-10 font-display text-5xl font-bold leading-[1.08] tracking-[-0.02em] text-[#faf6f1] drop-shadow-lg sm:text-6xl md:text-[5rem]">
+                Where your vision is turned into your{" "}
                 <span className="bg-gradient-to-r from-amber-200 via-[#e8a87c] to-[#c17f59] bg-clip-text text-transparent">
                   dream home
                 </span>
-                {" — "}built with the power of{" "}
+                {" "}with the power of{" "}
                 <span className="text-amber-200/95">AI</span>
-              </h2>
+              </h1>
               
               <div className="mb-8 max-w-xl">
-                <p className="mb-4 font-body text-lg font-normal leading-relaxed text-[#e8ddd4]/95 md:text-xl drop-shadow">
-                  India's first AI-powered home platform — from first idea to handover, with one workspace for planning, professionals, and peace of mind.
+                <p className="mb-6 font-body text-xl font-normal leading-relaxed text-[#e8ddd4]/95 md:text-2xl drop-shadow">
+                  India's first complete home platform — from idea to execution, all in one place.
                 </p>
                 <p className="font-display text-2xl font-bold text-amber-100/90 tracking-wide drop-shadow-md">
                   Design. Build. Move In.<br/>
