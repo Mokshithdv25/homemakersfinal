@@ -46,7 +46,7 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              <h1 className="mb-10 font-display text-5xl font-bold leading-[1.08] tracking-[-0.02em] text-[#faf6f1] drop-shadow-lg sm:text-6xl md:text-[5rem]">
+              <h1 className="mb-5 font-display text-[2.4rem] font-bold leading-[1.1] tracking-[-0.01em] text-[#faf6f1] drop-shadow-md sm:text-5xl md:text-[3.5rem]">
                 Where your vision is turned into your{" "}
                 <span className="bg-gradient-to-r from-amber-200 via-[#e8a87c] to-[#c17f59] bg-clip-text text-transparent">
                   dream home
@@ -55,12 +55,12 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
                 <span className="text-amber-200/95">AI</span>
               </h1>
               
-              <div className="mb-8 max-w-xl">
-                <p className="mb-6 font-body text-xl font-normal leading-relaxed text-[#e8ddd4]/95 md:text-2xl drop-shadow">
+              <div className="mb-7 max-w-lg">
+                <p className="mb-5 font-body text-base font-normal leading-relaxed text-[#e8ddd4]/90 md:text-lg drop-shadow">
                   India's first complete home platform — from idea to execution, all in one place.
                 </p>
-                <p className="font-display text-2xl font-bold text-amber-100/90 tracking-wide drop-shadow-md">
-                  Design. Build. Move In.<br/>
+                <p className="font-display text-lg font-semibold text-amber-100/85 tracking-wide drop-shadow">
+                  Design. Build. Move In.{" "}
                   <span className="text-[#e8a87c]">Without the Chaos.</span>
                 </p>
               </div>
@@ -90,18 +90,18 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
             >
               <Button
                 type="button"
-                size="lg"
+                size="default"
                 onClick={onGetStarted}
-                className="gradient-copper h-auto rounded-lg px-8 py-3.5 font-body text-[17px] font-semibold text-primary-foreground shadow-lg transition-opacity hover:opacity-90"
+                className="gradient-copper h-auto rounded-lg px-7 py-3 font-body text-[15px] font-semibold text-primary-foreground shadow-md transition-opacity hover:opacity-90"
               >
                 Start Your Home Project
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="lg"
+                size="default"
                 onClick={onExploreDesigns}
-                className="h-auto rounded-lg border-2 border-amber-200/45 bg-[#2a1810]/40 px-8 py-3.5 font-body text-[17px] font-semibold text-[#faf6f1] shadow-md backdrop-blur-md hover:border-amber-200/65 hover:bg-[#36241c]/60"
+                className="h-auto rounded-lg border border-amber-200/40 bg-white/10 px-7 py-3 font-body text-[15px] font-semibold text-[#faf6f1] shadow-sm backdrop-blur-sm hover:border-amber-200/60 hover:bg-white/15"
               >
                 Explore Designs
               </Button>
