@@ -207,6 +207,7 @@ class AIV0ImagesRequest(BaseModel):
 
 class AIV0ImagesResponse(BaseModel):
     images: List[dict]
+    floor_plans: Optional[List[dict]] = None
     mock: bool = True
     provider_note: Optional[str] = None
 
@@ -221,28 +222,78 @@ class AIEstimatePlanResponse(BaseModel):
     estimate_lines: List[dict]
     milestones: List[dict]
     project_summary: Optional[str] = None
+    total_indicative_inr: Optional[int] = None
     mock: bool = True
     provider_note: Optional[str] = None
 
 
 def _mock_v0_images(flow: FlowKind, brief: dict) -> AIV0ImagesResponse:
     loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
+    room = str(brief.get("room") or "Room")
+    floors = str(brief.get("floors") or "G+1")
+    if flow == "remodel":
+        return AIV0ImagesResponse(
+            floor_plans=[
+                {
+                    "url": "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1000&q=80",
+                    "label": f"{room} — layout v0 (plan sketch)",
+                    "hint": "Furniture + circulation overlay (indicative)",
+                },
+                {
+                    "url": "https://images.unsplash.com/photo-1582268611958-ebfd161ef9ce?w=1000&q=80",
+                    "label": "Services & ceiling v0",
+                    "hint": "Lighting grid + services assumptions",
+                },
+            ],
+            images=[
+                {
+                    "url": "https://images.unsplash.com/photo-1616594039964-3b6b8f9fbe16?w=640&q=75",
+                    "label": "Interior mood A",
+                    "hint": "Palette + joinery direction",
+                },
+                {
+                    "url": "https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?w=640&q=75",
+                    "label": "Interior mood B",
+                    "hint": "Alternate materials / lighting",
+                },
+                {
+                    "url": "https://images.unsplash.com/photo-1615874694520-474822394e73?w=640&q=75",
+                    "label": "Interior mood C",
+                    "hint": "Premium finish variant",
+                },
+            ],
+            mock=True,
+            provider_note="Replace with HM_AI_IMAGE_API_KEY provider call.",
+        )
+
     return AIV0ImagesResponse(
+        floor_plans=[
+            {
+                "url": "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1000&q=80",
+                "label": "Ground floor plan v0",
+                "hint": f"Zoning + room grid for {loc} (indicative, not GFC)",
+            },
+            {
+                "url": "https://images.unsplash.com/photo-1582268611958-ebfd161ef9ce?w=1000&q=80",
+                "label": "First floor plan v0" if floors != "G" else "Alternate ground plan v0",
+                "hint": "Upper level blocking + baths" if floors != "G" else "Second layout option from same brief",
+            },
+        ],
         images=[
             {
-                "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=640&q=75",
-                "label": "Direction A",
-                "hint": f"Modern massing — {loc}",
+                "url": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=75",
+                "label": "Front elevation v0",
+                "hint": "Street-facing façade concept",
             },
             {
-                "url": "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=640&q=75",
-                "label": "Direction B",
-                "hint": f"Alternate facade — {loc}",
+                "url": "https://images.unsplash.com/photo-1600607687644-aac4c3eac7f4?w=800&q=75",
+                "label": "Rear / garden elevation",
+                "hint": "Opening pattern + outdoor connection",
             },
             {
-                "url": "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=640&q=75",
-                "label": "Direction C",
-                "hint": f"Roof + materials study — {loc}",
+                "url": "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&q=75",
+                "label": "Massing & roof study",
+                "hint": "Materials + roofline option",
             },
         ],
         mock=True,
@@ -252,18 +303,33 @@ def _mock_v0_images(flow: FlowKind, brief: dict) -> AIV0ImagesResponse:
 
 def _mock_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[dict]) -> AIEstimatePlanResponse:
     loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
+    if flow == "remodel":
+        estimate_lines = [
+            {"label": "Demolition / prep (indicative)", "amount_inr": 55000, "note": f"{loc} interior scope"},
+            {"label": "Civil + carpentry (indicative)", "amount_inr": 240000, "note": "Layout/storage updates"},
+            {"label": "Electrical + lighting (indicative)", "amount_inr": 85000, "note": "Interior services allowance"},
+            {"label": "Finishes + fixtures (indicative)", "amount_inr": 190000, "note": "Depends on finish tier"},
+        ]
+        summary = f"Dummy remodel estimate + milestones for {loc}. Replace with HM_AI_PLAN_API_KEY output later."
+    else:
+        estimate_lines = [
+            {"label": "Structure & shell (indicative)", "amount_inr": 2650000, "note": f"{loc} floor plan + exterior v0"},
+            {"label": "Exterior facade package", "amount_inr": 620000, "note": "Elevation style + materials allowance"},
+            {"label": "Core interiors (indicative)", "amount_inr": 980000, "note": "Kitchen, wardrobes, baths baseline"},
+            {"label": "Services (MEP rough-in)", "amount_inr": 540000, "note": "Electrical, plumbing, basic HVAC points"},
+        ]
+        summary = f"Dummy new-home estimate + milestones for {loc}. Replace with HM_AI_PLAN_API_KEY output later."
+    total = sum(int(x["amount_inr"]) for x in estimate_lines if isinstance(x.get("amount_inr"), (int, float)))
+
     return AIEstimatePlanResponse(
-        estimate_lines=[
-            {"label": "Structure & shell (indicative)", "amount_inr": None, "note": f"Band for {loc} mid-range finish"},
-            {"label": "Interior fit-out", "amount_inr": None, "note": "From finish tier + room mix in brief"},
-            {"label": "Services (MEP rough-in)", "amount_inr": None, "note": "Typical % of construction for scope"},
-        ],
+        estimate_lines=estimate_lines,
         milestones=[
             {"title": "Design lock & consensus", "timeframe": "Weeks 1–4"},
             {"title": "Working drawings / GFC", "timeframe": "Weeks 5–10"},
             {"title": "Site execution start", "timeframe": "Per your schedule"},
         ],
-        project_summary=f"Indicative cost bands and milestone skeleton for {loc}. Wire HM_AI_PLAN_API_KEY to replace with model output.",
+        project_summary=summary,
+        total_indicative_inr=total,
         mock=True,
         provider_note="Replace with HM_AI_PLAN_API_KEY for LLM / estimation service.",
     )
@@ -312,7 +378,12 @@ async def ai_v0_images(payload: AIV0ImagesRequest):
                 "label": f"Direction {chr(65 + i)}",
                 "hint": prompt,
             })
-        return AIV0ImagesResponse(images=images, mock=False)
+        mock_data = _mock_v0_images(payload.flow, payload.brief)
+        return AIV0ImagesResponse(
+            images=images, 
+            floor_plans=mock_data.floor_plans,
+            mock=False
+        )
     except Exception as exc:
         logger.error(f"Gemini image generation failed: {exc}")
         return _mock_v0_images(payload.flow, payload.brief)
