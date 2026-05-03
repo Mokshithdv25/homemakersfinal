@@ -24,18 +24,18 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
           className="h-full w-full object-cover"
         />
         {/* Base tone — heavier on the left where copy lives */}
-        <div className="absolute inset-0 bg-gradient-to-r from-[#120d09]/95 via-[#1b140f]/60 to-[#241a13]/10" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#120d09]/70 via-transparent to-[#1a120c]/30" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#120d09]/80 via-[#1b140f]/40 to-[#241a13]/0" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#120d09]/60 via-transparent to-[#1a120c]/20" />
         {/* Readability band from the left */}
         <div
-          className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.85)_0%,rgba(0,0,0,0.75)_25%,rgba(0,0,0,0.45)_50%,rgba(0,0,0,0.1)_75%,transparent_100%)]"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.65)_0%,rgba(0,0,0,0.55)_25%,rgba(0,0,0,0.25)_50%,rgba(0,0,0,0.05)_70%,transparent_100%)]"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_120%_at_15%_50%,rgba(12,8,6,0.85),rgba(12,8,6,0.4)_50%,transparent_80%)]"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_100%_120%_at_15%_50%,rgba(12,8,6,0.65),rgba(12,8,6,0.25)_50%,transparent_80%)]"
           aria-hidden
         />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_20%,rgba(193,132,78,0.2),transparent_45%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_20%,rgba(193,132,78,0.15),transparent_40%)]" />
       </div>
 
       <div className="container relative z-10 flex justify-start py-28 md:py-32">
