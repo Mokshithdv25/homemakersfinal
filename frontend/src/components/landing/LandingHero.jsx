@@ -46,23 +46,25 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              <h1 className="mb-5 font-display text-[2.4rem] font-bold leading-[1.1] tracking-[-0.01em] text-[#faf6f1] drop-shadow-md sm:text-5xl md:text-[3.5rem]">
+              <h1 className="mb-6 font-display text-[2.6rem] font-semibold leading-[1.15] tracking-tight text-[#fcfbfa] sm:text-5xl md:text-[3.75rem]">
                 Where your vision is turned into your{" "}
-                <span className="bg-gradient-to-r from-amber-200 via-[#e8a87c] to-[#c17f59] bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-[#e3c7a3] to-[#cfa170] bg-clip-text text-transparent">
                   dream home
                 </span>
                 {" "}with the power of{" "}
-                <span className="text-amber-200/95">AI</span>
+                <span className="text-[#e3c7a3]">AI</span>
               </h1>
               
-              <div className="mb-7 max-w-lg">
-                <p className="mb-5 font-body text-base font-normal leading-relaxed text-[#e8ddd4]/90 md:text-lg drop-shadow">
+              <div className="mb-9 max-w-lg">
+                <p className="mb-6 font-body text-[1.1rem] font-light leading-relaxed text-[#f2eee9]/90 md:text-xl">
                   India's first complete home platform — from idea to execution, all in one place.
                 </p>
-                <p className="font-display text-lg font-semibold text-amber-100/85 tracking-wide drop-shadow">
-                  Design. Build. Move In.{" "}
-                  <span className="text-[#e8a87c]">Without the Chaos.</span>
-                </p>
+                <div className="flex items-center gap-3">
+                  <div className="h-px w-8 bg-[#cfa170]/60"></div>
+                  <p className="font-display text-[15px] font-medium tracking-[0.08em] uppercase text-[#e3c7a3]">
+                    Design. Build. Move In. <span className="text-[#fcfbfa]/70">Without the Chaos.</span>
+                  </p>
+                </div>
               </div>
 
               <div className="mb-10 flex max-w-xl flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
@@ -76,7 +78,7 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
                     </div>
                   ))}
                 </div>
-                <p className="m-0 font-body text-sm font-medium text-[#e8ddd4]/95 sm:max-w-[16rem] drop-shadow-sm">
+                <p className="m-0 font-body text-[13px] font-medium text-[#f2eee9]/80 sm:max-w-[16rem]">
                   Join 2,400+ homeowners already building on HomeMakers
                 </p>
               </div>
