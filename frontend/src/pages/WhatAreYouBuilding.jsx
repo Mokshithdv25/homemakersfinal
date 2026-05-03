@@ -76,8 +76,9 @@ export default function WhatAreYouBuilding() {
   const [selected, setSelected] = useState("new");
 
   return (
-    <div className="relative min-h-screen hm-grid-bg overflow-x-hidden" style={{ fontFamily: "'DM Sans',Inter,system-ui,sans-serif", color: "#1C1917" }}>
-      <div className="hm-blueprint" aria-hidden />
+    <div className="relative min-h-screen bg-[#FBF7F2] overflow-x-hidden" style={{ fontFamily: "'DM Sans',Inter,system-ui,sans-serif", color: "#1C1917" }}>
+      {/* Background accents matching the homepage */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(193,132,78,0.08),transparent_50%)]" aria-hidden />
 
       <header className={HM_HEADER_BAR_CLASS}>
         <HmHeaderBrandLockup tagline={HM_TAGLINE_BUILD_CHOOSER} />
