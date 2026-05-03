@@ -6,15 +6,17 @@ import { HM_HEADER_BAR_CLASS, HM_TAGLINE_BUILD_CHOOSER } from "../lib/hmBrand";
 const NAV_LINKS = ["Software", "Find Pros", "My Project", "Shop"];
 
 const NEW_HOME_STEPS = [
-  { icon: "✨", label: "Get V0" },
-  { icon: "🎨", label: "Design" },
-  { icon: "₹", label: "Estimate" },
+  { icon: "📍", label: "Define Plot" },
+  { icon: "🏗️", label: "Configure Floors" },
+  { icon: "🎨", label: "Select Aesthetic" },
+  { icon: "₹", label: "Get V0 Design & Estimate" },
 ];
 
 const RENOVATE_STEPS = [
-  { icon: "✨", label: "Get V0" },
-  { icon: "🎨", label: "Design" },
-  { icon: "₹", label: "Estimate" },
+  { icon: "🏠", label: "Choose Target Areas" },
+  { icon: "🔍", label: "Assess Structure" },
+  { icon: "⬆️", label: "Define Upgrades" },
+  { icon: "₹", label: "Get V0 Design & Estimate" },
 ];
 
 function StepIcon({ icon, label }) {
