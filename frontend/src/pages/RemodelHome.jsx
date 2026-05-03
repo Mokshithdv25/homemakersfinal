@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
-import ProjectFlowPayment from "../components/ProjectFlowPayment";
+import { RemodelSpecView } from "../components/ArchitectBriefSpec";
+import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout";
+import { V0EstimateSection, V0VisualBundleSections } from "../components/V0MockResults";
 import { getRemodelFlow, setRemodelFlow } from "../lib/projectFlowStorage";
 import { requestV0Images, requestEstimatePlan, formatAiApiError } from "../lib/aiApi";
 import {
@@ -17,9 +19,9 @@ const REMODEL_STEPS = [
   { n: 2, title: "Define Outcome", sub: "Goals, pain points & notes" },
   { n: 3, title: "Set Constraints", sub: "Budget, timeline & boundaries" },
   { n: 4, title: "Choose Style", sub: "Look, finish & colours" },
-  { n: 5, title: "Review brief", sub: "Confirm before you pay" },
-  { n: 6, title: "AI v0", sub: "Pay, generate, pro handoff" },
-  { n: 7, title: "Architect & project", sub: "Full brief & project hub" },
+  { n: 5, title: "Review brief", sub: "Confirm before AI v0" },
+  { n: 6, title: "AI v0", sub: "Free pack for your architect" },
+  { n: 7, title: "Architect & project", sub: "Shared spec & project hub" },
 ];
 /** Nine remodel targets — aligned with new-home taxonomy (no maid room). */
 const REMODEL_ROOMS = [
@@ -120,9 +122,9 @@ function RightPanel({
     : step === 4
     ? { icon:"✨", title:"Why style matters?", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Reflects your personality","Stays within your budget","Guides AI design choices"], art:"🛏️🪴" }
     : step === 5
-    ? { icon:"📋", title:"Review before you pay", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Same inputs your architect will see in the handoff","Pay first to unlock the AI, then to assign working drawings","Then open the project room for your team"], art:"✅🪴" }
+    ? { icon:"📋", title:"Review before AI v0", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Same inputs your architect sees in the readable spec","Free AI v0 helps pros understand vision before they quote","Fees for real drawings are between you and your architect"], art:"✅🪴" }
     : step === 6
-    ? { icon:"🤖", title:"About v0 concept", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["AI v0 is a machine first pass — not a sanction set","Your professional refines, comments, and produces real plans","Project hub is where the build team works together"], art:"💻🪴" }
+    ? { icon:"🤖", title:"About v0 concept", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["AI v0 is free — indicative directions, not sanction drawings","Share the pack so architects \"get\" you faster","Project hub is where execution starts when you’re ready"], art:"💻🪴" }
     : step === 7
     ? { icon:"🏗️", title:"Project management", color:"#14532D", bg:"#F0FDF4", border:"#BBF7D0", items:["Onboard your architect, contractors, and trades","One thread for decisions, files, and site photos","Tied to the brief and notes you just exported"], art:"🧱🪴" }
     : null;
@@ -249,8 +251,6 @@ export default function RemodelHome() {
   const [colourSecondary, setColourSecondary] = useState("#9B7B5C");
   // After AI v0 (step 6+)
   const [postAiNotes, setPostAiNotes] = useState("");
-  const [preV0Paid, setPreV0Paid] = useState(false);
-  const [postV0Paid, setPostV0Paid] = useState(false);
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
@@ -270,8 +270,6 @@ export default function RemodelHome() {
 
   useEffect(() => {
     const f = getRemodelFlow();
-    setPreV0Paid(!!f.preV0);
-    setPostV0Paid(!!f.postV0);
     setV0Generated(!!f.v0);
     if (f.v0Images) setV0ImageBundle(f.v0Images);
     if (f.v0Plan) setV0PlanBundle(f.v0Plan);
@@ -305,7 +303,6 @@ export default function RemodelHome() {
   });
 
   const runRemodelV0 = async () => {
-    if (!preV0Paid) return;
     setV0Generating(true);
     setStepBlockError("");
     try {
@@ -951,7 +948,7 @@ export default function RemodelHome() {
             </h1>
             <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 20px", lineHeight: 1.6, maxWidth: 640 }}>
               The architect will see the <strong>same</strong> inputs: photos, room, goals, pain points, budget, and style. Next you&rsquo;ll
-              pay to unlock the AI v0, then pay again to assign a professional for real drawings before you use the project hub.
+              run a <strong>free</strong> AI v0 so they can read vision and constraints quickly. Real drawings and fees are between you and the pro you choose — execution stays in the project hub when you&rsquo;re ready.
             </p>
             <div style={{ ...cardStyle, maxWidth: 640 }}>
               {[
@@ -981,22 +978,13 @@ export default function RemodelHome() {
               <span>AI v0</span>
             </div>
             <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-2">
-              Pay, then run your v0
+              Free AI v0 — briefing pack for your architect
             </h1>
             <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 18px", lineHeight: 1.6, maxWidth: 640 }}>
-              First you complete v0 access payment. We generate from your <strong>full</strong> brief. After you see the concept, a second
-              payment routes the job to a professional for working drawings.
+              Generate an indicative <strong>version 0</strong> estimate and concept from your <strong>complete</strong> brief — no charge.
+              No architect is assigned here; you share this pack so they understand you before they quote working drawings. Execution stays in the project hub when you&rsquo;re ready.
             </p>
-            <ProjectFlowPayment
-              variant="preV0"
-              paid={preV0Paid}
-              onCompletePayment={() => {
-                setPreV0Paid(true);
-                setRemodelFlow({ preV0: true });
-                setStepBlockError("");
-              }}
-            />
-            {preV0Paid && !v0Generated && !v0Generating && (
+            {!v0Generated && !v0Generating && (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Generate v0 for {room}</div>
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 12px" }}>Indicative visuals and layout direction only — your pro turns this into buildable work.</p>
@@ -1042,41 +1030,21 @@ export default function RemodelHome() {
               ))}
             </div>
 
-            {/* AI variants — 2 free, 3rd paid (same idea as new home) */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>AI concept directions</div>
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Plans, renders &amp; estimate</div>
               <p style={{ fontSize: 13, color: "#5C5147", margin: "0 0 14px", lineHeight: 1.55, maxWidth: 640 }}>
-                You get <strong>two AI-generated v0 images free</strong>. A <strong>third direction</strong> unlocks when you add paid credits — same rule set as new home.
+                Your <strong>free AI v0</strong> includes indicative <strong>layout plans</strong>, <strong>interior directions</strong>, and a
+                rough <strong>cost breakdown</strong> — same idea as new build, scoped to this room.
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
-                {[
-                  { n: 1, label: "Direction A", free: true },
-                  { n: 2, label: "Direction B", free: true },
-                  { n: 3, label: "Direction C", free: false },
-                ].map((d) => (
-                  <div key={d.n} style={{ position: "relative", borderRadius: 14, overflow: "hidden", border: d.free ? `1px solid #EEDCCB` : "1px dashed #C8B89E", background: d.free ? "#fff" : "#F8F4EF", minHeight: 120, display: "flex", flexDirection: "column", justifyContent: "flex-end", padding: 12 }}>
-                    {!d.free && (
-                      <div style={{ position: "absolute", inset: 0, background: "rgba(253,251,248,0.82)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, padding: 10 }}>
-                        <span style={{ fontSize: 22 }}>🔒</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#57534E", textAlign: "center" }}>Add credits to generate</span>
-                      </div>
-                    )}
-                    <div style={{ fontSize: 11, fontWeight: 700, color: d.free ? OR : "#78716C" }}>{d.label}{d.free ? " · Free" : ""}</div>
-                    <div style={{ fontSize: 10, color: "#9A8F87", marginTop: 4 }}>{d.free ? "Included in v0" : "Third option"}</div>
-                  </div>
-                ))}
-              </div>
+              <V0VisualBundleSections
+                bundle={v0ImageBundle}
+                floorPlanTitle="Room / layout plans (v0)"
+                elevationTitle="Interior concept renders"
+              />
+              <V0EstimateSection planBundle={v0PlanBundle} title="Indicative remodel estimate (v0)" />
             </div>
 
-            <ProjectFlowPayment
-              variant="postV0"
-              paid={postV0Paid}
-              onCompletePayment={() => {
-                setPostV0Paid(true);
-                setRemodelFlow({ postV0: true });
-                setStepBlockError("");
-              }}
-            />
+            <ArchitectEngagementCallout onBrowseArchitects={() => navigate("/marketplace")} />
 
             {/* BEFORE / AFTER */}
             <div style={{ ...cardStyle, border: "1px solid #E8E4DE", boxShadow: "0 4px 20px -8px rgba(28,25,23,0.08)" }}>
@@ -1123,16 +1091,20 @@ export default function RemodelHome() {
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:12, marginBottom:8 }}>
               {[
                 { icon:"✏️", title:"Request tweaks", sub:"Layout, palette, storage, or phasing — your expert updates the brief.", toProject: false },
-                { icon:"🔄", title:"Regenerate v0", sub:"Spin another AI direction (within your free / paid limits).", toProject: false },
+                { icon:"🔄", title:"Regenerate v0", sub:"Spin another AI direction (up to three included in free v0).", toProject: false },
                 { icon:"🚀", title:"Go to detailed design", sub:"Lock a direction and open tasks, milestones, and site coordination.", toProject: true },
               ].map(a => (
                 <button
                   key={a.title}
                   type="button"
                   onClick={() => {
+                    if (a.title === "Regenerate v0") {
+                      runRemodelV0();
+                      return;
+                    }
                     if (!a.toProject) return;
-                    if (!postV0Paid) {
-                      setStepBlockError("Complete the professional drawing package payment so your architect can take over with real plans.");
+                    if (!v0Generated) {
+                      setStepBlockError("Generate your free v0 first — then move to the full spec handoff.");
                       return;
                     }
                     setStep(7);
@@ -1158,23 +1130,71 @@ export default function RemodelHome() {
               <span>Handoff</span>
             </div>
             <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-2">
-              Initial draft for your architect
+              Project spec for your architect
             </h1>
             <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 16px", lineHeight: 1.6, maxWidth: 640 }}>
-              The JSON below is the same structured data we send with your v0. Your pro can comment, clarify, and issue real plans. Then open project management to add contractors and run the build.
+              The same <strong>readable brief</strong> you see is what you send your professional — vision, constraints, budget band, and style.
+              They quote and produce working drawings on their terms; this isn&apos;t a code dump.
             </p>
-            <div style={{ background: "#F7F3EE", border: "1px solid #E6DFD3", borderRadius: 12, padding: 14, marginBottom: 16, maxHeight: 280, overflow: "auto" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#44403C", marginBottom: 6 }}>Remodel brief (read-only export)</div>
-              <pre style={{ margin: 0, fontSize: 10, lineHeight: 1.4, color: "#292524", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-{JSON.stringify(
-                {
-                  room, ptype, len, breadth, photos, spaceNotes, mainGoal, painPoints, changeLevel, budgetUnit, budgetAmount, budgetNotes,
-                  startTimeline, completionTime, layoutOk, mustKeep, dealbreakers3, styles, finishTier, colourBase, colourSecondary, postAiNotes,
-                },
-                null,
-                2
-              )}
-              </pre>
+            <div style={{ background: "#F7F3EE", border: "1px solid #E6DFD3", borderRadius: 12, padding: 16, marginBottom: 16, maxHeight: 420, overflow: "auto" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#44403C", marginBottom: 10 }}>Shared remodel specification</div>
+              <RemodelSpecView
+                room={room}
+                ptype={ptype}
+                len={len}
+                breadth={breadth}
+                area={area}
+                spaceNotes={spaceNotes}
+                mainGoal={mainGoal}
+                painPoints={painPoints}
+                changeLevel={changeLevel}
+                budgetLabel={remodelBudgetLabel(budgetUnit, budgetAmount)}
+                budgetNotes={budgetNotes}
+                startTimeline={startTimeline}
+                completionTime={completionTime}
+                layoutOk={layoutOk}
+                mustKeep={mustKeep}
+                dealbreakers3={dealbreakers3}
+                styles={styles}
+                finishTier={finishTier}
+                colourBase={colourBase}
+                colourSecondary={colourSecondary}
+                postAiNotes={postAiNotes}
+                inspirationCount={inspirationImgs.length}
+                photoCount={photos.length}
+              />
+              <details style={{ marginTop: 14, borderTop: "1px solid #E6DFD3", paddingTop: 10 }}>
+                <summary style={{ cursor: "pointer", fontSize: 11, color: "#9A8F87", fontWeight: 600 }}>Technical JSON (optional export)</summary>
+                <pre style={{ margin: "10px 0 0", fontSize: 10, lineHeight: 1.4, color: "#57534E", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {JSON.stringify(
+                    {
+                      room,
+                      ptype,
+                      len,
+                      breadth,
+                      spaceNotes,
+                      mainGoal,
+                      painPoints,
+                      changeLevel,
+                      budgetUnit,
+                      budgetAmount,
+                      budgetNotes,
+                      startTimeline,
+                      completionTime,
+                      layoutOk,
+                      mustKeep,
+                      dealbreakers3,
+                      styles,
+                      finishTier,
+                      colourBase,
+                      colourSecondary,
+                      postAiNotes,
+                    },
+                    null,
+                    2
+                  )}
+                </pre>
+              </details>
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#44403C", marginBottom: 6 }}>Note for the architect (optional)</div>
             <textarea
@@ -1202,7 +1222,7 @@ export default function RemodelHome() {
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                disabled={step === 6 && (!preV0Paid || !v0Generated || !postV0Paid)}
+                disabled={step === 6 && !v0Generated}
                 className="btn-continue text-sm md:text-[15px] !px-6 !py-3 md:!px-8 md:!py-3.5 !shadow-[0_8px_22px_-8px_rgba(200,95,43,0.45)] !rounded-[999px] disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => {
                   setStepBlockError("");
@@ -1215,21 +1235,11 @@ export default function RemodelHome() {
                     return;
                   }
                   if (step === 6) {
-                    if (!preV0Paid) {
-                      setStepBlockError("Complete the v0 access payment to run the AI on your full brief.");
-                      return;
-                    }
                     if (!v0Generated) {
-                      setStepBlockError("Generate your v0 first — the button is above when payment is done.");
-                      return;
-                    }
-                    if (!postV0Paid) {
-                      setStepBlockError("Complete the professional drawing package so a human can produce real plans for site.");
+                      setStepBlockError('Run "Generate v0" first — that creates the free pack to share with an architect.');
                       return;
                     }
                     setRemodelFlow({
-                      preV0: true,
-                      postV0: true,
                       v0: true,
                     });
                     setStep(7);
@@ -1242,7 +1252,7 @@ export default function RemodelHome() {
                   if (step < 5) setStep((s) => s + 1);
                 }}
               >
-                {step === 5 && "Continue to v0 & payment"}
+                {step === 5 && "Continue to free AI v0"}
                 {step === 6 && "Continue to architect handoff"}
                 {step === 7 && "Open project management"}
                 {step < 5 && "Continue"}

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
-import ProjectFlowPayment from "../components/ProjectFlowPayment";
+import { BuildNewHomeSpecView } from "../components/ArchitectBriefSpec";
+import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout";
+import { V0EstimateSection, V0VisualBundleSections } from "../components/V0MockResults";
 import { getBuildFlow, setBuildFlow } from "../lib/projectFlowStorage";
 import { requestV0Images, requestEstimatePlan, formatAiApiError } from "../lib/aiApi";
 import {
@@ -18,9 +20,9 @@ const STEPS = [
   { n: 3, title: "Spatial Configuration", sub: "Floors, staircases, vastu & more", icon: "📐" },
   { n: 4, title: "Aesthetic & Materials", sub: "Style, look & feel preferences", icon: "🎨" },
   { n: 5, title: "Budget & Timeline", sub: "Your budget and project timeline", icon: "₹" },
-  { n: 6, title: "Review your brief", sub: "Confirm every input before you pay", icon: "📋" },
-  { n: 7, title: "AI v0", sub: "Pay, generate, then pro drawings", icon: "✨" },
-  { n: 8, title: "Architect & project", sub: "Full brief, then project hub", icon: "🤝" },
+  { n: 6, title: "Review your brief", sub: "Confirm every input before AI v0", icon: "📋" },
+  { n: 7, title: "AI v0", sub: "Free estimate & directions for your architect", icon: "✨" },
+  { n: 8, title: "Architect & project", sub: "Shared spec, then project hub", icon: "🤝" },
 ];
 
 const RULES = [
@@ -309,8 +311,6 @@ const EXTERIOR_OPTION_TILES = [
 export default function BuildNewHome() {
   const navigate = useNavigate();
   const [activeStep, setActiveStep] = useState(1);
-  const [preV0Paid, setPreV0Paid] = useState(false);
-  const [postV0Paid, setPostV0Paid] = useState(false);
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
@@ -373,8 +373,6 @@ export default function BuildNewHome() {
 
   useEffect(() => {
     const f = getBuildFlow();
-    setPreV0Paid(!!f.preV0);
-    setPostV0Paid(!!f.postV0);
     setV0Generated(!!f.v0);
     if (f.v0Images) setV0ImageBundle(f.v0Images);
     if (f.v0Plan) setV0PlanBundle(f.v0Plan);
@@ -382,7 +380,6 @@ export default function BuildNewHome() {
   }, []);
 
   const runV0Generation = async () => {
-    if (!preV0Paid) return;
     setV0Generating(true);
     setStepBlockError("");
     try {
@@ -417,20 +414,12 @@ export default function BuildNewHome() {
       return;
     }
     if (activeStep === 7) {
-      if (!preV0Paid) {
-        setStepBlockError("Complete the v0 access payment to generate AI directions.");
-        return;
-      }
       if (!v0Generated) {
-        setStepBlockError('Use "Generate v0 designs" first — the AI needs your paid brief to run.');
-        return;
-      }
-      if (!postV0Paid) {
-        setStepBlockError("Complete the professional drawing package so an architect can take over with real plans.");
+        setStepBlockError('Run "Generate v0 designs" first — that creates the free pack to share with an architect.');
         return;
       }
       setStepBlockError("");
-      setBuildFlow({ formSnapshot: form, preV0: true, postV0: true, v0: true });
+      setBuildFlow({ formSnapshot: form, v0: true });
       setActiveStep(8);
       return;
     }
@@ -1510,13 +1499,13 @@ export default function BuildNewHome() {
               <h1 style={{ fontSize: 30, fontWeight: 800, fontFamily: "Georgia,serif", margin: 0 }}>Review &amp; Generate v0 Designs</h1>
             </div>
             <p style={{ fontSize: 14, color: "#5C5147", marginBottom: 20, lineHeight: 1.6 }}>
-              We’ve captured <strong>every</strong> input and option. Next, you’ll pay to unlock the AI v0, then a second
-              payment sends the full pack to a professional for real floor &amp; elevation work — and into project management.
+              We’ve captured <strong>every</strong> input and option. Next, you’ll run a <strong>free</strong> AI v0 — indicative designs and
+              estimate — so an architect can see your vision and constraints clearly. Real floor plans and sanction-grade work are quoted by the professional you choose.
             </p>
 
             <div style={{ fontSize: 13, color: "#57534E", marginBottom: 22, lineHeight: 1.55, paddingBottom: 16, borderBottom: "1px solid #EDE8E0" }}>
-              On the v0 step you can run up to <strong>3</strong> first-pass directions, then you lock in a drawing package
-              so your architect isn’t working from a screenshot alone.
+              On the next step you can generate up to <strong>3</strong> first-pass directions at <strong>no charge</strong>. Share that pack with
+              pros so they brief faster — nothing moves to site execution until you&apos;re ready in the project hub.
             </div>
 
             {/* Design Preferences Summary */}
@@ -1563,23 +1552,14 @@ export default function BuildNewHome() {
           {activeStep === 7 && (<>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
               <span style={{ fontSize: 28 }}>✨</span>
-              <h1 style={{ fontSize: 30, fontWeight: 800, fontFamily: "Georgia,serif", margin: 0 }}>Pay, generate, then pro drawings</h1>
+              <h1 style={{ fontSize: 30, fontWeight: 800, fontFamily: "Georgia,serif", margin: 0 }}>Free AI v0 — send the pack to your architect</h1>
             </div>
             <p style={{ fontSize: 14, color: "#5C5147", marginBottom: 18, lineHeight: 1.6, maxWidth: 640 }}>
-              First payment unlocks the v0 run from your <strong>complete</strong> brief. After the AI output, a second
-              payment assigns an architect to produce real plans. Nothing moves to execution until you are ready in the
-              project hub.
+              Generate an indicative <strong>version 0</strong> estimate and design directions from your <strong>complete</strong> brief —{" "}
+              <strong>no charge</strong>, and we don&apos;t assign an architect here. This pack helps a professional understand vision,
+              constraints, and numbers before they quote real drawings. Nothing moves to execution until you pull your team in from the project hub.
             </p>
-            <ProjectFlowPayment
-              variant="preV0"
-              paid={preV0Paid}
-              onCompletePayment={() => {
-                setPreV0Paid(true);
-                setBuildFlow({ preV0: true });
-                setStepBlockError("");
-              }}
-            />
-            {preV0Paid && !v0Generated && !v0Generating && (
+            {!v0Generated && !v0Generating && (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Run AI v0 (uses all wizard inputs)</div>
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55, margin: "0 0 12px" }}>
@@ -1604,64 +1584,24 @@ export default function BuildNewHome() {
             )}
             {v0Generated && (
               <>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Your v0 directions (indicative)</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>Your v0 pack (indicative)</div>
+                  <button
+                    type="button"
+                    onClick={runV0Generation}
+                    disabled={v0Generating}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#C85F2B", fontSize: 13, fontWeight: 600 }}
+                  >
+                    {v0Generating ? "Regenerating..." : "Regenerate designs"}
+                  </button>
+                </div>
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 14px" }}>
-                  Open each when we wire 3D. For now this marks the handoff line between AI and human drawings.
+                  Floor plans, elevations, and a line-item estimate you can send to an architect — still not sanction-grade
+                  drawings.
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 20 }}>
-                  {(v0ImageBundle?.images?.length ? v0ImageBundle.images.slice(0, 3) : [1, 2, 3]).map((entry, i) => {
-                    const label =
-                      entry && typeof entry === "object"
-                        ? entry.label || `Direction ${String.fromCharCode(65 + i)}`
-                        : `Direction ${String.fromCharCode(65 + i)}`;
-                    const url = entry?.url;
-                    const hint = entry?.hint;
-                    return (
-                      <div
-                        key={label + i}
-                        style={{
-                          borderRadius: 12,
-                          border: "1px solid #EEDCCB",
-                          padding: 12,
-                          minHeight: 100,
-                          background: "linear-gradient(180deg,#FFFBF7,#FDFBF8)",
-                          overflow: "hidden",
-                        }}
-                      >
-                        {url ? (
-                          <img
-                            src={url}
-                            alt=""
-                            style={{ width: "100%", height: 88, objectFit: "cover", borderRadius: 8, marginBottom: 8 }}
-                          />
-                        ) : null}
-                        <div style={{ fontSize: 11, fontWeight: 700, color: "#C85F2B" }}>{label}</div>
-                        <div style={{ fontSize: 11, color: "#78716C", marginTop: 4, lineHeight: 1.35 }}>
-                          {hint || "Layout + elevation v0"}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {v0PlanBundle?.estimate_lines?.length ? (
-                  <div style={{ fontSize: 12, color: "#57534E", lineHeight: 1.55, marginBottom: 12 }}>
-                    <span style={{ fontWeight: 700, color: "#44403C" }}>Indicative estimate lines</span> — from the second
-                    call (populate with your plan model). {v0PlanBundle.mock ? "Mock data until keys are wired." : null}
-                  </div>
-                ) : null}
-                <ProjectFlowPayment
-                  variant="postV0"
-                  paid={postV0Paid}
-                  onCompletePayment={() => {
-                    setPostV0Paid(true);
-                    setBuildFlow({ postV0: true });
-                    setStepBlockError("");
-                  }}
-                />
-                <div style={{ fontSize: 12, color: "#57534E", lineHeight: 1.55, marginTop: 8 }}>
-                  After this payment, your architect receives the <strong>same structured brief + v0</strong> to
-                  comment, clarify, and produce real floor plans, elevations, and coordination sheets.
-                </div>
+                <V0VisualBundleSections bundle={v0ImageBundle} />
+                <V0EstimateSection planBundle={v0PlanBundle} />
+                <ArchitectEngagementCallout onBrowseArchitects={() => navigate("/marketplace")} />
               </>
             )}
           </>)}
@@ -1669,17 +1609,21 @@ export default function BuildNewHome() {
           {activeStep === 8 && (<>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
               <span style={{ fontSize: 28 }}>🤝</span>
-              <h1 style={{ fontSize: 30, fontWeight: 800, fontFamily: "Georgia,serif", margin: 0 }}>Initial draft for your architect</h1>
+              <h1 style={{ fontSize: 30, fontWeight: 800, fontFamily: "Georgia,serif", margin: 0 }}>Project spec for your architect</h1>
             </div>
             <p style={{ fontSize: 14, color: "#5C5147", marginBottom: 16, lineHeight: 1.6, maxWidth: 640 }}>
-              Everything below is what you entered — the architect sees the same, can comment line-by-line, and turns it
-              into working drawings. When you are ready, open the project room to onboard your contractor team.
+              This is the same <strong>readable brief</strong> you and your architect work from — not a raw code dump. It matches what you
+              entered in the wizard (plus your v0 context from the last step). Working drawings and fees are agreed with your professional separately.
             </p>
-            <div style={{ background: "#F7F3EE", border: "1px solid #E6DFD3", borderRadius: 12, padding: 14, marginBottom: 16, maxHeight: 280, overflow: "auto" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#44403C", marginBottom: 6 }}>Structured brief (read-only export)</div>
-              <pre style={{ margin: 0, fontSize: 10, lineHeight: 1.4, color: "#292524", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-{JSON.stringify(form, null, 2)}
-              </pre>
+            <div style={{ background: "#F7F3EE", border: "1px solid #E6DFD3", borderRadius: 12, padding: 16, marginBottom: 16, maxHeight: 420, overflow: "auto" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#44403C", marginBottom: 10 }}>Shared project specification</div>
+              <BuildNewHomeSpecView form={form} archResolved={archResolved} budgetLabel={budgetSingleLabel(form)} />
+              <details style={{ marginTop: 14, borderTop: "1px solid #E6DFD3", paddingTop: 10 }}>
+                <summary style={{ cursor: "pointer", fontSize: 11, color: "#9A8F87", fontWeight: 600 }}>Technical JSON (optional export)</summary>
+                <pre style={{ margin: "10px 0 0", fontSize: 10, lineHeight: 1.4, color: "#57534E", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {JSON.stringify(form, null, 2)}
+                </pre>
+              </details>
             </div>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#44403C", marginBottom: 6 }}>Note for the architect (optional)</div>
             <textarea
@@ -1709,11 +1653,11 @@ export default function BuildNewHome() {
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                disabled={activeStep === 7 && (!preV0Paid || !v0Generated || !postV0Paid)}
+                disabled={activeStep === 7 && !v0Generated}
                 className="btn-continue text-sm md:text-[15px] !px-6 !py-3 md:!px-8 md:!py-3.5 !shadow-[0_8px_22px_-8px_rgba(200,95,43,0.45)] !rounded-[999px] disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleContinue}
               >
-                {activeStep === 6 && "Continue to v0 & payment"}
+                {activeStep === 6 && "Continue to free AI v0"}
                 {activeStep === 7 && "Continue to architect handoff"}
                 {activeStep === 8 && "Open project management"}
                 {activeStep < 6 && "Continue"}
@@ -1846,10 +1790,10 @@ export default function BuildNewHome() {
                 <div style={{ marginTop: 14, paddingTop: 4 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#44403C", marginBottom: 8 }}>What happens next</div>
                   <ol style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#78716C", lineHeight: 1.55 }}>
-                    <li style={{ marginBottom: 4 }}>You pay to unlock the AI on your <strong>full</strong> brief</li>
-                    <li style={{ marginBottom: 4 }}>AI drafts up to 3 v0 directions; you pay again for the pro drawing set</li>
-                    <li style={{ marginBottom: 4 }}>Your architect refines, comments, and produces real plans</li>
-                    <li>Project management links your whole build team</li>
+                    <li style={{ marginBottom: 4 }}>Run <strong>free</strong> AI v0 (estimate + up to 3 directions) from your full brief</li>
+                    <li style={{ marginBottom: 4 }}>Share that pack with an architect — their fee for real drawings is between you and them</li>
+                    <li style={{ marginBottom: 4 }}>Same readable spec on the next step for you and your pro</li>
+                    <li>Execution starts from the project hub when you&rsquo;re ready</li>
                   </ol>
                 </div>
               )}
@@ -1974,9 +1918,9 @@ export default function BuildNewHome() {
                 <>
                   <div style={{ fontWeight: 700, marginBottom: 6 }}>Checklist on this step</div>
                   <ul style={{ margin: 0, paddingLeft: 16 }}>
-                    <li style={{ marginBottom: 4 }}>V0 access: {preV0Paid ? "✓ Paid" : "○ Pending"}</li>
-                    <li style={{ marginBottom: 4 }}>AI run: {v0Generated ? "✓ Complete" : "○ Not run yet"}</li>
-                    <li>Pro drawings: {postV0Paid ? "✓ Paid" : "○ Pending"}</li>
+                    <li style={{ marginBottom: 4 }}>Free AI v0: {v0Generated ? "✓ Generated" : "○ Run generator"}</li>
+                    <li style={{ marginBottom: 4 }}>Architect fees: agreed with your pro (not on this screen)</li>
+                    <li>Execution: project hub when you&apos;re ready</li>
                   </ul>
                 </>
               )}
