@@ -273,8 +273,8 @@ const ARCH_PRIMARY_OPTIONS = [
 ];
 
 const ARCH_TRADITIONAL_VARIANTS = [
-  { label: "Kerala Vernacular", tagline: "Sloping roofs, wood, monsoon-ready", img: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=240&q=72" },
-  { label: "Chettinad Heritage", tagline: "Courtyards, pillars, ornate detail", img: "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=240&q=72" },
+  { label: "Kerala Vernacular", tagline: "Sloping roofs, wood, monsoon-ready", img: `${process.env.PUBLIC_URL || ""}/arch_kerala.png` },
+  { label: "Chettinad Heritage", tagline: "Courtyards, pillars, ornate detail", img: `${process.env.PUBLIC_URL || ""}/arch_traditional.png` },
   { label: "Rajasthani (Haveli-inspired)", tagline: "Jaalis, cool courtyards, craft", img: "https://images.unsplash.com/photo-1524492412937-b28074a18679?w=240&q=72" },
 ];
 
