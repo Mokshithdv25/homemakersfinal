@@ -36,8 +36,15 @@ export function BuildNewHomeSpecView({ form, archResolved, budgetLabel }) {
   const lifestyle = Array.isArray(form.lifestyle) ? form.lifestyle.join(", ") : "—";
   const exterior = Array.isArray(form.exteriorPrefs) ? form.exteriorPrefs.join(", ") : "—";
 
+  const visionText = String(form.dreamVision ?? "").trim();
+
   return (
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <section style={{ marginBottom: 20 }}>
+        <h3 style={sectionTitle}>Vision & intent</h3>
+        <Row label="Homeowner brief">{visionText || "—"}</Row>
+      </section>
+
       <section style={{ marginBottom: 20 }}>
         <h3 style={sectionTitle}>Site & plot</h3>
         <Row label="Location">{form.location || "—"}</Row>
@@ -95,6 +102,7 @@ export function BuildNewHomeSpecView({ form, archResolved, budgetLabel }) {
  * Remodel / renovation brief — same readable spec for customer + architect.
  */
 export function RemodelSpecView({
+  dreamVision,
   room,
   ptype,
   len,
@@ -123,9 +131,15 @@ export function RemodelSpecView({
   const must = Array.isArray(mustKeep) && mustKeep.length ? mustKeep.join(", ") : "—";
   const deal = Array.isArray(dealbreakers3) && dealbreakers3.length ? dealbreakers3.join(", ") : "—";
   const sty = Array.isArray(styles) ? styles.join(" + ") : "—";
+  const visionText = String(dreamVision ?? "").trim();
 
   return (
     <div style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}>
+      <section style={{ marginBottom: 20 }}>
+        <h3 style={sectionTitle}>Vision & intent</h3>
+        <Row label="Homeowner brief">{visionText || "—"}</Row>
+      </section>
+
       <section style={{ marginBottom: 20 }}>
         <h3 style={sectionTitle}>Space & property</h3>
         <Row label="Room / scope">{room || "—"}</Row>

@@ -1,14 +1,6 @@
 import React,{useState} from "react";
-import {useNavigate, useLocation} from "react-router-dom";
-import { ProjectHubAppHeader, ProjectHubProjectCenter } from "../components/HmBrandLockup";
-import {
-  hmProjectHubPageBackground,
-  hmProjectSidebarAsideStyle,
-  hmProjectSidebarFooterStyle,
-  hmProjectSidebarNavItemStyle,
-  hmProjectSidebarNavScrollStyle,
-  hmProjectSidebarProjectCardStyle,
-} from "../lib/hmBrand";
+import {useNavigate} from "react-router-dom";
+import ProjectHubShell from "../components/ProjectHubShell";
 import {PHASES} from "../lib/stageData";
 const OR="#C85F2B";
 const fmt=(n)=>"₹"+(n/100000).toFixed(2)+"L";
@@ -24,29 +16,13 @@ function ScopeItem({name,st}){
 }
 export default function StageDashboard(){
   const nav=useNavigate();
-  const loc=useLocation();
   const [pi,setPi]=useState(3);
   const [tab,setTab]=useState("Overview");
   const p=PHASES[pi];
   const tabs=["Overview","Tasks","Budget","Documents","Site Feed"];
-  const navItems=[{icon:"⊞",l:"Overview",path:"/project"},{icon:"📅",l:"Timeline",path:"#"},{icon:"✓",l:"Tasks",path:"#"},{icon:"₹",l:"Budget",path:"#"},{icon:"📸",l:"Site Feed",path:"#"},{icon:"📄",l:"Documents",path:"/documents"},{icon:"🛒",l:"Marketplace",path:"/marketplace"},{icon:"👥",l:"Team",path:"/team"},{icon:"⚙️",l:"Settings",path:"#"}];
   return(
-    <div style={{display:"flex",flexDirection:"column",minHeight:"100vh",background:hmProjectHubPageBackground,fontFamily:"'DM Sans',sans-serif",color:"#1C1917"}}>
-      <ProjectHubAppHeader
-        center={<ProjectHubProjectCenter />}
-        trailing={<><span style={{fontSize:18,cursor:"pointer",color:"#7A6E62"}}>🔔</span><Av name="Ankit" sz={30}/><span style={{fontSize:13,fontWeight:600}}>Hi, Ankit ∨</span></>}
-      />
-      <div style={{display:"flex",flex:1,minWidth:0,minHeight:0}}>
-      <aside style={hmProjectSidebarAsideStyle}>
-        <div style={{padding:"14px 20px 8px",fontSize:10,fontWeight:700,color:"#9A8F87",letterSpacing:"0.08em"}}>PROJECTS</div>
-        <div style={{padding:"0 10px 8px"}}><div style={hmProjectSidebarProjectCardStyle} onClick={()=>nav("/project")}><div style={{fontWeight:700,fontSize:13,color:OR}}>Shanti Nagar Residence</div><div style={{fontSize:11,color:"#9A8F87"}}>Sharma Project</div></div></div>
-        <nav style={hmProjectSidebarNavScrollStyle}>{navItems.map(n=>{
-          const active=n.path!=="#"&&loc.pathname===n.path;
-          return(<div key={n.l} role="button" tabIndex={0} onClick={()=>nav(n.path)} onKeyDown={(e)=>{(e.key==="Enter"||e.key===" ")&&nav(n.path)}} style={hmProjectSidebarNavItemStyle(active)}><span style={{fontSize:15}}>{n.icon}</span>{n.l}</div>);
-        })}</nav>
-        <div style={hmProjectSidebarFooterStyle}><div style={{fontSize:12,fontWeight:700,marginBottom:4}}>Need Help?</div><div style={{fontSize:11,color:"#7A6E62",marginBottom:10}}>Chat with your project expert</div><button type="button" style={{width:"100%",background:OR,color:"#fff",border:"none",borderRadius:8,padding:"9px 0",fontWeight:700,fontSize:12,cursor:"pointer"}}>💬 Start Chat</button></div>
-      </aside>
-      <div style={{flex:1,display:"flex",flexDirection:"column"}}>
+    <ProjectHubShell>
+      <div style={{flex:1,display:"flex",flexDirection:"column",fontFamily:"'DM Sans',sans-serif",color:"#1C1917"}}>
         <div className="px-5 md:px-10" style={{flex:1,paddingTop:24,paddingBottom:24,overflowY:"auto",display:"grid",gridTemplateColumns:"1fr 290px",gap:24,alignItems:"start"}}>
           <div>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
@@ -150,7 +126,6 @@ export default function StageDashboard(){
           </div>
         </div>
       </div>
-    </div>
-    </div>
+    </ProjectHubShell>
   );
 }

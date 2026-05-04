@@ -13,15 +13,15 @@ import {
   PALETTE_PRESET_HEX,
 } from "../components/HmColourPickers";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_REMODEL } from "../lib/hmBrand";
+import VisionCaptureStep from "../components/VisionCaptureStep";
 
 const REMODEL_STEPS = [
-  { n: 1, title: "Capture Space", sub: "Photos, property & room details" },
-  { n: 2, title: "Define Outcome", sub: "Goals, pain points & notes" },
-  { n: 3, title: "Set Constraints", sub: "Budget, timeline & boundaries" },
-  { n: 4, title: "Choose Style", sub: "Look, finish & colours" },
-  { n: 5, title: "Review brief", sub: "Confirm before AI v0" },
-  { n: 6, title: "AI v0", sub: "Free pack for your architect" },
-  { n: 7, title: "Architect & project", sub: "Shared spec & project hub" },
+  { n: 1, title: "Vision & room", sub: "Words, photos, property & size" },
+  { n: 2, title: "Goals & constraints", sub: "Outcomes, budget & boundaries" },
+  { n: 3, title: "Style", sub: "Look, finish & colours" },
+  { n: 4, title: "Review", sub: "Confirm before AI v0" },
+  { n: 5, title: "AI v0", sub: "Free pack for your architect" },
+  { n: 6, title: "Architect & project", sub: "Spec & project hub" },
 ];
 /** Nine remodel targets — aligned with new-home taxonomy (no maid room). */
 const REMODEL_ROOMS = [
@@ -91,6 +91,7 @@ const sumRow = { display: "flex", justifyContent: "space-between", padding: "6px
 
 function RightPanel({
   step,
+  dreamVision,
   room,
   ptype,
   len,
@@ -117,16 +118,19 @@ function RightPanel({
     normalizeHexColor(colourBase) && normalizeHexColor(colourSecondary)
       ? `${normalizeHexColor(colourBase)} · ${normalizeHexColor(colourSecondary)}`
       : "—";
-  const infoBox = step === 3
-    ? { icon:"🛡️", title:"Why we ask for constraints?", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Helps us create realistic designs","Improves cost estimates","Ensures smooth execution"], art:"📋🪴" }
+  const dv = String(dreamVision ?? "").trim();
+  const infoBox = step === 1
+    ? { icon:"✨", title:"Vision & room", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Words + photos in one step — fewer clicks","Voice or type for your vision","Rough size is enough for v0"], art:"✨🪴" }
+    : step === 2
+    ? { icon:"🎯", title:"Goals & guardrails", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Outcomes, budget, timeline, must-keeps together","Pros can price faster with less back-and-forth","Dealbreakers keep designs realistic"], art:"📋🪴" }
+    : step === 3
+    ? { icon:"✨", title:"Style layer", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Finishes and palette steer the concept","Stays within the budget you set","Guides AI render direction"], art:"🛏️🪴" }
     : step === 4
-    ? { icon:"✨", title:"Why style matters?", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Reflects your personality","Stays within your budget","Guides AI design choices"], art:"🛏️🪴" }
+    ? { icon:"📋", title:"Review once", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Same readable spec your architect gets","Next: free AI v0","Real drawings = separate pro fee"], art:"✅🪴" }
     : step === 5
-    ? { icon:"📋", title:"Review before AI v0", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Same inputs your architect sees in the readable spec","Free AI v0 helps pros understand vision before they quote","Fees for real drawings are between you and your architect"], art:"✅🪴" }
+    ? { icon:"🤖", title:"Free v0", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Indicative only — not sanction drawings","Share the pack to brief faster","Project hub for execution when you’re ready"], art:"💻🪴" }
     : step === 6
-    ? { icon:"🤖", title:"About v0 concept", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["AI v0 is free — indicative directions, not sanction drawings","Share the pack so architects \"get\" you faster","Project hub is where execution starts when you’re ready"], art:"💻🪴" }
-    : step === 7
-    ? { icon:"🏗️", title:"Project management", color:"#14532D", bg:"#F0FDF4", border:"#BBF7D0", items:["Onboard your architect, contractors, and trades","One thread for decisions, files, and site photos","Tied to the brief and notes you just exported"], art:"🧱🪴" }
+    ? { icon:"🏗️", title:"Handoff", color:"#14532D", bg:"#F0FDF4", border:"#BBF7D0", items:["Exportable spec for your pro","Onboard team in the project room","One thread for files and updates"], art:"🧱🪴" }
     : null;
   return (
     <aside
@@ -157,6 +161,7 @@ function RightPanel({
       {[
         ["Project Type","Remodel"],
         ["Location","Bengaluru, Karnataka"],
+        ["Your vision", dv ? `${dv.slice(0, 72)}${dv.length > 72 ? "…" : ""}` : "Capture on step 1"],
         ["Room", room],
         ["Property Type", ptype],
         ["Room Size", area>0?`${len} ft × ${breadth} ft (${area} sq ft)`:"Not added yet"],
@@ -164,13 +169,13 @@ function RightPanel({
         ["Timeline", `${startTimeline} → ${completionTime}`],
         ["Photos", photos.length>0?`${photos.length} photos uploaded`:"Not uploaded yet"],
         ["Notes", spaceNotes.trim()?spaceNotes.slice(0,38)+(spaceNotes.length>38?"…":""):"Not added yet"],
-        ...(step>=2?[["Goal", mainGoal||"Not set"]]:[]),
-        ...(step>=3?[
+        ...(step>=2?[
+          ["Goal", mainGoal||"Not set"],
           ["Layout Change", layoutOk],
           ["Must Keep", mustKeep.length>0?mustKeep.slice(0,2).join(", "):"Not set"],
           ["Dealbreakers", dealbreakers3.length>0?dealbreakers3.slice(0,2).join(",\n"):"None"],
         ]:[]),
-        ...(step>=4?[["Style", styles.join(" + ")],["Finish",finishTier],["Colours", colourLine]]:[]),
+        ...(step>=3?[["Style", styles.join(" + ")],["Finish",finishTier],["Colours", colourLine]]:[]),
       ].map(([k,v]) => (
         <div key={k} style={sumRow}>
           <span style={{ color:"#7A6E62" }}>{k}</span>
@@ -191,11 +196,15 @@ function RightPanel({
       ) : (
         <div style={{ background:"#FBF6F0", border:"1px solid #EEDCCB", borderRadius:12, padding:"14px 16px", margin:"16px 0" }}>
           <div style={{ fontWeight:700, fontSize:12, color:"#44403C", marginBottom:5 }}>🎯 Why this matters</div>
-          <div style={{ fontSize:12, color:"#57534E", lineHeight:1.55 }}>Your goals help us understand your priorities and create designs that fit your lifestyle and budget.</div>
+          <div style={{ fontSize:12, color:"#57534E", lineHeight:1.55 }}>
+            {step === 2
+              ? "Budget and boundaries on the same step as goals — less jumping between screens."
+              : "Your answers keep AI and architects aligned with how you actually live."}
+          </div>
           <div style={{ marginTop:8, fontSize:22 }}>🛋️🪴</div>
         </div>
       )}
-      {step === 6 && (
+      {step === 5 && (
         <div style={{ background:"#F8F4EF", border:"1px solid #E2D9CF", borderRadius:10, padding:"12px 14px", marginTop:12 }}>
           <div style={{ fontWeight:700, fontSize:12, marginBottom:8 }}>What happens next?</div>
           {[
@@ -223,19 +232,22 @@ function RightPanel({
 export default function RemodelHome() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
-  // Step 1
+  const [dreamVision, setDreamVision] = useState(
+    "Brighter living room with Scandinavian calm — warm oak accents, hidden storage for toys, and soft daylight. Keep the sofa; rethink the TV wall and ceiling."
+  );
+  // Step 2 — capture space
   const [photos, setPhotos] = useState(DEMO_PHOTOS);
   const [ptype, setPtype] = useState("Apartment");
   const [room, setRoom] = useState("Living room");
   const [len, setLen] = useState("15");
   const [breadth, setBreadth] = useState("12");
-  // Step 2 — single notes field (no duplicate “vision” on step 1)
+  // Step 3 — outcome notes & refs (vision captured on step 1)
   const [spaceNotes, setSpaceNotes] = useState("");
   const [mainGoal, setMainGoal] = useState("Improve Layout");
   const [painPoints, setPainPoints] = useState(["Cramped / Small","Poor Lighting","Not Enough Storage"]);
   const [changeLevel, setChangeLevel] = useState("Moderate Remodel");
   const [refImgs, setRefImgs] = useState(REF_IMGS);
-  // Step 3 — same budget logic as new home (lakhs / crores · 0–99)
+  // Step 4 — same budget logic as new home (lakhs / crores · 0–99)
   const [budgetUnit, setBudgetUnit] = useState("Lakhs");
   const [budgetAmount, setBudgetAmount] = useState("25");
   const [budgetNotes, setBudgetNotes] = useState("");
@@ -244,12 +256,12 @@ export default function RemodelHome() {
   const [layoutOk, setLayoutOk] = useState("Yes, open to changes");
   const [mustKeep, setMustKeep] = useState([]);
   const [dealbreakers3, setDealbreakers3] = useState([]);
-  // Step 4
+  // Step 5 — style & finishes
   const [styles, setStyles] = useState(["Modern"]);
   const [finishTier, setFinishTier] = useState("Budget Friendly");
   const [colourBase, setColourBase] = useState("#F5F5F0");
   const [colourSecondary, setColourSecondary] = useState("#9B7B5C");
-  // After AI v0 (step 6+)
+  // After AI v0 (step 7+)
   const [postAiNotes, setPostAiNotes] = useState("");
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
@@ -278,6 +290,7 @@ export default function RemodelHome() {
 
   const remodelBriefPayload = () => ({
     flowWizard: "remodel_home",
+    dreamVision,
     location: "Bengaluru, Karnataka",
     room,
     ptype,
@@ -448,17 +461,29 @@ export default function RemodelHome() {
             Back
           </button>
 
-          {/* ═══ STEP 1 ═══ */}
+          {/* ═══ STEP 1 — Vision & room ═══ */}
           {step===1 && <>
+            <div style={{ marginBottom: 8 }}>
+              <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
+                Vision &amp; room
+              </h1>
+              <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 20px", lineHeight: 1.6, maxWidth: 640 }}>
+                Your words first, then photos and rough size — everything ties back to this step for AI and your pro.
+              </p>
+            </div>
+            <VisionCaptureStep
+              embedded
+              value={dreamVision}
+              onChange={setDreamVision}
+              placeholder="Describe your dream space in any language…"
+            />
+            <div style={{ marginTop: 28, paddingTop: 22, borderTop: "1px solid #EDE8E0" }}>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Capture space</span>
+              <span>Photos &amp; room</span>
             </div>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-              Your existing room
-            </h1>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 28px", lineHeight: 1.6, maxWidth: 640 }}>
-              Upload photos for <strong>one room at a time</strong>, then pick the space and rough size — same flow rhythm as new home, lighter layout.
+            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 22px", lineHeight: 1.6, maxWidth: 640 }}>
+              Upload photos for <strong>one room at a time</strong>, then pick the space and rough size.
             </p>
 
             <div style={{ ...flowSection, background: "#FDFBF8", borderRadius: 16, padding: "22px 22px 8px", border: "1px solid #EFE3D2", marginBottom: 24 }}>
@@ -535,19 +560,16 @@ export default function RemodelHome() {
               </div>
               <div style={{ fontSize:12, color:"#7A6E62" }}>Rough numbers are fine — you can refine later with a site visit.</div>
             </div>
+            </div>
           </>}
 
-          {/* ═══ STEP 2 ═══ */}
+          {/* ═══ STEP 2 — Goals & constraints ═══ */}
           {step===2 && <>
-            <div className="craft-type-label mt-1 mb-4">
-              <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Define outcome</span>
-            </div>
             <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-              What you want from this remodel
+              Goals &amp; constraints
             </h1>
             <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 22px", lineHeight: 1.6, maxWidth: 640 }}>
-              Goals, pain points, and how deep you want to go — most remodels skew toward paint, carpentry, and services; bigger layout moves are optional.
+              Outcomes and pain points first — then budget, timeline, layout flexibility and dealbreakers on the same screen.
             </p>
 
             <div style={flowSection}>
@@ -633,19 +655,14 @@ export default function RemodelHome() {
                 ))}
               </div>
             </div>
-          </>}
 
-          {/* ═══ STEP 3 ═══ */}
-          {step===3 && <>
+            <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid #EDE8E0" }}>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Set constraints</span>
+              <span>Budget &amp; boundaries</span>
             </div>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-              Budget, timeline & boundaries
-            </h1>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 28px", lineHeight: 1.6, maxWidth: 640 }}>
-              Same budget control as new home — <strong>lakhs or crores</strong> on a 0–99 slider — plus when you want work to start and finish.
+            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 22px", lineHeight: 1.6, maxWidth: 640 }}>
+              Budget band, timeline, layout flexibility, must-keeps and dealbreakers — in one pass.
             </p>
 
             <div style={flowSection}>
@@ -799,10 +816,11 @@ export default function RemodelHome() {
                 })}
               </div>
             </div>
+            </div>
           </>}
 
-          {/* ═══ STEP 4 ═══ */}
-          {step===4 && <>
+          {/* ═══ STEP 3 — Style ═══ */}
+          {step===3 && <>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
               <span>Choose style</span>
@@ -937,8 +955,8 @@ export default function RemodelHome() {
             </div>
           </>}
 
-          {/* ═══ STEP 5 — Review brief ═══ */}
-          {step===5 && <>
+          {/* ═══ STEP 4 — Review ═══ */}
+          {step===4 && <>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
               <span>Review</span>
@@ -951,6 +969,10 @@ export default function RemodelHome() {
               run a <strong>free</strong> AI v0 so they can read vision and constraints quickly. Real drawings and fees are between you and the pro you choose — execution stays in the project hub when you&rsquo;re ready.
             </p>
             <div style={{ ...cardStyle, maxWidth: 640 }}>
+              <div style={{ padding: "8px 0 12px", borderBottom: "1px solid #F0EBE3" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#78716C", marginBottom: 6 }}>Your vision</div>
+                <div style={{ fontSize: 13, color: "#1C1917", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{String(dreamVision ?? "").trim() || "—"}</div>
+              </div>
               {[
                 ["Room", room],
                 ["Property", ptype],
@@ -971,8 +993,8 @@ export default function RemodelHome() {
             </div>
           </>}
 
-          {/* ═══ STEP 6 — Pay + v0 ═══ */}
-          {step===6 && <>
+          {/* ═══ STEP 5 — AI v0 ═══ */}
+          {step===5 && <>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
               <span>AI v0</span>
@@ -1107,7 +1129,7 @@ export default function RemodelHome() {
                       setStepBlockError("Generate your free v0 first — then move to the full spec handoff.");
                       return;
                     }
-                    setStep(7);
+                    setStep(6);
                   }}
                   style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"16px", borderRadius:14, cursor:"pointer", border:"1px solid #E8E4DE", background:"#fff", textAlign:"left", boxShadow:"0 2px 10px rgba(28,25,23,0.04)" }}
                 >
@@ -1123,8 +1145,8 @@ export default function RemodelHome() {
             </>)}
           </>}
 
-          {/* ═══ STEP 7 — Architect & project hub ═══ */}
-          {step===7 && <>
+          {/* ═══ STEP 6 — Architect & project hub ═══ */}
+          {step===6 && <>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
               <span>Handoff</span>
@@ -1139,6 +1161,7 @@ export default function RemodelHome() {
             <div style={{ background: "#F7F3EE", border: "1px solid #E6DFD3", borderRadius: 12, padding: 16, marginBottom: 16, maxHeight: 420, overflow: "auto" }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#44403C", marginBottom: 10 }}>Shared remodel specification</div>
               <RemodelSpecView
+                dreamVision={dreamVision}
                 room={room}
                 ptype={ptype}
                 len={len}
@@ -1168,6 +1191,7 @@ export default function RemodelHome() {
                 <pre style={{ margin: "10px 0 0", fontSize: 10, lineHeight: 1.4, color: "#57534E", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                   {JSON.stringify(
                     {
+                      dreamVision,
                       room,
                       ptype,
                       len,
@@ -1222,19 +1246,19 @@ export default function RemodelHome() {
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                disabled={step === 6 && !v0Generated}
+                disabled={step === 5 && !v0Generated}
                 className="btn-continue text-sm md:text-[15px] !px-6 !py-3 md:!px-8 md:!py-3.5 !shadow-[0_8px_22px_-8px_rgba(200,95,43,0.45)] !rounded-[999px] disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={() => {
                   setStepBlockError("");
-                  if (step === 3 && budgetAmountClampedRemodel(budgetAmount) < 1) {
+                  if (step === 2 && budgetAmountClampedRemodel(budgetAmount) < 1) {
                     setStepBlockError("Please set a remodel budget above zero (same rule as new home).");
                     return;
                   }
-                  if (step === 5) {
-                    setStep(6);
+                  if (step === 4) {
+                    setStep(5);
                     return;
                   }
-                  if (step === 6) {
+                  if (step === 5) {
                     if (!v0Generated) {
                       setStepBlockError('Run "Generate v0" first — that creates the free pack to share with an architect.');
                       return;
@@ -1242,20 +1266,27 @@ export default function RemodelHome() {
                     setRemodelFlow({
                       v0: true,
                     });
-                    setStep(7);
+                    setStep(6);
                     return;
                   }
-                  if (step === 7) {
+                  if (step === 6) {
                     navigate("/project?source=remodel&phase=handoff");
                     return;
                   }
-                  if (step < 5) setStep((s) => s + 1);
+                  if (step === 1) {
+                    const vision = String(dreamVision ?? "").trim();
+                    if (vision.length < 30) {
+                      setStepBlockError("Please describe your vision in a few sentences (30+ characters). Use voice or type — any language is fine.");
+                      return;
+                    }
+                  }
+                  if (step < 4) setStep((s) => s + 1);
                 }}
               >
-                {step === 5 && "Continue to free AI v0"}
-                {step === 6 && "Continue to architect handoff"}
-                {step === 7 && "Open project management"}
-                {step < 5 && "Continue"}
+                {step === 4 && "Continue to free AI v0"}
+                {step === 5 && "Continue to architect handoff"}
+                {step === 6 && "Open project management"}
+                {step < 4 && "Continue"}
                 <svg className="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
@@ -1267,6 +1298,7 @@ export default function RemodelHome() {
 
         <RightPanel
           step={step}
+          dreamVision={dreamVision}
           room={room}
           ptype={ptype}
           len={len}

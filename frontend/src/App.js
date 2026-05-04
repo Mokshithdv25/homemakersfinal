@@ -14,6 +14,7 @@ import ProjectDashboard from "./pages/ProjectDashboard";
 import Marketplace from "./pages/Marketplace";
 import ShopPage from "./pages/ShopPage";
 import DocumentVault from "./pages/DocumentVault";
+import ProjectDesignJourney from "./pages/ProjectDesignJourney";
 import TeamPage from "./pages/TeamPage";
 import StageDashboard from "./pages/StageDashboard";
 import ProDashboard from "./pages/ProDashboard";
@@ -36,8 +37,11 @@ function App() {
           <Route path="/project" element={<ProjectDashboard />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/browse" element={<Marketplace />} />
+          <Route path="/project/browse" element={<Marketplace />} />
           <Route path="/shop" element={<ShopPage />} />
+          <Route path="/project/shop" element={<ShopPage />} />
           <Route path="/documents" element={<DocumentVault />} />
+          <Route path="/project/journey" element={<ProjectDesignJourney />} />
           <Route path="/team" element={<TeamPage />} />
           <Route path="/stage" element={<StageDashboard />} />
           <Route path="/pro/dashboard" element={<ProDashboard />} />

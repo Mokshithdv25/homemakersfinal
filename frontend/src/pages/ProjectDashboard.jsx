@@ -229,6 +229,9 @@ const NAV = [
   { icon: "₹", label: "Budget", path: null },
   { icon: "📸", label: "Site Feed", path: null },
   { icon: "📄", label: "Documents", path: "/documents" },
+  { icon: "🧭", label: "Design journey", path: "/project/journey" },
+  { icon: "🛒", label: "Shop", path: "/project/shop" },
+  { icon: "👷", label: "Find Pros", path: "/project/browse" },
   { icon: "👥", label: "Team", path: "/team" },
   { icon: "⚙️", label: "Settings", path: null },
 ];

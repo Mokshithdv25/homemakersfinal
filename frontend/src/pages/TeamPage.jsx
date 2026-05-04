@@ -1,28 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ProjectHubAppHeader, ProjectHubProjectCenter } from "../components/HmBrandLockup";
-import {
-  hmProjectHubPageBackground,
-  hmProjectSidebarAsideStyle,
-  hmProjectSidebarFooterStyle,
-  hmProjectSidebarNavItemStyle,
-  hmProjectSidebarNavScrollStyle,
-  hmProjectSidebarProjectCardStyle,
-} from "../lib/hmBrand";
+import ProjectHubShell from "../components/ProjectHubShell";
 
 const OR = "#C85F2B";
-
-const NAV = [
-  { icon: "⊞", label: "Overview", path: "/project" },
-  { icon: "📅", label: "Timeline", path: "/project" },
-  { icon: "✓", label: "Tasks", path: "/project" },
-  { icon: "₹", label: "Budget", path: "/project" },
-  { icon: "📸", label: "Site Feed", path: "/project" },
-  { icon: "📄", label: "Documents", path: "/documents" },
-  { icon: "🛒", label: "Marketplace", path: "/marketplace" },
-  { icon: "👥", label: "Team", path: "/team", active: true },
-  { icon: "⚙️", label: "Settings", path: "/project" },
-];
 
 const ROLE_ORDER = ["architect", "contractor", "engineer", "onsite", "electrician", "plumber", "carpenter"];
 
@@ -279,60 +259,8 @@ export default function TeamPage() {
   );
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        minHeight: "100vh",
-        background: hmProjectHubPageBackground,
-        fontFamily: "'DM Sans','Inter',system-ui,sans-serif",
-        color: "#1C1917",
-      }}
-    >
-      <ProjectHubAppHeader
-        center={<ProjectHubProjectCenter />}
-        trailing={
-          <>
-            <span style={{ fontSize: 18, cursor: "pointer", color: "#7A6E62" }}>🔔</span>
-            <Avatar name="Ankit Sharma" size={32} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Hi, Ankit ∨</span>
-          </>
-        }
-      />
-      <div style={{ display: "flex", flex: 1, minWidth: 0, minHeight: 0 }}>
-      <aside style={hmProjectSidebarAsideStyle}>
-        <div style={{ padding: "14px 20px 8px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>PROJECTS</div>
-        <div style={{ padding: "0 10px 8px" }}>
-          <div style={hmProjectSidebarProjectCardStyle} onClick={() => navigate("/project")}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: OR }}>Shanti Nagar Residence</div>
-            <div style={{ fontSize: 11, color: "#9A8F87" }}>Sharma Project</div>
-          </div>
-        </div>
-        <nav style={hmProjectSidebarNavScrollStyle}>
-          {NAV.map((n) => (
-            <div
-              key={n.label}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(n.path)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(n.path)}
-              style={hmProjectSidebarNavItemStyle(!!n.active)}
-            >
-              <span style={{ fontSize: 15 }}>{n.icon}</span>
-              {n.label}
-            </div>
-          ))}
-        </nav>
-        <div style={hmProjectSidebarFooterStyle}>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Need Help?</div>
-          <div style={{ fontSize: 11, color: "#7A6E62", marginBottom: 10 }}>Chat with your project expert</div>
-          <button type="button" style={{ width: "100%", background: OR, color: "#fff", border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-            💬 Start Chat
-          </button>
-        </div>
-      </aside>
-
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+    <ProjectHubShell>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, fontFamily: "'DM Sans','Inter',system-ui,sans-serif", color: "#1C1917" }}>
         <div className="px-5 md:px-10" style={{ flex: 1, paddingTop: 24, paddingBottom: 40, overflowY: "auto" }}>
           {toast ? (
             <div role="status" style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8, background: "#F0F8EE", border: "1px solid #C3DEB8", fontSize: 13, color: "#166534" }}>
@@ -412,7 +340,6 @@ export default function TeamPage() {
           </section>
         </div>
       </div>
-    </div>
-    </div>
+    </ProjectHubShell>
   );
 }

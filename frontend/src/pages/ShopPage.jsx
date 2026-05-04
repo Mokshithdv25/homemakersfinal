@@ -1,12 +1,13 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Search, Package, ArrowRight } from "lucide-react";
 import LandingNavbar from "../components/landing/LandingNavbar";
+import ProjectHubShell from "../components/ProjectHubShell";
 import { Button } from "@/components/ui/button";
 
 /**
- * Retail shop — building materials, finishes, and project supplies (not the pro marketplace).
- * Professionals live at /browse; in-project hub still uses /marketplace.
+ * Retail shop — materials & finishes. Standalone: /shop. Project hub: /project/shop.
+ * Find Pros: `/browse` (marketing) or `/project/browse` (inside project hub).
  */
 const HERO_IMAGE =
   "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1600&q=80";
@@ -92,13 +93,13 @@ const DEPARTMENTS = [
 
 export default function ShopPage() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const inProjectHub = pathname === "/project/shop";
+  const findProsTarget = inProjectHub ? "/project/browse" : "/browse";
   const [q, setQ] = useState("");
 
-  return (
-    <div className="hm-landing-page min-h-screen bg-background">
-      <LandingNavbar />
-
-      <main className="pt-[4.65rem]">
+  const main = (
+    <main className={inProjectHub ? "min-h-0" : "pt-[4.65rem]"}>
         {/* Promo strip */}
         <div className="border-b border-border/60 bg-[#1C1917] py-2.5 text-center font-body text-[11px] font-medium text-[#f5f0eb] md:text-xs">
           Project-linked lists & GST-ready invoices when checkout is wired · Same brief as your AI v0 & estimates
@@ -121,7 +122,7 @@ export default function ShopPage() {
               Browse cement-to-finish SKUs sized for Indian builds. Separate from hiring pros — use{" "}
               <button
                 type="button"
-                onClick={() => navigate("/browse")}
+                onClick={() => navigate(findProsTarget)}
                 className="font-semibold text-[#e3c7a3] underline-offset-2 hover:underline bg-transparent border-none cursor-pointer p-0"
               >
                 Find Pros
@@ -269,6 +270,20 @@ export default function ShopPage() {
           </div>
         </section>
       </main>
+  );
+
+  if (inProjectHub) {
+    return (
+      <ProjectHubShell>
+        <div className="hm-landing-page min-h-0 bg-background">{main}</div>
+      </ProjectHubShell>
+    );
+  }
+
+  return (
+    <div className="hm-landing-page min-h-screen bg-background">
+      <LandingNavbar />
+      {main}
     </div>
   );
 }

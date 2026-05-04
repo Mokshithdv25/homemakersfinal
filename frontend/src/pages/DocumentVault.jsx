@@ -1,14 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ProjectHubAppHeader, ProjectHubProjectCenter } from "../components/HmBrandLockup";
-import {
-  hmProjectHubPageBackground,
-  hmProjectSidebarAsideStyle,
-  hmProjectSidebarFooterStyle,
-  hmProjectSidebarNavItemStyle,
-  hmProjectSidebarNavScrollStyle,
-  hmProjectSidebarProjectCardStyle,
-} from "../lib/hmBrand";
+import ProjectHubShell from "../components/ProjectHubShell";
 
 const OR = "#C85F2B";
 
@@ -26,18 +18,6 @@ function categoryMeta(categoryId) {
   if (categoryId === "Uncategorized") return { id: "Uncategorized", icon: "📎", title: "Uncategorized", blurb: "" };
   return { id: categoryId, icon: "📎", title: categoryId, blurb: "" };
 }
-
-const NAV = [
-  { icon: "⊞", label: "Overview", path: "/project" },
-  { icon: "📅", label: "Timeline", path: "/project" },
-  { icon: "✓", label: "Tasks", path: "/project" },
-  { icon: "₹", label: "Budget", path: "/project" },
-  { icon: "📸", label: "Site Feed", path: "/project" },
-  { icon: "📄", label: "Documents", path: "/documents", active: true },
-  { icon: "🛒", label: "Marketplace", path: "/marketplace" },
-  { icon: "👥", label: "Team", path: "/team" },
-  { icon: "⚙️", label: "Settings", path: "/project" },
-];
 
 const INITIAL_FOLDERS = [
   { id: "pl", icon: "📐", name: "Design & plans", sub: "Drawings, specs, structural & MEP calcs, BOQs", files: 27, date: "19 Jun 2024, 10:30 AM", who: "Neha Verma", role: "Architect", category: "plans" },
@@ -278,57 +258,12 @@ export default function DocumentVault() {
   };
 
   const S = {
-    page: { display: "flex", minHeight: "100vh", background: hmProjectHubPageBackground, fontFamily: "'DM Sans','Inter',sans-serif", color: "#1C1917" },
-    aside: hmProjectSidebarAsideStyle,
     th: { fontSize: 11, fontWeight: 700, color: "#9A8F87", padding: "8px 12px", textAlign: "left", letterSpacing: "0.06em" },
     td: { fontSize: 13, padding: "12px 12px", borderBottom: "1px solid #F5EFE8" },
   };
 
   return (
-    <div style={{ ...S.page, display: "flex", flexDirection: "column" }}>
-      <ProjectHubAppHeader
-        center={<ProjectHubProjectCenter />}
-        trailing={
-          <>
-            <span style={{ fontSize: 18, cursor: "pointer", color: "#7A6E62" }}>🔔</span>
-            <Avatar name="Ankit" size={30} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Hi, Ankit ∨</span>
-          </>
-        }
-      />
-      <div style={{ display: "flex", flex: 1, minWidth: 0, minHeight: 0 }}>
-        <aside style={S.aside}>
-        <div style={{ padding: "14px 20px 8px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>PROJECTS</div>
-        <div style={{ padding: "0 10px 8px" }}>
-          <div style={hmProjectSidebarProjectCardStyle} onClick={() => navigate("/project")}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: OR }}>Shanti Nagar Residence</div>
-            <div style={{ fontSize: 11, color: "#9A8F87" }}>Sharma Project</div>
-          </div>
-        </div>
-        <nav style={hmProjectSidebarNavScrollStyle}>
-          {NAV.map((n) => (
-            <div
-              key={n.label}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(n.path)}
-              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(n.path)}
-              style={hmProjectSidebarNavItemStyle(!!n.active)}
-            >
-              <span style={{ fontSize: 15 }}>{n.icon}</span>
-              {n.label}
-            </div>
-          ))}
-        </nav>
-        <div style={hmProjectSidebarFooterStyle}>
-          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Need Help?</div>
-          <div style={{ fontSize: 11, color: "#7A6E62", marginBottom: 10 }}>Chat with your project expert</div>
-          <button type="button" style={{ width: "100%", background: OR, color: "#fff", border: "none", borderRadius: 8, padding: "9px 0", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-            💬 Start Chat
-          </button>
-        </div>
-      </aside>
-
+    <ProjectHubShell>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div
           className="doc-vault-main-grid px-5 md:px-10"
@@ -619,7 +554,6 @@ export default function DocumentVault() {
           </div>
         </div>
       </div>
-    </div>
 
       <style>{`
         @media (max-width: 900px) {
@@ -628,6 +562,6 @@ export default function DocumentVault() {
           }
         }
       `}</style>
-    </div>
+    </ProjectHubShell>
   );
 }
