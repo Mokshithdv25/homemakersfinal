@@ -134,6 +134,13 @@ export async function requestV0Images(flow, brief) {
     return mockV0ImagesClient(flow, brief);
   }
   const { data } = await aiClient.post("/ai/v0-images", { flow, brief });
+  
+  // Safety fallback: if the backend is running old code and didn't return floor_plans, inject them from mock
+  if (!data.floor_plans || data.floor_plans.length === 0) {
+    const fallbackMock = mockV0ImagesClient(flow, brief);
+    data.floor_plans = fallbackMock.floor_plans;
+  }
+  
   return data;
 }
 
