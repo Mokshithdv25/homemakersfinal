@@ -269,12 +269,12 @@ def _mock_v0_images(flow: FlowKind, brief: dict) -> AIV0ImagesResponse:
     return AIV0ImagesResponse(
         floor_plans=[
             {
-                "url": "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1000&q=80",
+                "url": "/floorplan_ground.png",
                 "label": "Ground floor plan v0",
                 "hint": f"Zoning + room grid for {loc} (indicative, not GFC)",
             },
             {
-                "url": "https://images.unsplash.com/photo-1582268611958-ebfd161ef9ce?w=1000&q=80",
+                "url": "/floorplan_first.png",
                 "label": "First floor plan v0" if floors != "G" else "Alternate ground plan v0",
                 "hint": "Upper level blocking + baths" if floors != "G" else "Second layout option from same brief",
             },
