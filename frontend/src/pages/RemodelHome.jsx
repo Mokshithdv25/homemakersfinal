@@ -1044,7 +1044,7 @@ export default function RemodelHome() {
               <V0EstimateSection planBundle={v0PlanBundle} title="Indicative remodel estimate (v0)" />
             </div>
 
-            <ArchitectEngagementCallout onBrowseArchitects={() => navigate("/marketplace")} />
+            <ArchitectEngagementCallout onBrowseArchitects={() => navigate("/browse")} />
 
             {/* BEFORE / AFTER */}
             <div style={{ ...cardStyle, border: "1px solid #E8E4DE", boxShadow: "0 4px 20px -8px rgba(28,25,23,0.08)" }}>

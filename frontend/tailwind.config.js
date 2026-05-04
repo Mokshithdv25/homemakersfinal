@@ -6,7 +6,18 @@ module.exports = {
     "./public/index.html"
   ],
   theme: {
+  	container: {
+  		center: true,
+  		padding: "2rem",
+  		screens: {
+  			"2xl": "1400px",
+  		},
+  	},
   	extend: {
+  		fontFamily: {
+  			display: ["var(--font-display)", "Fraunces", "serif"],
+  			body: ["var(--font-body)", "DM Sans", "system-ui", "sans-serif"],
+  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
@@ -52,6 +63,19 @@ module.exports = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			copper: {
+  				DEFAULT: "hsl(var(--copper) / <alpha-value>)",
+  				light: "hsl(var(--copper-light) / <alpha-value>)"
+  			},
+  			stone: {
+  				DEFAULT: "hsl(var(--stone) / <alpha-value>)",
+  				light: "hsl(var(--stone-light) / <alpha-value>)"
+  			},
+  			charcoal: "hsl(var(--charcoal) / <alpha-value>)",
+  			cream: {
+  				DEFAULT: "hsl(var(--cream) / <alpha-value>)",
+  				dark: "hsl(var(--cream-dark) / <alpha-value>)"
   			}
   		},
   		keyframes: {

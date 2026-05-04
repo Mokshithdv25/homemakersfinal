@@ -1,5 +1,6 @@
 import React from "react";
-import { Home } from "lucide-react";
+import { HmHeaderBrandLockup } from "./HmBrandLockup";
+import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 
 const STEPS = [
   { n: 1, label: "Your Craft" },
@@ -120,26 +121,8 @@ export default function StepShell({ currentStep, profileStrength, children }) {
     <div className="hm-grid-bg min-h-screen relative overflow-hidden">
       <div className="hm-blueprint" aria-hidden />
 
-      <header
-        className="relative z-10 flex items-center justify-between px-6 md:px-12 py-6 md:py-8 gap-4"
-        data-testid="hm-header"
-      >
-        <a href="/" className="flex items-center gap-3 shrink-0 group">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform group-hover:rotate-[-4deg]"
-            style={{ background: "#FBE5D4" }}
-          >
-            <Home size={20} color="#C85F2B" strokeWidth={2} />
-          </div>
-          <div className="leading-tight">
-            <div className="font-serif-display text-2xl font-semibold text-[#1C1917]">
-              HomeMaker
-            </div>
-            <div className="text-[11px] font-medium text-[#C85F2B] tracking-wide">
-              Your Portfolio. Your Identity.
-            </div>
-          </div>
-        </a>
+      <header className={HM_HEADER_BAR_CLASS} data-testid="hm-header">
+        <HmHeaderBrandLockup tagline={HM_TAGLINE_PORTFOLIO} />
 
         <div className="hidden lg:block">
           <StepRail currentStep={currentStep} />
@@ -148,7 +131,7 @@ export default function StepShell({ currentStep, profileStrength, children }) {
         <ProfileStrength value={profileStrength} />
       </header>
 
-      <div className="lg:hidden px-6 mb-4 flex justify-center">
+      <div className="lg:hidden px-6 mb-2 flex justify-center">
         <StepRail currentStep={currentStep} />
       </div>
 

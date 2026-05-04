@@ -47,7 +47,7 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               transition={{ duration: 0.8 }}
             >
               <h1 className="mb-6 font-display text-[2.6rem] font-semibold leading-[1.15] tracking-tight text-[#fcfbfa] sm:text-5xl md:text-[3.75rem]">
-                Where your vision is turned into your{" "}
+                Where your vision turns into your{" "}
                 <span className="bg-gradient-to-r from-[#e3c7a3] to-[#cfa170] bg-clip-text text-transparent">
                   dream home
                 </span>
@@ -107,15 +107,6 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               >
                 Explore Designs
               </Button>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 1, delay: 0.8 }}
-              className="mt-10 flex flex-wrap items-center gap-2 text-[#d4c4b8]/85"
-            >
-              <p className="m-0 font-body text-sm drop-shadow">Get inspired by 10,000+ real Indian home ideas</p>
             </motion.div>
           </div>
         </div>

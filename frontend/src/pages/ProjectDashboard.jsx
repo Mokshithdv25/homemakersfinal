@@ -1,0 +1,1282 @@
+import React, { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ProjectHubAppHeader, ProjectHubProjectCenter } from "../components/HmBrandLockup";
+import {
+  hmProjectHubPageBackground,
+  hmProjectSidebarAsideStyle,
+  hmProjectSidebarFooterStyle,
+  hmProjectSidebarNavItemStyle,
+  hmProjectSidebarNavScrollStyle,
+} from "../lib/hmBrand";
+
+const OR = "#C85F2B";
+
+/** Soft panels — reference UI: warm off-white, hairline border, minimal shadow (not heavy white boxes). */
+const panel = {
+  background: "linear-gradient(180deg, #FDFCFB 0%, #FAF9F7 100%)",
+  borderRadius: 12,
+  border: "1px solid #E8E6E3",
+  boxShadow: "0 1px 2px rgba(28, 25, 23, 0.045)",
+};
+
+const phases = [
+  { name: "Design & Approval", pct: 50, color: OR, status: "On Track", statusColor: "#22A36B" },
+  { name: "Sourcing", pct: 25, color: "#F59E0B", status: "In Progress", statusColor: "#F59E0B" },
+  { name: "Site & Foundation", pct: 70, color: "#22A36B", status: "Ahead", statusColor: "#22A36B" },
+  { name: "Structure", pct: 45, color: "#2A6496", status: "On Track", statusColor: "#22A36B" },
+  { name: "Finishing", pct: 5, color: "#A8A29E", status: "Upcoming", statusColor: "#9A8F87" },
+];
+
+const INITIAL_TASKS = [
+  { done: true, name: "Initial concept & mood boards", phase: "Design & Approval", date: "2 May 2024", assignee: "Neha Verma" },
+  { done: true, name: "Working drawings issued for sanction", phase: "Design & Approval", date: "18 May 2024", assignee: "Neha Verma" },
+  { done: false, name: "Final BBMP approval copy on file", phase: "Design & Approval", date: "28 Jun 2024", assignee: "Suresh Yadav" },
+  { done: true, name: "Flooring shortlist from vendor", phase: "Sourcing", date: "20 Jun 2024", assignee: "Ankit Sharma" },
+  { done: false, name: "Sanitaryware BOQ finalization", phase: "Sourcing", date: "25 Jun 2024", assignee: "Neha Verma" },
+  { done: false, name: "Window frame colour samples", phase: "Sourcing", date: "28 Jun 2024", assignee: "Rajesh Kumar" },
+  { done: true, name: "Site clearance & boundary marking", phase: "Site & Foundation", date: "8 Jun 2024", assignee: "Rajesh Kumar" },
+  { done: true, name: "Excavation & PCC completed", phase: "Site & Foundation", date: "12 Jun 2024", assignee: "Rajesh Kumar" },
+  { done: false, name: "Footing reinforcement inspection", phase: "Site & Foundation", date: "19 Jun 2024", assignee: "Neha Verma" },
+  { done: true, name: "Slab 1 casting", phase: "Structure", date: "12 Jun 2024", assignee: "Rajesh Kumar" },
+  { done: false, name: "Curing of slab 1", phase: "Structure", date: "In progress", assignee: "Rajesh Kumar" },
+  { done: false, name: "Lintel / level beam schedule", phase: "Structure", date: "22 Jun 2024", assignee: "Bharat Hegde" },
+  { done: false, name: "Mock-up room — paint & lighting", phase: "Finishing", date: "Aug 2024", assignee: "Neha Verma" },
+];
+
+const INITIAL_MESSAGES = [
+  { phase: "Design & Approval", role: "Architect", name: "Neha Verma", time: "Mon, 9:10 AM", text: "Sanction set v4 is uploaded — please review column grid at the living area.", color: "#2A6496" },
+  { phase: "Design & Approval", role: "Homeowner", name: "Ankit Sharma", time: "Mon, 9:22 AM", text: "Looks good. One minor change to store room door swing.", color: OR },
+  { phase: "Sourcing", role: "Contractor", name: "Rajesh Kumar", time: "Tue, 3:40 PM", text: "Tile vendor will bring 600×600 samples on Thursday morning.", color: "#22A36B" },
+  { phase: "Site & Foundation", role: "Contractor", name: "Rajesh Kumar", time: "Wed, 8:15 AM", text: "Footing pour scheduled Friday 7 AM — please keep parking clear for mixer.", color: "#22A36B" },
+  { phase: "Structure", role: "Homeowner", name: "Ankit Sharma", time: "Today, 10:20 AM", text: "Can we confirm shuttering removal timeline for the first slab?", color: OR },
+  { phase: "Structure", role: "Architect", name: "Neha Verma", time: "Today, 10:28 AM", text: "Stripping after 14 days cure minimum — I’ll sign off on day 15 if cube results are OK.", color: "#2A6496" },
+  { phase: "Structure", role: "Contractor", name: "Rajesh Kumar", time: "Today, 10:35 AM", text: "Cube tests booked for Monday. Shuttering strip Tuesday if passes.", color: "#22A36B" },
+  { phase: "Finishing", role: "Architect", name: "Neha Verma", time: "Last week", text: "We can freeze ceiling profiles once structure slab 2 is cast.", color: "#2A6496" },
+];
+
+/** Per-stage site feed, budget summary, docs preview, and budget modal lines. */
+const STAGE_DETAILS = {
+  "Design & Approval": {
+    siteImage: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=640&q=75",
+    siteCaption: "Design workshop — reviewing elevations and material palette",
+    siteTime: "12 Jun 2024, 4:20 PM",
+    budgetTotal: "₹1.20 Cr",
+    budgetSpent: "₹14 L",
+    spentPct: 11.7,
+    barPct: 11.7,
+    budgetRemaining: "₹1.06 Cr",
+    expectedCost: "₹1.18 Cr",
+    traffic: "green",
+    docs: [
+      { name: "Concept_Floor_Plans_v3.pdf", ext: "PDF" },
+      { name: "Elevation_Render_Package.pdf", ext: "PDF" },
+      { name: "Sanction_Submission_Checklist.xlsx", ext: "XLS" },
+    ],
+    miniGallery: [
+      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=200&q=70",
+      "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=200&q=70",
+      "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=200&q=70",
+      "https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?w=200&q=70",
+    ],
+    budgetLines: [
+      ["Architecture (design phase)", "₹8.5 L"],
+      ["Structural peer review", "₹2.2 L"],
+      ["Authority fees & liaison", "₹3.3 L"],
+    ],
+  },
+  Sourcing: {
+    siteImage: "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=640&q=75",
+    siteCaption: "Tile & sanitary showroom visit — shortlisting vendors",
+    siteTime: "20 Jun 2024, 2:00 PM",
+    budgetTotal: "₹1.20 Cr",
+    budgetSpent: "₹22 L",
+    spentPct: 18.3,
+    barPct: 18.3,
+    budgetRemaining: "₹98 L",
+    expectedCost: "₹1.16 Cr",
+    traffic: "green",
+    docs: [
+      { name: "Flooring_BOQ_Draft.xlsx", ext: "XLS" },
+      { name: "Sanitary_Schedule_v1.pdf", ext: "PDF" },
+      { name: "Vendor_Comparison_Tiles.pdf", ext: "PDF" },
+    ],
+    miniGallery: [
+      "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=200&q=70",
+      "https://images.unsplash.com/photo-1600566752355-35792bedcfea?w=200&q=70",
+      "https://images.unsplash.com/photo-1600573472592-401b289a6db5?w=200&q=70",
+      "https://images.unsplash.com/photo-1600585154084-4e5fe7c39198?w=200&q=70",
+    ],
+    budgetLines: [
+      ["Tile & stone advances", "₹9 L"],
+      ["Sanitary & CP fittings", "₹7 L"],
+      ["Windows & hardware deposits", "₹6 L"],
+    ],
+  },
+  "Site & Foundation": {
+    siteImage: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=640&q=75",
+    siteCaption: "Footing reinforcement in progress — north-east grid",
+    siteTime: "Today, 8:30 AM",
+    budgetTotal: "₹1.20 Cr",
+    budgetSpent: "₹38 L",
+    spentPct: 31.7,
+    barPct: 31.7,
+    budgetRemaining: "₹82 L",
+    expectedCost: "₹1.14 Cr",
+    traffic: "green",
+    docs: [
+      { name: "Soil_Test_Report.pdf", ext: "PDF" },
+      { name: "Foundation_Layout_Approval.pdf", ext: "PDF" },
+      { name: "Excavation_Log_Jun.pdf", ext: "PDF" },
+    ],
+    miniGallery: [
+      "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=200&q=70",
+      "https://images.unsplash.com/photo-1590644360187-299417a9fdca?w=200&q=70",
+      "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=200&q=70",
+      "https://images.unsplash.com/photo-1541976590-713941681591?w=200&q=70",
+    ],
+    budgetLines: [
+      ["Earthwork & PCC", "₹12 L"],
+      ["Steel & concrete (foundation)", "₹18 L"],
+      ["Shuttering & labour", "₹8 L"],
+    ],
+  },
+  Structure: {
+    siteImage: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=640&q=75",
+    siteCaption: "Column shuttering work in progress — ground floor",
+    siteTime: "14 Jun 2024, 10:30 AM",
+    budgetTotal: "₹1.20 Cr",
+    budgetSpent: "₹65 L",
+    spentPct: 54.2,
+    barPct: 54.2,
+    budgetRemaining: "₹55 L",
+    expectedCost: "₹1.15 Cr",
+    traffic: "green",
+    docs: [
+      { name: "Structural_Drawing_Set_03.pdf", ext: "PDF" },
+      { name: "Slab_Reinforcement_Photo_Log.pdf", ext: "PDF" },
+      { name: "Concrete_Test_Cubes_Jun.pdf", ext: "PDF" },
+    ],
+    miniGallery: [
+      "https://images.unsplash.com/photo-1541976590-713941681591?w=200&q=70",
+      "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=200&q=70",
+      "https://images.unsplash.com/photo-1590644360187-299417a9fdca?w=200&q=70",
+      "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=200&q=70",
+    ],
+    budgetLines: [
+      ["RCC & steel (GF slab)", "₹28 L"],
+      ["Shuttering & scaffolding", "₹18 L"],
+      ["Structural consultant reviews", "₹4 L"],
+      ["Crane / pump hire", "₹15 L"],
+    ],
+  },
+  Finishing: {
+    siteImage: "https://images.unsplash.com/photo-1615876234889-fd9cd39b94a9?w=640&q=75",
+    siteCaption: "Sample flat — ceiling profile mock-up (planned)",
+    siteTime: "Scheduled Jul 2024",
+    budgetTotal: "₹1.20 Cr",
+    budgetSpent: "₹4 L",
+    spentPct: 3.3,
+    barPct: 3.3,
+    budgetRemaining: "₹1.16 Cr",
+    expectedCost: "₹1.22 Cr",
+    traffic: "green",
+    docs: [
+      { name: "Finish_Schedule_Draft.pdf", ext: "PDF" },
+      { name: "MEP_Coordination_Sketches.pdf", ext: "PDF" },
+    ],
+    miniGallery: [
+      "https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?w=200&q=70",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=200&q=70",
+      "https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=200&q=70",
+      "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?w=200&q=70",
+    ],
+    budgetLines: [
+      ["Samples & mock-ups", "₹2 L"],
+      ["MEP design coordination", "₹2 L"],
+    ],
+  },
+};
+
+/** Per-stage calendar-style reminders — editable on the board (demo seed until calendar sync). */
+const MILESTONE_SEED = {
+  "Design & Approval": [
+    { id: "da-1", icon: "📐", name: "Statutory submission complete", date: "28 Jun 2024" },
+    { id: "da-2", icon: "✅", name: "Client sign-off on finishes board", date: "05 Jul 2024" },
+  ],
+  Sourcing: [
+    { id: "so-1", icon: "🧱", name: "Tiles & stone PO issued", date: "02 Jul 2024" },
+    { id: "so-2", icon: "🚿", name: "Sanitaryware order confirmed", date: "10 Jul 2024" },
+  ],
+  "Site & Foundation": [
+    { id: "sf-1", icon: "🏛️", name: "Plinth beam concrete", date: "20 Jun 2024" },
+    { id: "sf-2", icon: "🔧", name: "Ground floor columns starter", date: "25 Jun 2024" },
+  ],
+  Structure: [
+    { id: "st-1", icon: "🏗️", name: "Slab 1 casting complete", date: "12 Jun 2024" },
+    { id: "st-2", icon: "🔧", name: "Slab 2 shuttering start", date: "05 Jul 2024" },
+    { id: "st-3", icon: "⚡", name: "Electrical conduit rough-in", date: "15 Jul 2024" },
+  ],
+  Finishing: [
+    { id: "fi-1", icon: "🎨", name: "Mock-up room sign-off", date: "Aug 2024" },
+    { id: "fi-2", icon: "💡", name: "Lighting layout freeze", date: "Sep 2024" },
+  ],
+};
+
+const NAV = [
+  { icon: "⊞", label: "Overview", path: null },
+  { icon: "📅", label: "Timeline", path: null },
+  { icon: "✓", label: "Tasks", path: null },
+  { icon: "₹", label: "Budget", path: null },
+  { icon: "📸", label: "Site Feed", path: null },
+  { icon: "📄", label: "Documents", path: "/documents" },
+  { icon: "👥", label: "Team", path: "/team" },
+  { icon: "⚙️", label: "Settings", path: null },
+];
+
+/** Demo project funding — own equity vs bank loan; swap for ledger API later. */
+const PROJECT_FUNDING = {
+  totalBudget: "₹1.20 Cr",
+  spentToDate: "₹78 L",
+  pctOfTotalSpent: 65,
+  ownEquityBudgeted: "₹42 L",
+  bankLoanSanctioned: "₹78 L",
+  spentFromOwnPocket: "₹26 L",
+  spentFromLoanDisbursements: "₹52 L",
+  loanTrancheReleasedPct: 67,
+  monthlyBurnPlanned: "₹5.5 L / mo",
+  monthlyBurnActual: "₹4.9 L / mo",
+  runwayNote: "At current burn you are slightly under the draw schedule — room for one vendor advance if needed.",
+};
+
+function CircleProgress({ pct, color, size = 80 }) {
+  const r = 28;
+  const cx = 36;
+  const cy = 36;
+  const circ = 2 * Math.PI * r;
+  const n = Math.round(Number(pct)) || 0;
+  const dash = (n / 100) * circ;
+  const holeR = 21;
+  /** HTML overlay — SVG <text> inside <button> often loses digit glyphs (font inheritance). */
+  const label = `${n}%`;
+  const labelPx = Math.max(13, Math.round(size * 0.21));
+  return (
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} viewBox="0 0 72 72" aria-hidden style={{ display: "block" }}>
+        <circle cx={cx} cy={cy} r={holeR} fill="#FDFCFB" stroke="#EDEAE6" strokeWidth="1" />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#E8E6E3" strokeWidth="6" />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth="6"
+          strokeDasharray={`${dash} ${circ}`}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${cx} ${cy})`}
+        />
+      </svg>
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width: size,
+          height: size,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: labelPx,
+          fontWeight: 800,
+          color: "#1C1917",
+          fontFamily: "'DM Sans', 'Inter', ui-sans-serif, system-ui, sans-serif",
+          pointerEvents: "none",
+          lineHeight: 1,
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function Avatar({ name, size = 32, color = "#C85F2B" }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: color,
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: size * 0.38,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      {name
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .slice(0, 2)}
+    </div>
+  );
+}
+
+function taskAssigneeColor(name) {
+  if (name.includes("Neha")) return "#2A6496";
+  if (name.includes("Rajesh")) return "#22A36B";
+  if (name.includes("Suresh")) return "#D97706";
+  if (name.includes("Bharat")) return "#7A4FC0";
+  if (name === "You") return OR;
+  return "#57534E";
+}
+
+function trafficDot(traffic) {
+  if (traffic === "amber") return "#F59E0B";
+  if (traffic === "red") return "#DC2626";
+  return "#22A36B";
+}
+
+export default function ProjectDashboard() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [dismissHandoff, setDismissHandoff] = useState(false);
+  const showHandoffBanner =
+    !dismissHandoff &&
+    (searchParams.get("source") === "build-new" || searchParams.get("source") === "remodel") &&
+    searchParams.get("phase") === "handoff";
+  const [activeNav, setActiveNav] = useState("Overview");
+  const [selectedPhase, setSelectedPhase] = useState("Structure");
+  const [msg, setMsg] = useState("");
+  const [msgs, setMsgs] = useState(INITIAL_MESSAGES);
+  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [budgetDetailOpen, setBudgetDetailOpen] = useState(false);
+  const [budgetDetailScope, setBudgetDetailScope] = useState("stage");
+  const [taskAddOpen, setTaskAddOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskStage, setNewTaskStage] = useState("Structure");
+  const [milestonesByPhase, setMilestonesByPhase] = useState(() =>
+    Object.fromEntries(Object.entries(MILESTONE_SEED).map(([phase, rows]) => [phase, rows.map((m) => ({ ...m }))]))
+  );
+
+  const stageDetail = STAGE_DETAILS[selectedPhase];
+  const phaseOrder = useMemo(() => phases.map((p) => p.name), []);
+  const phaseRank = useMemo(() => Object.fromEntries(phaseOrder.map((n, i) => [n, i])), [phaseOrder]);
+
+  const filteredTasks = useMemo(() => tasks.filter((t) => t.phase === selectedPhase), [tasks, selectedPhase]);
+  const filteredMsgs = useMemo(() => msgs.filter((m) => m.phase === selectedPhase), [msgs, selectedPhase]);
+  const phaseMilestones = milestonesByPhase[selectedPhase] || [];
+
+  const allTasksSorted = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      const pa = phaseRank[a.phase] ?? 99;
+      const pb = phaseRank[b.phase] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return String(a.date).localeCompare(String(b.date), undefined, { numeric: true });
+    });
+  }, [tasks, phaseRank]);
+
+  const siteFeedEntries = useMemo(
+    () =>
+      phaseOrder.map((name) => {
+        const d = STAGE_DETAILS[name];
+        return { phase: name, image: d.siteImage, caption: d.siteCaption, time: d.siteTime };
+      }),
+    [phaseOrder]
+  );
+
+  const allBudgetLines = useMemo(() => {
+    const rows = [];
+    for (const name of phaseOrder) {
+      const d = STAGE_DETAILS[name];
+      for (const [label, amt] of d.budgetLines || []) {
+        rows.push({ phase: name, label, amt });
+      }
+    }
+    return rows;
+  }, [phaseOrder]);
+
+  const sendMsg = () => {
+    if (!msg.trim()) return;
+    setMsgs((prev) => [...prev, { phase: selectedPhase, role: "Homeowner", name: "You", time: "Just now", text: msg.trim(), color: OR }]);
+    setMsg("");
+  };
+
+  const addTask = () => {
+    const name = window.prompt(`New task for "${selectedPhase}":`);
+    if (!name?.trim()) return;
+    const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    setTasks((prev) => [...prev, { done: false, name: name.trim(), phase: selectedPhase, date: today, assignee: "You" }]);
+  };
+
+  const commitNewTaskForTab = () => {
+    if (!newTaskTitle.trim()) return;
+    const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    setTasks((prev) => [...prev, { done: false, name: newTaskTitle.trim(), phase: newTaskStage, date: today, assignee: "You" }]);
+    setNewTaskTitle("");
+    setTaskAddOpen(false);
+  };
+
+  const openVaultForStage = () => {
+    navigate(`/documents?stage=${encodeURIComponent(selectedPhase)}`);
+  };
+
+  const addMilestone = () => {
+    const name = window.prompt("Reminder or milestone name:");
+    if (!name?.trim()) return;
+    const date = window.prompt("Target date (e.g. 5 Jul 2024), or leave blank:", "") || "TBD";
+    const id = `m-${Date.now()}`;
+    setMilestonesByPhase((prev) => ({
+      ...prev,
+      [selectedPhase]: [...(prev[selectedPhase] || []), { id, icon: "📌", name: name.trim(), date }],
+    }));
+  };
+
+  const editMilestoneFromPhase = (phase, id) => {
+    const row = (milestonesByPhase[phase] || []).find((x) => x.id === id);
+    if (!row) return;
+    const name = window.prompt("Name:", row.name);
+    if (name == null || !name.trim()) return;
+    const date = window.prompt("Date:", row.date);
+    if (date == null) return;
+    setMilestonesByPhase((prev) => ({
+      ...prev,
+      [phase]: (prev[phase] || []).map((x) => (x.id === id ? { ...x, name: name.trim(), date } : x)),
+    }));
+  };
+
+  const removeMilestoneFromPhase = (phase, id) => {
+    if (!window.confirm("Remove this milestone / reminder?")) return;
+    setMilestonesByPhase((prev) => ({
+      ...prev,
+      [phase]: (prev[phase] || []).filter((x) => x.id !== id),
+    }));
+  };
+
+  const editMilestone = (id) => editMilestoneFromPhase(selectedPhase, id);
+  const removeMilestone = (id) => removeMilestoneFromPhase(selectedPhase, id);
+
+  const budgetModalLineItems =
+    budgetDetailScope === "project"
+      ? allBudgetLines.map((r) => (
+          <div key={`${r.phase}-${r.label}`} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid #EDEAE6", fontSize: 13, gap: 12 }}>
+            <span style={{ color: "#57534E", minWidth: 0 }}>
+              <span style={{ fontWeight: 700, color: OR }}>{r.phase}</span>
+              <span style={{ color: "#A8A29E" }}> · </span>
+              {r.label}
+            </span>
+            <span style={{ fontWeight: 700, flexShrink: 0 }}>{r.amt}</span>
+          </div>
+        ))
+      : (stageDetail.budgetLines || []).map(([label, amt]) => (
+          <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderTop: "1px solid #EDEAE6", fontSize: 13 }}>
+            <span style={{ color: "#57534E" }}>{label}</span>
+            <span style={{ fontWeight: 700 }}>{amt}</span>
+          </div>
+        ));
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        background: hmProjectHubPageBackground,
+        fontFamily: "'DM Sans','Inter',system-ui,sans-serif",
+        color: "#1C1917",
+      }}
+    >
+      <ProjectHubAppHeader
+        center={<ProjectHubProjectCenter />}
+        trailing={
+          <>
+            <div className="hidden text-[10px] font-bold uppercase tracking-[0.08em] text-[#9A8F87] sm:block">PROJECT HEALTH</div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                background: "#E8F5E9",
+                border: "1px solid #C3DEB8",
+                borderRadius: 20,
+                padding: "5px 12px",
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22A36B" }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#22A36B" }}>On Track</span>
+              <span style={{ fontSize: 11, color: "#22A36B" }}>∨</span>
+            </div>
+            <button type="button" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 17, color: "#7A6E62" }} aria-label="Notifications">
+              🔔
+            </button>
+            <button
+              type="button"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                border: "1px solid #E7E5E4",
+                borderRadius: 6,
+                padding: "6px 10px",
+                fontSize: 12,
+                color: "#57534E",
+                cursor: "pointer",
+                background: "rgba(255,255,255,0.85)",
+              }}
+            >
+              🇮🇳 IN
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Avatar name="Ankit" size={30} />
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Hi, Ankit ∨</span>
+            </div>
+          </>
+        }
+      />
+      <div
+        style={{
+          display: "flex",
+          flex: 1,
+          minWidth: 0,
+          minHeight: 0,
+        }}
+      >
+      <aside style={hmProjectSidebarAsideStyle}>
+        <div style={{ padding: "14px 20px 6px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>
+          PROJECTS
+        </div>
+        <nav style={hmProjectSidebarNavScrollStyle}>
+          {NAV.map((n) => {
+            const active = activeNav === n.label;
+            return (
+              <div
+                key={n.label}
+                role="button"
+                tabIndex={0}
+                onClick={() => (n.path ? navigate(n.path) : setActiveNav(n.label))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (n.path) navigate(n.path);
+                    else setActiveNav(n.label);
+                  }
+                }}
+                style={hmProjectSidebarNavItemStyle(active)}
+              >
+                <span style={{ fontSize: 15 }}>{n.icon}</span>
+                {n.label}
+              </div>
+            );
+          })}
+        </nav>
+        <div style={hmProjectSidebarFooterStyle}>
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4 }}>Need Help?</div>
+          <div style={{ fontSize: 11, color: "#7A6E62", marginBottom: 10 }}>Chat with your project expert</div>
+          <button
+            type="button"
+            style={{
+              width: "100%",
+              background: OR,
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "9px 0",
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+            }}
+          >
+            💬 Start Chat
+          </button>
+        </div>
+      </aside>
+
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {showHandoffBanner && (
+          <div
+            className="px-5 md:px-10"
+            style={{
+              background: "linear-gradient(90deg, #ECFDF5, #F8FAF5)",
+              borderBottom: "1px solid #A7F3D0",
+              paddingTop: 12,
+              paddingBottom: 12,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ fontSize: 13, color: "#065F46", lineHeight: 1.5, maxWidth: 720 }}>
+              <strong>Handoff from the design flow.</strong> Your full brief and architect notes are meant to live
+              here — use <strong>Team</strong> to invite your architect and contractors, and keep drawings, messages, and
+              site updates in one project room.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setDismissHandoff(true);
+                const p = new URLSearchParams(searchParams);
+                p.delete("source");
+                p.delete("phase");
+                setSearchParams(p, { replace: true });
+              }}
+              style={{
+                background: "rgba(255,255,255,0.9)",
+                border: "1px solid #6EE7B7",
+                borderRadius: 8,
+                padding: "6px 12px",
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#047857",
+                cursor: "pointer",
+                flexShrink: 0,
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
+        <div className="px-5 md:px-10" style={{ flex: 1, paddingTop: 20, paddingBottom: 32, overflowY: "auto" }}>
+          {activeNav === "Overview" && (
+          <>
+          {/* Phase progress — clickable stages */}
+          <div style={{ ...panel, padding: "18px 20px 14px", marginBottom: 14 }}>
+            <div style={{ display: "flex", gap: 0, flex: 1, overflowX: "auto", paddingBottom: 8 }}>
+              {phases.map((p, i) => {
+                const sel = selectedPhase === p.name;
+                return (
+                  <button
+                    key={p.name}
+                    type="button"
+                    onClick={() => setSelectedPhase(p.name)}
+                    aria-pressed={sel}
+                    aria-label={`${p.name}, ${p.pct}% complete`}
+                    style={{
+                      flex: "1 0 108px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "10px 8px 12px",
+                      marginRight: i < 4 ? 10 : 0,
+                      paddingRight: i < 4 ? 10 : 0,
+                      borderRight: i < 4 ? "1px solid #EDEAE6" : "none",
+                      background: sel ? "linear-gradient(180deg, #F0FDF4 0%, #ECFDF5 100%)" : "transparent",
+                      border: sel ? "2px solid #86EFAC" : "2px solid transparent",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      color: "inherit",
+                    }}
+                  >
+                    <CircleProgress pct={p.pct} color={p.color} />
+                    <div style={{ fontWeight: 700, fontSize: 11, textAlign: "center", lineHeight: 1.35, color: "#292524" }}>{p.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.statusColor }} />
+                      <span style={{ fontSize: 10, color: p.statusColor, fontWeight: 600 }}>{p.status}</span>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, fontSize: 12, color: "#B8B0A8", marginTop: 2 }} aria-hidden>
+                      <span>📄</span>
+                      <span>📁</span>
+                      <span>✏️</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #EDEAE6", paddingTop: 12, marginTop: 2 }}>
+              <button
+                type="button"
+                onClick={() => setActiveNav("Timeline")}
+                style={{
+                  background: "none",
+                  border: `1.5px solid ${OR}`,
+                  borderRadius: 8,
+                  padding: "7px 14px",
+                  color: OR,
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                📅 View Timeline
+              </button>
+              <span style={{ fontSize: 12, color: "#9A8F87" }}>Project started on 14 Jun 2024 · Tap a stage to focus this board</span>
+            </div>
+          </div>
+
+          {/* Phase board: (Tasks | Docs 50/50) + Discussion below | Site + budget (right rail) */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(280px, 320px)",
+              gap: 20,
+              marginBottom: 18,
+              alignItems: "start",
+            }}
+            className="project-dash-phase-main"
+          >
+            <div className="project-dash-main-stack" style={{ display: "flex", flexDirection: "column", gap: 20, minWidth: 0 }}>
+              <div className="project-dash-top-split" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, minWidth: 0 }}>
+                <div style={{ ...panel, padding: "22px 24px", display: "flex", flexDirection: "column", minHeight: 320 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexShrink: 0 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 18 }}>Tasks</div>
+                      <div style={{ fontSize: 13, color: "#9A8F87", marginTop: 4 }}>Checklist · {selectedPhase}</div>
+                    </div>
+                    <button type="button" onClick={() => setActiveNav("Tasks")} style={{ background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                      View All
+                    </button>
+                  </div>
+                  <div style={{ flex: 1, overflowY: "auto", minHeight: 200, maxHeight: 520, marginRight: -4, paddingRight: 4 }}>
+                    {filteredTasks.length === 0 ? (
+                      <div style={{ fontSize: 14, color: "#9A8F87", padding: "8px 0 4px" }}>No tasks for this stage yet.</div>
+                    ) : null}
+                    {filteredTasks.map((t) => (
+                      <div key={`${t.phase}-${t.name}-${t.date}`} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid #EDEAE6" }}>
+                        <button
+                          type="button"
+                          onClick={() => setTasks((prev) => prev.map((x) => (x === t ? { ...x, done: !x.done } : x)))}
+                          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
+                        >
+                          {t.done ? (
+                            <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#22A36B", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+                              </svg>
+                            </div>
+                          ) : (
+                            <div style={{ width: 26, height: 26, borderRadius: "50%", border: "2px solid #D4CEC6" }} />
+                          )}
+                        </button>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 16, color: t.done ? "#9A8F87" : "#1C1917", textDecoration: t.done ? "line-through" : "none", lineHeight: 1.35 }}>{t.name}</div>
+                          <div style={{ fontSize: 13, color: "#9A8F87", marginTop: 4 }}>{t.assignee}</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#7A6E62", flexShrink: 0 }}>
+                          <span>📅</span>
+                          <span>{t.date}</span>
+                        </div>
+                        <Avatar name={t.assignee} size={32} color={taskAssigneeColor(t.assignee)} />
+                      </div>
+                    ))}
+                  </div>
+                  <button type="button" onClick={addTask} style={{ background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 14, display: "flex", alignItems: "center", gap: 8, padding: 0, flexShrink: 0 }}>
+                    <span style={{ fontSize: 22 }}>+</span> Add Task
+                  </button>
+                </div>
+
+                <div style={{ ...panel, padding: "22px 24px", display: "flex", flexDirection: "column", minHeight: 320, minWidth: 0 }}>
+                  <div style={{ flexShrink: 0, marginBottom: 14 }}>
+                    <div style={{ fontWeight: 700, fontSize: 18 }}>Docs / media</div>
+                    <div style={{ fontSize: 13, color: "#9A8F87", marginTop: 4, lineHeight: 1.45 }}>Sample files and photos for this stage.</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14, flexShrink: 0 }}>
+                    {(stageDetail.miniGallery || []).slice(0, 2).map((src, idx) => (
+                      <div key={idx} style={{ borderRadius: 10, overflow: "hidden", height: 96, background: "#E8E6E3" }}>
+                        <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, marginBottom: 14 }}>
+                    {(stageDetail.docs || []).slice(0, 3).map((d) => (
+                      <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "1px solid #EDEAE6", background: "#FDFCFB" }}>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: d.ext === "PDF" ? "#EF4444" : "#22A36B", padding: "4px 7px", borderRadius: 5 }}>{d.ext}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</span>
+                      </div>
+                    ))}
+                    {(stageDetail.docs || []).length > 3 ? <div style={{ fontSize: 12, color: "#9A8F87" }}>+{(stageDetail.docs || []).length - 3} more</div> : null}
+                  </div>
+                  <button type="button" onClick={openVaultForStage} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1.5px solid ${OR}`, background: "#fff", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0, marginBottom: 16 }}>
+                    All documents →
+                  </button>
+                  <div style={{ borderTop: "1px solid #EDEAE6", paddingTop: 14, flex: 1, minHeight: 140, display: "flex", flexDirection: "column" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 16 }}>Milestones & reminders</div>
+                        <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 4 }}>Editable for this stage (session demo)</div>
+                      </div>
+                      <button type="button" onClick={addMilestone} style={{ background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer", padding: "4px 0" }}>
+                        + Add
+                      </button>
+                    </div>
+                    <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
+                      {phaseMilestones.length === 0 ? <div style={{ fontSize: 14, color: "#9A8F87" }}>No milestones yet.</div> : null}
+                      {phaseMilestones.map((m) => (
+                        <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0", borderBottom: "1px solid #F0EBE3" }}>
+                          <span style={{ flexShrink: 0, fontSize: 22, lineHeight: 1 }}>{m.icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.35 }}>{m.name}</div>
+                            <div style={{ fontSize: 13, color: OR, fontWeight: 700, marginTop: 4 }}>{m.date}</div>
+                          </div>
+                          <button type="button" onClick={() => editMilestone(m.id)} style={{ border: "none", background: "none", color: "#7A6E62", cursor: "pointer", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                            Edit
+                          </button>
+                          <button type="button" onClick={() => removeMilestone(m.id)} style={{ border: "none", background: "none", color: "#B91C1C", cursor: "pointer", fontSize: 14, flexShrink: 0 }} aria-label="Remove">
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ ...panel, padding: "22px 24px", display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexShrink: 0 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 18 }}>Discussion</div>
+                    <div style={{ fontSize: 13, color: "#9A8F87", marginTop: 4 }}>{selectedPhase} thread</div>
+                  </div>
+                  <button type="button" style={{ background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                    New Message
+                  </button>
+                </div>
+                <div style={{ maxHeight: 380, overflowY: "auto", marginBottom: 16, minHeight: 120 }}>
+                  {filteredMsgs.length === 0 ? <div style={{ fontSize: 14, color: "#9A8F87" }}>No messages in this stage yet. Say hello below.</div> : null}
+                  {filteredMsgs.map((m, i) => (
+                    <div key={`${m.time}-${m.name}-${i}`} style={{ display: "flex", gap: 12, marginBottom: 18 }}>
+                      <Avatar name={m.name} size={38} color={m.color} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                          <span style={{ fontWeight: 700, fontSize: 15 }}>{m.role}</span>
+                          <span style={{ fontSize: 13, color: "#9A8F87" }}>({m.name})</span>
+                          <span style={{ fontSize: 12, color: "#9A8F87", marginLeft: "auto" }}>{m.time}</span>
+                        </div>
+                        <div style={{ fontSize: 15, color: "#3D3530", lineHeight: 1.55, background: "#F3F1EE", borderRadius: "0 12px 12px 12px", padding: "12px 16px", border: "1px solid #EDEAE6" }}>{m.text}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid #D4CEC6", borderRadius: 12, padding: "12px 16px", background: "#FDFCFB" }}>
+                  <input
+                    value={msg}
+                    onChange={(e) => setMsg(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendMsg()}
+                    placeholder="Message this stage…"
+                    style={{ flex: 1, border: "none", outline: "none", fontSize: 15, background: "transparent" }}
+                  />
+                  <button type="button" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20 }}>
+                    😊
+                  </button>
+                  <button
+                    type="button"
+                    onClick={sendMsg}
+                    style={{ background: OR, border: "none", borderRadius: "50%", width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    aria-label="Send"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+              <div style={{ ...panel, padding: "18px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>Latest site feed</div>
+                    <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 4 }}>{selectedPhase}</div>
+                  </div>
+                  <button type="button" onClick={() => setActiveNav("Site Feed")} style={{ background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                    View All
+                  </button>
+                </div>
+                <div style={{ borderRadius: 12, overflow: "hidden", position: "relative", marginBottom: 10 }}>
+                  <img src={stageDetail.siteImage} alt="" style={{ width: "100%", height: 168, objectFit: "cover", display: "block" }} />
+                  <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(28,25,23,0.72)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>Latest</div>
+                </div>
+                <div style={{ fontSize: 12, color: "#9A8F87", marginBottom: 4 }}>{stageDetail.siteTime}</div>
+                <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.45 }}>{stageDetail.siteCaption}</div>
+              </div>
+
+              <div style={{ ...panel, padding: "18px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 16 }}>Budget pacing</div>
+                  <div style={{ width: 11, height: 11, borderRadius: "50%", background: trafficDot(stageDetail.traffic) }} title="Status" />
+                </div>
+                <div style={{ fontSize: 12, color: "#9A8F87", marginBottom: 10 }}>Total project budget {stageDetail.budgetTotal}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#57534E", marginBottom: 6 }}>Spent this stage</div>
+                <div style={{ fontWeight: 800, fontSize: 24, color: OR, marginBottom: 12 }}>{stageDetail.budgetSpent}</div>
+                <div style={{ height: 9, background: "#E8E6E3", borderRadius: 5, marginBottom: 12, overflow: "hidden" }}>
+                  <div style={{ width: `${stageDetail.barPct}%`, height: "100%", background: `linear-gradient(90deg,#22A36B,${OR})`, borderRadius: 5 }} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBudgetDetailScope("stage");
+                    setBudgetDetailOpen(true);
+                  }}
+                  style={{ width: "100%", background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                >
+                  View Budget Details →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <p style={{ fontSize: 11, color: "#A8A29E", marginTop: 20, marginBottom: 0, lineHeight: 1.5 }}>
+            Deeper features (to-do, scheduling, marketplace, APIs, mandatory fields) are tracked in{" "}
+            <code style={{ fontSize: 11, background: "#EDEAE6", padding: "2px 6px", borderRadius: 4 }}>docs/PROJECT_MANAGEMENT_ROADMAP.md</code>.
+          </p>
+          </>
+          )}
+
+          {activeNav === "Timeline" && (
+            <div style={{ maxWidth: 800 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Timeline</h2>
+              <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
+                Important milestones and reminders grouped by stage. Edit or remove from here, or add new ones from the Overview board for the selected stage.
+              </p>
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                <div style={{ borderLeft: "3px solid #E8E6E3", marginLeft: 10, paddingLeft: 20 }}>
+                  {phaseOrder.map((ph) => (
+                    <div key={ph} style={{ marginBottom: 20 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: OR, letterSpacing: "0.06em", marginBottom: 10 }}>{ph}</div>
+                      {(milestonesByPhase[ph] || []).length === 0 ? (
+                        <div style={{ fontSize: 13, color: "#9A8F87" }}>No milestones yet.</div>
+                      ) : (
+                        (milestonesByPhase[ph] || []).map((m) => (
+                          <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0 12px 6px", borderBottom: "1px solid #F0EBE3", position: "relative" }}>
+                            <div
+                              style={{
+                                position: "absolute",
+                                left: -29,
+                                top: 16,
+                                width: 11,
+                                height: 11,
+                                borderRadius: "50%",
+                                background: OR,
+                                border: "2px solid #fff",
+                                boxShadow: "0 0 0 2px #E8E6E3",
+                              }}
+                              aria-hidden
+                            />
+                            <span style={{ fontSize: 22, flexShrink: 0 }}>{m.icon}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 15 }}>{m.name}</div>
+                              <div style={{ fontSize: 13, color: OR, fontWeight: 700, marginTop: 4 }}>{m.date}</div>
+                            </div>
+                            <button type="button" onClick={() => editMilestoneFromPhase(ph, m.id)} style={{ border: "none", background: "none", color: "#7A6E62", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                              Edit
+                            </button>
+                            <button type="button" onClick={() => removeMilestoneFromPhase(ph, m.id)} style={{ border: "none", background: "none", color: "#B91C1C", cursor: "pointer", fontSize: 14 }} aria-label="Remove">
+                              ✕
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeNav === "Tasks" && (
+            <div style={{ maxWidth: 900 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>All tasks</h2>
+              <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 18px", lineHeight: 1.55 }}>
+                One list across every stage. When you add a task, you tag which stage it belongs to — that keeps the list clean without a filter bar.
+              </p>
+              {taskAddOpen ? (
+                <div style={{ ...panel, padding: "18px 20px", marginBottom: 18, border: `1.5px solid ${OR}`, background: "#FFFBF7" }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 12 }}>New task</div>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#57534E", marginBottom: 6 }} htmlFor="new-task-title">
+                    What needs to be done?
+                  </label>
+                  <input
+                    id="new-task-title"
+                    value={newTaskTitle}
+                    onChange={(e) => setNewTaskTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), commitNewTaskForTab())}
+                    placeholder="e.g. Sign off on plumbing mock-up"
+                    style={{ width: "100%", boxSizing: "border-box", border: "1.5px solid #D4CEC6", borderRadius: 8, padding: "10px 12px", fontSize: 15, outline: "none" }}
+                    autoFocus
+                  />
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "#57534E", marginTop: 14, marginBottom: 6 }} htmlFor="new-task-stage">
+                    Stage
+                  </label>
+                  <select
+                    id="new-task-stage"
+                    value={newTaskStage}
+                    onChange={(e) => setNewTaskStage(e.target.value)}
+                    style={{ width: "100%", maxWidth: 360, border: "1.5px solid #D4CEC6", borderRadius: 8, padding: "10px 12px", fontSize: 14, background: "#fff" }}
+                    aria-label="Stage for this task"
+                  >
+                    {phaseOrder.map((ph) => (
+                      <option key={ph} value={ph}>
+                        {ph}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
+                    <button
+                      type="button"
+                      onClick={commitNewTaskForTab}
+                      style={{ padding: "10px 18px", borderRadius: 8, border: "none", background: OR, color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                    >
+                      Add task
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTaskAddOpen(false);
+                        setNewTaskTitle("");
+                      }}
+                      style={{ padding: "10px 18px", borderRadius: 8, border: "1.5px solid #D4CEC6", background: "#fff", fontWeight: 600, fontSize: 14, cursor: "pointer", color: "#57534E" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              <div style={{ ...panel, padding: "22px 24px" }}>
+                {allTasksSorted.length === 0 ? (
+                  <div style={{ fontSize: 14, color: "#9A8F87" }}>No tasks yet — add your first one below.</div>
+                ) : (
+                  allTasksSorted.map((t) => (
+                    <div key={`${t.phase}-${t.name}-${t.date}`} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid #EDEAE6" }}>
+                      <button
+                        type="button"
+                        onClick={() => setTasks((prev) => prev.map((x) => (x === t ? { ...x, done: !x.done } : x)))}
+                        style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
+                      >
+                        {t.done ? (
+                          <div style={{ width: 26, height: 26, borderRadius: "50%", background: "#22A36B", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <div style={{ width: 26, height: 26, borderRadius: "50%", border: "2px solid #D4CEC6" }} />
+                        )}
+                      </button>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 15, color: t.done ? "#9A8F87" : "#1C1917", textDecoration: t.done ? "line-through" : "none", lineHeight: 1.35 }}>{t.name}</div>
+                        <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 4 }}>
+                          <span style={{ fontWeight: 700, color: OR }}>{t.phase}</span>
+                          {" · "}
+                          {t.assignee}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#7A6E62", flexShrink: 0 }}>
+                        <span>📅</span>
+                        <span>{t.date}</span>
+                      </div>
+                      <Avatar name={t.assignee} size={32} color={taskAssigneeColor(t.assignee)} />
+                    </div>
+                  ))
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (taskAddOpen) return;
+                    setNewTaskStage(selectedPhase);
+                    setNewTaskTitle("");
+                    setTaskAddOpen(true);
+                  }}
+                  style={{ background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 15, cursor: "pointer", marginTop: 16, display: "flex", alignItems: "center", gap: 8, padding: 0 }}
+                >
+                  <span style={{ fontSize: 22 }}>+</span> Add task
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeNav === "Budget" && (
+            <div style={{ maxWidth: 820 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Budget</h2>
+              <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
+                Total budget, spend pacing, and how much has left your own accounts versus the bank loan tranche — demo numbers until the ledger is live.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 18 }}>
+                <div style={{ ...panel, padding: "18px 20px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.06em" }}>TOTAL BUDGET</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, marginTop: 8 }}>{PROJECT_FUNDING.totalBudget}</div>
+                  <div style={{ fontSize: 13, color: "#7A6E62", marginTop: 6 }}>Spent to date: {PROJECT_FUNDING.spentToDate}</div>
+                  <div style={{ height: 10, background: "#E8E6E3", borderRadius: 6, marginTop: 14, overflow: "hidden" }}>
+                    <div style={{ width: `${PROJECT_FUNDING.pctOfTotalSpent}%`, height: "100%", background: `linear-gradient(90deg,#22A36B,${OR})`, borderRadius: 6 }} />
+                  </div>
+                  <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 6 }}>{PROJECT_FUNDING.pctOfTotalSpent}% of total budget used (illustrative)</div>
+                </div>
+                <div style={{ ...panel, padding: "18px 20px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.06em" }}>PACING</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginTop: 10 }}>Planned burn {PROJECT_FUNDING.monthlyBurnPlanned}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginTop: 6, color: OR }}>Actual {PROJECT_FUNDING.monthlyBurnActual}</div>
+                  <p style={{ fontSize: 13, color: "#57534E", margin: "14px 0 0", lineHeight: 1.5 }}>{PROJECT_FUNDING.runwayNote}</p>
+                </div>
+              </div>
+              <div style={{ ...panel, padding: "22px 24px", marginBottom: 18 }}>
+                <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Funding mix &amp; sources</div>
+                <p style={{ fontSize: 13, color: "#7A6E62", margin: "0 0 18px", lineHeight: 1.5 }}>
+                  Budget was split between your own equity and a sanctioned home loan. Below is how much has actually been paid from each bucket (vendor advances, site cheques, etc.).
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+                  <div style={{ background: "#F8F4EF", border: "1px solid #E2D9CF", borderRadius: 12, padding: "16px 18px" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#57534E" }}>Sanctioned — own funds</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#1C1917", marginTop: 6 }}>{PROJECT_FUNDING.ownEquityBudgeted}</div>
+                    <div style={{ fontSize: 12, color: "#7A6E62", marginTop: 4 }}>Paid from your accounts</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: OR, marginTop: 8 }}>{PROJECT_FUNDING.spentFromOwnPocket}</div>
+                  </div>
+                  <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 12, padding: "16px 18px" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#57534E" }}>Sanctioned — bank loan</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#1C1917", marginTop: 6 }}>{PROJECT_FUNDING.bankLoanSanctioned}</div>
+                    <div style={{ fontSize: 12, color: "#7A6E62", marginTop: 4 }}>Disbursed to site / vendors</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#2563EB", marginTop: 8 }}>{PROJECT_FUNDING.spentFromLoanDisbursements}</div>
+                    <div style={{ fontSize: 11, color: "#64748B", marginTop: 8 }}>Tranches released: {PROJECT_FUNDING.loanTrancheReleasedPct}% of loan limit (demo)</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#44403C", marginBottom: 8 }}>Spend this far — by source</div>
+                <div style={{ height: 14, borderRadius: 8, overflow: "hidden", display: "flex", marginBottom: 8 }}>
+                  <div
+                    title="From own pocket"
+                    style={{ width: "33%", background: OR, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#fff" }}
+                  >
+                    Own
+                  </div>
+                  <div
+                    title="From loan disbursements"
+                    style={{ flex: 1, background: "#2563EB", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: "#fff" }}
+                  >
+                    Loan
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "#9A8F87" }}>Illustrative split of {PROJECT_FUNDING.spentToDate} — not tax advice.</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBudgetDetailScope("project");
+                    setBudgetDetailOpen(true);
+                  }}
+                  style={{ marginTop: 18, padding: "12px 18px", borderRadius: 10, border: `1.5px solid ${OR}`, background: "#fff", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                >
+                  View all line items (every stage) →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeNav === "Site Feed" && (
+            <div style={{ maxWidth: 900 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Site feed</h2>
+              <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
+                Latest site photos and notes from each stage, newest updates first within the demo set.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {[...siteFeedEntries].reverse().map((entry) => (
+                  <div key={entry.phase} style={{ ...panel, padding: 0, overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(200px, 1fr) minmax(0, 1.2fr)", gap: 0 }} className="project-site-feed-card">
+                    <div style={{ position: "relative", minHeight: 200, background: "#E8E6E3" }}>
+                      <img src={entry.image} alt="" style={{ width: "100%", height: "100%", minHeight: 200, objectFit: "cover", display: "block" }} />
+                      <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(28,25,23,0.75)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{entry.phase}</div>
+                    </div>
+                    <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                      <div style={{ fontSize: 12, color: "#9A8F87", marginBottom: 8 }}>{entry.time}</div>
+                      <div style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.45 }}>{entry.caption}</div>
+                      <button type="button" onClick={() => { setSelectedPhase(entry.phase); setActiveNav("Overview"); }} style={{ marginTop: 14, alignSelf: "flex-start", background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 13, cursor: "pointer", padding: 0 }}>
+                        Open stage on Overview →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeNav === "Settings" && (
+            <div style={{ maxWidth: 720 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Settings</h2>
+              <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
+                Project preferences and profile — placeholders for a future settings API.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ ...panel, padding: "18px 20px" }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8 }}>Project profile</div>
+                  <div style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55 }}>Name, address, and remodel type sync with your brief. Edit flows will hook to saved project JSON.</div>
+                </div>
+                <div style={{ ...panel, padding: "18px 20px" }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8 }}>Notifications</div>
+                  <div style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55 }}>Email &amp; WhatsApp for milestones, site uploads, and payment reminders — toggles coming soon.</div>
+                </div>
+                <div style={{ ...panel, padding: "18px 20px" }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8 }}>Data &amp; exports</div>
+                  <div style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55 }}>Download a ZIP of documents and a CSV of tasks for your own records (demo only).</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {budgetDetailOpen ? (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="budget-detail-title"
+              onClick={() => setBudgetDetailOpen(false)}
+              style={{ position: "fixed", inset: 0, background: "rgba(28,25,23,0.45)", zIndex: 50, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                style={{ background: "#FDFCFB", borderRadius: 14, maxWidth: 440, width: "100%", padding: "22px 24px", border: "1px solid #E8E6E3", boxShadow: "0 12px 40px rgba(0,0,0,0.12)" }}
+              >
+                <div id="budget-detail-title" style={{ fontWeight: 800, fontSize: 17, marginBottom: 6 }}>
+                  {budgetDetailScope === "project" ? "Budget — all stages" : `Budget — ${selectedPhase}`}
+                </div>
+                <div style={{ fontSize: 12, color: "#7A6E62", marginBottom: 16 }}>
+                  {budgetDetailScope === "project"
+                    ? "Demo line items rolled up from every stage. Replace with live ledger when backend is ready."
+                    : "Demo breakdown for this stage. Replace with live ledger data when backend is ready."}
+                </div>
+                {budgetModalLineItems}
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 8px", marginTop: 4, fontSize: 14, fontWeight: 800 }}>
+                  <span>{budgetDetailScope === "project" ? "Illustrative project spend" : "Stage spend (illustrative)"}</span>
+                  <span style={{ color: OR }}>{budgetDetailScope === "project" ? PROJECT_FUNDING.spentToDate : stageDetail.budgetSpent}</span>
+                </div>
+                <button type="button" onClick={() => setBudgetDetailOpen(false)} style={{ marginTop: 12, width: "100%", padding: "10px", borderRadius: 8, border: "none", background: OR, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                  Close
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+
+      <style>{`
+        @media (max-width: 1100px) {
+          .project-dash-phase-main {
+            grid-template-columns: 1fr !important;
+          }
+        }
+        @media (max-width: 720px) {
+          .project-dash-top-split {
+            grid-template-columns: 1fr !important;
+          }
+          .project-site-feed-card {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}

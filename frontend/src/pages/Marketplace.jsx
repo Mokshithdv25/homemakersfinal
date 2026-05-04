@@ -54,8 +54,8 @@ function Avatar({ name, size=44 }) {
 export default function Marketplace() {
   const navigate = useNavigate();
   const location = useLocation();
-  // Allow standalone view if path is /marketplace or /shop
-  const standalone = location.pathname === "/marketplace" || location.pathname === "/shop";
+  // Standalone pros browser (landing nav, full width). Project hub uses /marketplace with sidebar.
+  const standalone = location.pathname === "/browse";
 
   const shellFont = { fontFamily: "'DM Sans','Inter',sans-serif", color: "#1C1917" };
 

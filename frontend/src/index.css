@@ -38,7 +38,7 @@ code {
         --ring: 20 75% 47%;
         --radius: 0.75rem;
 
-        /* HomeMaker brand tokens */
+        /* HomeMakers brand tokens */
         --hm-cream: #FBF2E8;
         --hm-cream-soft: #F5E8D8;
         --hm-orange: #C85F2B;
@@ -48,6 +48,10 @@ code {
         --hm-amber-soft: #FDF0D8;
         --hm-ink: #1C1917;
         --hm-muted: #7A6E62;
+
+        /* Match `.hm-landing-page` so `font-display` / `font-body` utilities work on every route */
+        --font-display: "Playfair Display", "Fraunces", ui-serif, Georgia, serif;
+        --font-body: "DM Sans", system-ui, sans-serif;
     }
 }
 
@@ -309,6 +313,13 @@ code {
     box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.15);
 }
 
+.preview-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
 .preview-avatar .edit-dot {
     position: absolute;
     right: -2px;
@@ -432,3 +443,73 @@ code {
     line-height: 1;
     pointer-events: none;
 }
+
+/* Hide "Made with Emergent" badge platform-wide */
+[class*="emergent"], [data-emergent], iframe[src*="emergent"],
+div[style*="Made with"], a[href*="emergent"] {
+  display: none !important;
+}
+
+/* ─── design-compass landing (HomePage) — token scope ─── */
+.hm-landing-page {
+  --background: 32 30% 97%;
+  --foreground: 18 10% 14%;
+  --card: 32 22% 95%;
+  --card-foreground: 18 10% 14%;
+  --popover: 32 30% 97%;
+  --popover-foreground: 18 10% 14%;
+  --primary: 27 46% 42%;
+  --primary-foreground: 32 30% 97%;
+  --secondary: 32 18% 91%;
+  --secondary-foreground: 18 10% 14%;
+  --muted: 30 16% 93%;
+  --muted-foreground: 24 8% 41%;
+  --accent: 26 56% 46%;
+  --accent-foreground: 32 30% 97%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 18% 84%;
+  --input: 30 18% 84%;
+  --ring: 26 56% 46%;
+  --copper: 27 56% 44%;
+  --copper-light: 29 60% 66%;
+  --stone: 28 18% 44%;
+  --stone-light: 30 20% 72%;
+  --charcoal: 20 12% 14%;
+  --cream: 32 30% 97%;
+  --cream-dark: 31 23% 92%;
+  --font-display: "Playfair Display", "Fraunces", ui-serif, Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(circle at top left, rgba(199, 144, 84, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(118, 94, 67, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(255, 252, 248, 0.98), rgba(247, 242, 236, 1));
+  background-attachment: fixed;
+}
+
+.hm-landing-page h1,
+.hm-landing-page h2,
+.hm-landing-page h3 {
+  font-family: var(--font-display);
+}
+
+@layer components {
+  .hm-landing-page .gradient-copper {
+    background: linear-gradient(135deg, hsl(var(--copper)) 0%, hsl(var(--copper-light)) 100%);
+  }
+
+  .hm-landing-page .surface-panel {
+    @apply rounded-[1.6rem] border border-border/60 bg-card/90 shadow-[0_1px_0_rgba(255,255,255,0.72)_inset,0_24px_70px_-36px_rgba(52,34,18,0.28)];
+  }
+
+  .hm-landing-page .section-kicker {
+    @apply inline-flex items-center gap-2 rounded-full border border-copper/15 bg-copper/5 px-3 py-1.5 font-body text-[11px] font-semibold uppercase tracking-[0.18em] text-copper;
+  }
+
+  .hm-landing-page .suite-card {
+    @apply rounded-[1.4rem] border border-border/60 bg-background/90 shadow-[0_20px_60px_-40px_rgba(52,34,18,0.25)];
+  }
+}
+

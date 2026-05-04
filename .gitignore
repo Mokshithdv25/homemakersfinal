@@ -3,6 +3,7 @@
 # IDE and editors
 .idea/
 .vscode/
+.specstory/
 
 # Dependencies
 node_modules/

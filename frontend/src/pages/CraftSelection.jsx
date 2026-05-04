@@ -23,6 +23,9 @@ import {
   PaintBucket,
   Zap,
   Droplets,
+  IndianRupee,
+  Globe,
+  Handshake,
 } from "lucide-react";
 
 
@@ -155,11 +158,11 @@ export default function CraftSelection() {
             just for you.
           </p>
 
-          {/* Design Professionals */}
+          {/* Design & engineering */}
           <div className="mt-5">
             <div className="craft-type-label">
               <Sparkles size={14} color="#C85F2B" />
-              <span>Design Professionals</span>
+              <span>Design & engineering</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
               {CRAFTS.design.items.map((c) => (
@@ -252,8 +255,45 @@ export default function CraftSelection() {
           </div>
         </section>
 
-        {/* RIGHT */}
-        <section className="lg:pl-12 lg:pt-12">
+        {/* RIGHT — benefits above live preview */}
+        <section className="lg:pl-12 lg:pt-4">
+          <div className="mb-6 rounded-2xl border border-[#EFE3D2] bg-white/85 p-4 shadow-sm">
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-[#B04F20]">Why join on HomeMakers</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {[
+                {
+                  Icon: Zap,
+                  title: "Close deals faster",
+                  text: "Clients arrive with clearer briefs; structured approvals cut months of back-and-forth.",
+                },
+                {
+                  Icon: IndianRupee,
+                  title: "Get paid on time",
+                  text: "Milestone-based payouts aligned to phases — less chasing after you have already delivered.",
+                },
+                {
+                  Icon: Globe,
+                  title: "Get discovered",
+                  text: "Marketplace visibility plus one serious portfolio link — no separate website required.",
+                },
+                {
+                  Icon: Handshake,
+                  title: "Collaborate in one workspace",
+                  text: "Timelines, files, and threads with clients and trades — fewer lost WhatsApp chains.",
+                },
+              ].map((b) => (
+                <div key={b.title} className="flex gap-3 rounded-xl border border-[#F5EFE8] bg-[#FFFBF7] p-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1C1917] text-white">
+                    <b.Icon size={16} strokeWidth={1.5} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-serif-display text-sm font-semibold text-[#1C1917]">{b.title}</div>
+                    <p className="mt-0.5 text-[12px] leading-snug text-[#6A5E53]">{b.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
           <LivePreview craftId={selected} />
         </section>
       </div>

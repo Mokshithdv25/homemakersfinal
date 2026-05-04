@@ -1,9 +1,15 @@
-import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React from "react";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_BUILD_CHOOSER } from "../lib/hmBrand";
 
-const NAV_LINKS = ["Software", "Find Pros", "My Project", "Shop"];
+/** Nav routes aligned with landing + project demo hub */
+const NAV_LINKS = [
+  { label: "Software", path: "/build" },
+  { label: "Find Pros", path: "/sign-in" },
+  { label: "My Project", path: "/project" },
+  { label: "Shop", path: "/shop" },
+];
 
 const NEW_HOME_STEPS = [
   { icon: "📍", label: "Define Plot" },
@@ -73,41 +79,53 @@ function FeatureRow({ text }) {
 
 export default function WhatAreYouBuilding() {
   const navigate = useNavigate();
-  const [selected, setSelected] = useState("new");
+  const [searchParams] = useSearchParams();
+  const fromPortfolio = (searchParams.get("source") || "").toLowerCase() === "portfolio";
+  const flowQuery = fromPortfolio ? "?source=portfolio" : "";
 
   return (
-    <div className="relative min-h-screen bg-[#FBF7F2] overflow-x-hidden" style={{ fontFamily: "'DM Sans',Inter,system-ui,sans-serif", color: "#1C1917" }}>
-      {/* Background accents matching the homepage */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(193,132,78,0.08),transparent_50%)]" aria-hidden />
+    <div
+      className="relative isolate min-h-screen overflow-x-hidden bg-[#FBF7F2]"
+      style={{ fontFamily: "'DM Sans',Inter,system-ui,sans-serif", color: "#1C1917" }}
+    >
+      {/* Must not capture clicks — was blocking Back / card CTAs under some stacks */}
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(193,132,78,0.08),transparent_50%)]"
+        aria-hidden
+      />
 
       <header className={HM_HEADER_BAR_CLASS}>
         <HmHeaderBrandLockup tagline={HM_TAGLINE_BUILD_CHOOSER} />
         <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-auto">
           <nav className="hidden lg:flex items-center gap-5 mr-1">
-            {NAV_LINKS.map((link) => (
+            {NAV_LINKS.map((item) => (
               <button
-                key={link}
+                key={item.label}
                 type="button"
-                onClick={() => { if (link === "My Project") navigate("/project"); }}
-                className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1"
+                onClick={() => navigate(item.path)}
+                className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1 hover:text-[#C85F2B] transition-colors"
               >
-                {link}
-                {link === "Software" && (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                {item.label}
+                {item.label === "Software" && (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
                     <path d="m6 9 6 6 6-6" />
                   </svg>
                 )}
               </button>
             ))}
           </nav>
-          <button type="button" className="hidden sm:inline-flex items-center gap-1.5 bg-transparent border border-[#E7E5E4] rounded-md px-2.5 py-1.5 text-xs text-[#57534E] cursor-pointer">
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-[#E7E5E4] px-2.5 py-1.5 text-xs text-[#57534E] cursor-default select-none">
             🇮🇳 IN
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
               <path d="m6 9 6 6 6-6" />
             </svg>
-          </button>
-          <button type="button" className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          </span>
+          <button
+            type="button"
+            onClick={() => navigate("/sign-in")}
+            className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1.5 hover:text-[#C85F2B] transition-colors"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <circle cx="12" cy="8" r="4" />
               <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
             </svg>
@@ -128,19 +146,18 @@ export default function WhatAreYouBuilding() {
       </header>
 
       {/* ── MAIN ── */}
-      <main className="max-w-[920px] mx-auto px-5 md:px-8 pb-20 md:pb-24 pt-8 md:pt-10">
+      <main className="relative z-10 mx-auto max-w-[920px] px-5 pb-20 pt-8 md:px-8 md:pb-24 md:pt-10">
 
-        {/* Back */}
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="mb-8 flex items-center gap-2 border-none bg-transparent p-0 cursor-pointer text-sm text-[#5C5147] hover:text-[#C85F2B] transition-colors"
+        {/* Native link — avoids onClick blocked by overlays; goes to home (reliable exit from chooser) */}
+        <Link
+          to="/"
+          className="relative z-10 mb-8 inline-flex cursor-pointer items-center gap-2 text-sm text-[#5C5147] no-underline transition-colors hover:text-[#C85F2B]"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
             <path d="m15 18-6-6 6-6"/>
           </svg>
           Back
-        </button>
+        </Link>
 
         {/* Heading */}
         <div className="text-center mb-10 md:mb-12">
@@ -156,21 +173,15 @@ export default function WhatAreYouBuilding() {
         {/* Cards — cream surfaces like Build / Remodel, not flat white boxes */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
 
-          {/* Card 1 – Build a New Home (no role=button — avoids invalid nesting with inner CTA) */}
-          <div
-            tabIndex={0}
-            role="group"
-            aria-label="Build a New Home"
-            onClick={() => setSelected("new")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected("new"); } }}
-            className="rounded-2xl cursor-pointer transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[#4A90D9] focus-visible:ring-offset-2"
+          {/* Card 1 – whole card navigates (single Link = reliable cursor + click) */}
+          <Link
+            to={`/build/new-home${flowQuery}`}
+            aria-label="Build a New Home — Get started"
+            className="group relative z-10 block cursor-pointer rounded-2xl border border-[#EEDCCB] text-inherit no-underline outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#4A90D9] focus-visible:ring-offset-2 hover:ring-2 hover:ring-[#4A90D9] hover:shadow-[0_10px_36px_-12px_rgba(74,144,217,0.22),0_1px_3px_rgba(28,25,23,0.05)]"
             style={{
               background: "linear-gradient(180deg, #FFFBF7 0%, #FDFBF8 55%, #F8F4EF 100%)",
               padding: "28px 24px 26px",
-              border: selected === "new" ? "2px solid #4A90D9" : "1px solid #EEDCCB",
-              boxShadow: selected === "new"
-                ? "0 10px 36px -12px rgba(74, 144, 217, 0.22), 0 1px 3px rgba(28,25,23,0.05)"
-                : "0 2px 12px rgba(28, 25, 23, 0.05)",
+              boxShadow: "0 2px 12px rgba(28, 25, 23, 0.05)",
             }}
           >
             {/* Title */}
@@ -186,6 +197,7 @@ export default function WhatAreYouBuilding() {
               <img
                 src="https://cdn.builder.io/api/v1/image/assets/TEMP/new-home-illustration?width=200"
                 alt="Build new home"
+                draggable={false}
                 style={{ objectFit: "contain", maxHeight: "100%" }}
                 onError={e => {
                   e.target.style.display = "none";
@@ -239,34 +251,23 @@ export default function WhatAreYouBuilding() {
               ))}
             </div>
 
-            {/* CTA — Link avoids nested <button> inside the selectable card (fixes broken clicks) */}
-            <Link
-              to="/build/new-home"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-2 no-underline text-[15px] font-bold text-[#C85F2B] hover:text-[#A64F24] transition-colors"
-            >
+            <span className="inline-flex items-center gap-2 text-[15px] font-bold text-[#C85F2B] group-hover:text-[#A64F24] transition-colors">
               Get Started
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
-            </Link>
-          </div>
+            </span>
+          </Link>
 
           {/* Card 2 – Renovate / Remodel */}
-          <div
-            tabIndex={0}
-            role="group"
-            aria-label="Renovate or remodel"
-            onClick={() => setSelected("renovate")}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected("renovate"); } }}
-            className="rounded-2xl cursor-pointer transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-[#C85F2B] focus-visible:ring-offset-2"
+          <Link
+            to={`/build/remodel${flowQuery}`}
+            aria-label="Renovate or remodel — Get started"
+            className="group relative z-10 block cursor-pointer rounded-2xl border border-[#EEDCCB] text-inherit no-underline outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-[#C85F2B] focus-visible:ring-offset-2 hover:ring-2 hover:ring-[#C85F2B] hover:shadow-[0_10px_36px_-12px_rgba(200,95,43,0.2),0_1px_3px_rgba(28,25,23,0.05)]"
             style={{
               background: "linear-gradient(180deg, #FFFBF7 0%, #FDFBF8 55%, #F8F4EF 100%)",
               padding: "28px 24px 26px",
-              border: selected === "renovate" ? "2px solid #C85F2B" : "1px solid #EEDCCB",
-              boxShadow: selected === "renovate"
-                ? "0 10px 36px -12px rgba(200, 95, 43, 0.2), 0 1px 3px rgba(28,25,23,0.05)"
-                : "0 2px 12px rgba(28, 25, 23, 0.05)",
+              boxShadow: "0 2px 12px rgba(28, 25, 23, 0.05)",
             }}
           >
             {/* Title */}
@@ -326,17 +327,13 @@ export default function WhatAreYouBuilding() {
               ))}
             </div>
 
-            <Link
-              to="/build/remodel"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-2 no-underline text-[15px] font-bold text-[#C85F2B] hover:text-[#A64F24] transition-colors"
-            >
+            <span className="inline-flex items-center gap-2 text-[15px] font-bold text-[#C85F2B] group-hover:text-[#A64F24] transition-colors">
               Get Started
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
                 <path d="M5 12h14M12 5l7 7-7 7"/>
               </svg>
-            </Link>
-          </div>
+            </span>
+          </Link>
 
         </div>
       </main>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { BuildNewHomeSpecView } from "../components/ArchitectBriefSpec";
 import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout";
@@ -310,11 +310,13 @@ const EXTERIOR_OPTION_TILES = [
 
 export default function BuildNewHome() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [activeStep, setActiveStep] = useState(1);
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
   const [v0PlanBundle, setV0PlanBundle] = useState(null);
+  const [hasArchitect, setHasArchitect] = useState(false);
   const [architectHandoffNote, setArchitectHandoffNote] = useState("");
   const [form, setForm] = useState({
     location: "Bengaluru, Karnataka",
@@ -376,8 +378,11 @@ export default function BuildNewHome() {
     setV0Generated(!!f.v0);
     if (f.v0Images) setV0ImageBundle(f.v0Images);
     if (f.v0Plan) setV0PlanBundle(f.v0Plan);
+    const source = (searchParams.get("source") || "").toLowerCase();
+    if (typeof f.hasArchitect === "boolean") setHasArchitect(f.hasArchitect);
+    else if (source === "portfolio") setHasArchitect(true);
     if (f.architectComment) setArchitectHandoffNote(String(f.architectComment));
-  }, []);
+  }, [searchParams]);
 
   const runV0Generation = async () => {
     setV0Generating(true);
@@ -419,7 +424,7 @@ export default function BuildNewHome() {
         return;
       }
       setStepBlockError("");
-      setBuildFlow({ formSnapshot: form, v0: true });
+      setBuildFlow({ formSnapshot: form, v0: true, hasArchitect });
       setActiveStep(8);
       return;
     }
@@ -1559,6 +1564,46 @@ export default function BuildNewHome() {
               <strong>no charge</strong>, and we don&apos;t assign an architect here. This pack helps a professional understand vision,
               constraints, and numbers before they quote real drawings. Nothing moves to execution until you pull your team in from the project hub.
             </p>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                flexWrap: "wrap",
+                border: "1px solid #EEDCCB",
+                background: "#FFFBF7",
+                borderRadius: 12,
+                padding: "10px 12px",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ fontSize: 12, color: "#57534E", lineHeight: 1.45 }}>
+                <strong style={{ color: "#1C1917" }}>Architect status:</strong>{" "}
+                {hasArchitect
+                  ? "I already have an architect (continue handoff)."
+                  : "I need to find architects (use marketplace quotes)."}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setHasArchitect((v) => !v);
+                  setBuildFlow({ hasArchitect: !hasArchitect });
+                }}
+                style={{
+                  background: "#fff",
+                  border: "1.5px solid #D1C9BF",
+                  borderRadius: 8,
+                  padding: "7px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  color: "#3D3530",
+                }}
+              >
+                {hasArchitect ? "Need quotes instead" : "Already have architect"}
+              </button>
+            </div>
             {!v0Generated && !v0Generating && (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Run AI v0 (uses all wizard inputs)</div>
@@ -1601,7 +1646,9 @@ export default function BuildNewHome() {
                 </p>
                 <V0VisualBundleSections bundle={v0ImageBundle} />
                 <V0EstimateSection planBundle={v0PlanBundle} />
-                <ArchitectEngagementCallout onBrowseArchitects={() => navigate("/marketplace")} />
+                <ArchitectEngagementCallout
+                  onBrowseArchitects={hasArchitect ? undefined : () => navigate("/browse")}
+                />
               </>
             )}
           </>)}

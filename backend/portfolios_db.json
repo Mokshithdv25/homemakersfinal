@@ -1,0 +1,40 @@
+{
+  "ac443e34-738a-4908-a825-2eba4c331dd8": {
+    "id": "ac443e34-738a-4908-a825-2eba4c331dd8",
+    "craft": "architect",
+    "full_name": null,
+    "business_name": null,
+    "city": null,
+    "years_experience": null,
+    "phone": null,
+    "license_number": null,
+    "short_bio": null,
+    "specialties": [],
+    "photos": [],
+    "profile_strength": 25,
+    "step": 1,
+    "published": false,
+    "slug": null,
+    "created_at": "2026-04-22T18:52:15.229159+00:00",
+    "updated_at": "2026-04-22T18:52:15.229176+00:00"
+  },
+  "e6be0273-8418-468f-b910-78a2abe8ef26": {
+    "id": "e6be0273-8418-468f-b910-78a2abe8ef26",
+    "craft": "architect",
+    "full_name": null,
+    "business_name": null,
+    "city": null,
+    "years_experience": null,
+    "phone": null,
+    "license_number": null,
+    "short_bio": null,
+    "specialties": [],
+    "photos": [],
+    "profile_strength": 25,
+    "step": 1,
+    "published": false,
+    "slug": null,
+    "created_at": "2026-04-22T18:52:42.570346+00:00",
+    "updated_at": "2026-04-22T18:52:42.570384+00:00"
+  }
+}
