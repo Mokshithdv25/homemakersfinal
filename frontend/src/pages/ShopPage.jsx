@@ -38,7 +38,7 @@ const DEPARTMENTS = [
   {
     title: "Steel & reinforcement",
     tag: "Raw materials",
-    img: "https://images.unsplash.com/photo-1587293852727-8cdb82539fc7?w=600&q=75",
+    img: `${process.env.PUBLIC_URL || ""}/shop_steel.png`,
     blurb: "TMT bars, mesh, and structural steel — spec-linked to your estimate where possible.",
   },
   {
@@ -62,7 +62,7 @@ const DEPARTMENTS = [
   {
     title: "Flooring & cladding",
     tag: "Finishes",
-    img: "https://images.unsplash.com/photo-1615979310578-d96efcd53f75?w=600&q=75",
+    img: `${process.env.PUBLIC_URL || ""}/shop_flooring.png`,
     blurb: "Tiles, stone, laminate, and exterior cladding panels.",
   },
   {
