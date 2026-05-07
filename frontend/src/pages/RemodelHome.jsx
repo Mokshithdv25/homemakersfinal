@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { RemodelSpecView } from "../components/ArchitectBriefSpec";
@@ -16,13 +16,23 @@ import { HM_HEADER_BAR_CLASS, HM_TAGLINE_REMODEL } from "../lib/hmBrand";
 import VisionCaptureStep from "../components/VisionCaptureStep";
 
 const REMODEL_STEPS = [
-  { n: 1, title: "Vision & room", sub: "Words, photos, property & size" },
-  { n: 2, title: "Goals & constraints", sub: "Outcomes, budget & boundaries" },
-  { n: 3, title: "Style", sub: "Look, finish & colours" },
-  { n: 4, title: "Review", sub: "Confirm before AI v0" },
-  { n: 5, title: "AI v0", sub: "Free pack for your architect" },
-  { n: 6, title: "Architect & project", sub: "Spec & project hub" },
+  { n: 1, title: "Room and vision", sub: "Photos, property, size" },
+  { n: 2, title: "Goals", sub: "Budget and constraints" },
+  { n: 3, title: "Style", sub: "Materials and colour" },
+  { n: 4, title: "Review", sub: "Confirm brief" },
+  { n: 5, title: "AI v0", sub: "Concept pack" },
+  { n: 6, title: "Handoff", sub: "Architect brief" },
 ];
+
+const flowH1Style = {
+  fontFamily: "Georgia, 'Times New Roman', Times, serif",
+  fontSize: "clamp(1.35rem, 1.15rem + 0.5vw, 1.7rem)",
+  fontWeight: 400,
+  color: "#1C1917",
+  lineHeight: 1.3,
+  letterSpacing: "0",
+  margin: 0,
+};
 /** Nine remodel targets — aligned with new-home taxonomy (no maid room). */
 const REMODEL_ROOMS = [
   { label: "Living room", icon: "🛋️" },
@@ -120,13 +130,13 @@ function RightPanel({
       : "—";
   const dv = String(dreamVision ?? "").trim();
   const infoBox = step === 1
-    ? { icon:"✨", title:"Vision & room", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Words + photos in one step — fewer clicks","Voice or type for your vision","Rough size is enough for v0"], art:"✨🪴" }
+    ? { icon:"✨", title:"Room and vision", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Brief, photos, size in one step","Voice optional","Enough detail for a first pass"], art:"✨🪴" }
     : step === 2
-    ? { icon:"🎯", title:"Goals & guardrails", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Outcomes, budget, timeline, must-keeps together","Pros can price faster with less back-and-forth","Dealbreakers keep designs realistic"], art:"📋🪴" }
+    ? { icon:"🎯", title:"Goals", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Outcomes and budget together","Less back-and-forth with pros","Dealbreakers stay visible"], art:"📋🪴" }
     : step === 3
-    ? { icon:"✨", title:"Style layer", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Finishes and palette steer the concept","Stays within the budget you set","Guides AI render direction"], art:"🛏️🪴" }
+    ? { icon:"✨", title:"Style", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Style, materials, colours","Within the budget you set","Steers the concept"], art:"🛏️🪴" }
     : step === 4
-    ? { icon:"📋", title:"Review once", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Same readable spec your architect gets","Next: free AI v0","Real drawings = separate pro fee"], art:"✅🪴" }
+    ? { icon:"📋", title:"Review", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Same brief your architect sees","Then free AI v0","Working drawings: separate fee"], art:"✅🪴" }
     : step === 5
     ? { icon:"🤖", title:"Free v0", color:"#44403C", bg:"#FBF6F0", border:"#EEDCCB", items:["Indicative only — not sanction drawings","Share the pack to brief faster","Project hub for execution when you’re ready"], art:"💻🪴" }
     : step === 6
@@ -161,7 +171,7 @@ function RightPanel({
       {[
         ["Project Type","Remodel"],
         ["Location","Bengaluru, Karnataka"],
-        ["Your vision", dv ? `${dv.slice(0, 72)}${dv.length > 72 ? "…" : ""}` : "Capture on step 1"],
+        ["Brief", dv ? `${dv.slice(0, 72)}${dv.length > 72 ? "…" : ""}` : "Add on step 1"],
         ["Room", room],
         ["Property Type", ptype],
         ["Room Size", area>0?`${len} ft × ${breadth} ft (${area} sq ft)`:"Not added yet"],
@@ -231,10 +241,14 @@ function RightPanel({
 
 export default function RemodelHome() {
   const navigate = useNavigate();
+  const flowMainRef = useRef(null);
+  const photoUploadRef = useRef(null);
+  const styleUploadRef = useRef(null);
   const [step, setStep] = useState(1);
   const [dreamVision, setDreamVision] = useState(
     "Brighter living room with Scandinavian calm — warm oak accents, hidden storage for toys, and soft daylight. Keep the sofa; rethink the TV wall and ceiling."
   );
+  const [visionInspirationItems, setVisionInspirationItems] = useState([]);
   // Step 2 — capture space
   const [photos, setPhotos] = useState(DEMO_PHOTOS);
   const [ptype, setPtype] = useState("Apartment");
@@ -280,6 +294,43 @@ export default function RemodelHome() {
   const area = (parseInt(len)||0)*(parseInt(breadth)||0);
   const sel = (v) => ({ border:`2px solid ${v?OR:"#D1C9BF"}`, background:v?"#FBE5D4":"#fff", borderRadius:10, cursor:"pointer", padding:"12px 14px", textAlign:"center", color:v?OR:"#1C1917" });
 
+  const readImagesAsDataUrls = async (fileList) => {
+    const files = Array.from(fileList || []).filter((f) => /^image\//.test(f.type));
+    if (!files.length) return [];
+    return Promise.all(
+      files.slice(0, 8).map(
+        (file) =>
+          new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("read-failed"));
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+  };
+
+  const handleRoomPhotosUpload = async (ev) => {
+    try {
+      const encoded = await readImagesAsDataUrls(ev.target.files);
+      if (encoded.length) {
+        const mapped = encoded.map((url, i) => ({ url, label: `Upload ${photos.length + i + 1}` }));
+        setPhotos((prev) => [...prev, ...mapped]);
+      }
+    } finally {
+      ev.target.value = "";
+    }
+  };
+
+  const handleStyleImagesUpload = async (ev) => {
+    try {
+      const encoded = await readImagesAsDataUrls(ev.target.files);
+      if (encoded.length) setInspirationImgs((prev) => [...prev, ...encoded]);
+    } finally {
+      ev.target.value = "";
+    }
+  };
+
   useEffect(() => {
     const f = getRemodelFlow();
     setV0Generated(!!f.v0);
@@ -287,6 +338,14 @@ export default function RemodelHome() {
     if (f.v0Plan) setV0PlanBundle(f.v0Plan);
     if (f.architectComment) setArchitectHandoffNote(String(f.architectComment));
   }, []);
+
+  useEffect(() => {
+    const raf = window.requestAnimationFrame(() => {
+      flowMainRef.current?.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [step]);
 
   const remodelBriefPayload = () => ({
     flowWizard: "remodel_home",
@@ -312,6 +371,7 @@ export default function RemodelHome() {
     finishTier,
     colourBase,
     colourSecondary,
+    visionInspirationCount: visionInspirationItems.length,
     inspirationCount: inspirationImgs.length,
   });
 
@@ -440,6 +500,7 @@ export default function RemodelHome() {
         </aside>
 
         <main
+          ref={flowMainRef}
           style={{
             flex: 1,
             background: "#fff",
@@ -461,14 +522,14 @@ export default function RemodelHome() {
             Back
           </button>
 
-          {/* ═══ STEP 1 — Vision & room ═══ */}
+          {/* ═══ STEP 1 — Room and vision ═══ */}
           {step===1 && <>
             <div style={{ marginBottom: 8 }}>
-              <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-                Vision &amp; room
+              <h1 style={{ ...flowH1Style, marginBottom: 10 }}>
+                Room and vision
               </h1>
-              <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 20px", lineHeight: 1.6, maxWidth: 640 }}>
-                Your words first, then photos and rough size — everything ties back to this step for AI and your pro.
+              <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 18px", lineHeight: 1.55, maxWidth: 640 }}>
+                Your words, then photos and rough size.
               </p>
             </div>
             <VisionCaptureStep
@@ -476,14 +537,17 @@ export default function RemodelHome() {
               value={dreamVision}
               onChange={setDreamVision}
               placeholder="Describe your dream space in any language…"
+              inspirationItems={visionInspirationItems}
+              onInspirationItemsChange={setVisionInspirationItems}
+              inspirationLabel="Inspiration inputs"
             />
             <div style={{ marginTop: 28, paddingTop: 22, borderTop: "1px solid #EDE8E0" }}>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Photos &amp; room</span>
+              <span>Photos and room</span>
             </div>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 22px", lineHeight: 1.6, maxWidth: 640 }}>
-              Upload photos for <strong>one room at a time</strong>, then pick the space and rough size.
+            <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 18px", lineHeight: 1.55, maxWidth: 640 }}>
+              One room per pass, then space and size.
             </p>
 
             <div style={{ ...flowSection, background: "#FDFBF8", borderRadius: 16, padding: "22px 22px 8px", border: "1px solid #EFE3D2", marginBottom: 24 }}>
@@ -501,9 +565,10 @@ export default function RemodelHome() {
                     <div style={{ background:"rgba(255,255,255,0.95)", padding:"5px 10px", fontSize:11, fontWeight:600, color:"#5C5147" }}>{p.label}</div>
                   </div>
                 ))}
-                <div style={{ width:132, height:132, borderRadius:12, border:"1.5px dashed #C8B89E", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#7A6E62", gap:4, background:"#fff" }}>
+                <input ref={photoUploadRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleRoomPhotosUpload} />
+                <button type="button" onClick={() => photoUploadRef.current?.click?.()} style={{ width:132, height:132, borderRadius:12, border:"1.5px dashed #C8B89E", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#7A6E62", gap:4, background:"#fff" }}>
                   <span style={{ fontSize:26 }}>+</span><span style={{ fontSize:11, fontWeight:600, textAlign:"center" }}>Add photos</span>
-                </div>
+                </button>
               </div>
               <div style={{ display:"flex", flexWrap:"wrap", gap:12, fontSize:12, color:"#7A6E62", paddingTop: 4 }}>
                 <span>🌞 Natural light</span><span>📐 Corners</span><span>🪟 Openings</span>
@@ -565,11 +630,11 @@ export default function RemodelHome() {
 
           {/* ═══ STEP 2 — Goals & constraints ═══ */}
           {step===2 && <>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-              Goals &amp; constraints
+            <h1 style={{ ...flowH1Style, marginBottom: 12 }}>
+              Goals
             </h1>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 22px", lineHeight: 1.6, maxWidth: 640 }}>
-              Outcomes and pain points first — then budget, timeline, layout flexibility and dealbreakers on the same screen.
+            <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 20px", lineHeight: 1.55, maxWidth: 640 }}>
+              What you want fixed, budget, timeline, and boundaries.
             </p>
 
             <div style={flowSection}>
@@ -636,7 +701,7 @@ export default function RemodelHome() {
             <div style={{ marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <span style={{ fontSize: 18 }}>✏️</span>
-                <span style={{ fontWeight: 700, fontSize: 16 }}>Notes &amp; references</span>
+                <span style={{ fontWeight: 700, fontSize: 16 }}>Notes and references</span>
                 <span style={{ fontSize: 12, color: "#A8A29E" }}>(optional)</span>
               </div>
               <p style={{ fontSize: 13, color: "#5C5147", margin: "0 0 14px", lineHeight: 1.55, maxWidth: 640 }}>Anything you didn&apos;t already capture — mood, brands you like, or what must not change.</p>
@@ -659,7 +724,7 @@ export default function RemodelHome() {
             <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid #EDE8E0" }}>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Budget &amp; boundaries</span>
+              <span>Budget and boundaries</span>
             </div>
             <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 22px", lineHeight: 1.6, maxWidth: 640 }}>
               Budget band, timeline, layout flexibility, must-keeps and dealbreakers — in one pass.
@@ -821,16 +886,9 @@ export default function RemodelHome() {
 
           {/* ═══ STEP 3 — Style ═══ */}
           {step===3 && <>
-            <div className="craft-type-label mt-1 mb-4">
-              <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Choose style</span>
-            </div>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-              Look, materials & colour
+            <h1 style={{ ...flowH1Style, marginBottom: 18 }}>
+              Style
             </h1>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 28px", lineHeight: 1.6, maxWidth: 640 }}>
-              Select your preferred style and finish so designs match your taste.
-            </p>
 
             {/* Style cards */}
             <div style={{ ...cardStyle, border: "1px solid #E8E4DE", boxShadow: "0 2px 12px rgba(28,25,23,0.04)" }}>
@@ -864,7 +922,7 @@ export default function RemodelHome() {
 
             {/* Material finish */}
             <div style={{ ...cardStyle, border: "1px solid #E8E4DE", boxShadow: "none" }}>
-              <div style={{ fontWeight:700, fontSize:15, marginBottom:14 }}>2. Choose your material &amp; finish preference</div>
+              <div style={{ fontWeight:700, fontSize:15, marginBottom:14 }}>2. Materials and finish</div>
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:12 }}>
                 {[
                   { v:"Budget Friendly", icon:"💼", sub:"Practical and durable materials that are easy on the budget." },
@@ -900,7 +958,7 @@ export default function RemodelHome() {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginBottom: 12 }}>
                 {[
-                  { title: "Primary / main", key: "base", state: colourBase, set: setColourBase, hint: "Walls & large fields" },
+                  { title: "Primary / main", key: "base", state: colourBase, set: setColourBase, hint: "Walls and large fields" },
                   { title: "Secondary / accent", key: "sec", state: colourSecondary, set: setColourSecondary, hint: "Trims, feature wall, wood tones" },
                 ].map((slot) => (
                   <div key={slot.key}>
@@ -940,11 +998,12 @@ export default function RemodelHome() {
               <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>4. Add inspiration images <span style={{ fontWeight:400, color:"#7A6E62" }}>(optional)</span></div>
               <div style={{ fontSize:13, color:"#7A6E62", marginBottom:14 }}>Upload images that you like. This helps us understand your taste better.</div>
               <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-                <div style={{ width:120, height:90, borderRadius:10, border:"1.5px dashed #C8B89E", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#7A6E62", gap:4 }}>
+                <input ref={styleUploadRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleStyleImagesUpload} />
+                <button type="button" onClick={() => styleUploadRef.current?.click?.()} style={{ width:120, height:90, borderRadius:10, border:"1.5px dashed #C8B89E", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#7A6E62", gap:4, background:"#fff" }}>
                   <span style={{ fontSize:24 }}>+</span>
                   <div style={{ fontSize:11, fontWeight:600, textAlign:"center" }}>Upload Images</div>
                   <div style={{ fontSize:9, color:"#9A8F87", textAlign:"center" }}>JPG, PNG up to 10MB each</div>
-                </div>
+                </button>
                 {inspirationImgs.map((img,i) => (
                   <div key={i} style={{ position:"relative", borderRadius:10, overflow:"hidden" }}>
                     <img src={img} alt="" style={{ width:120, height:90, objectFit:"cover", display:"block" }}/>
@@ -957,20 +1016,12 @@ export default function RemodelHome() {
 
           {/* ═══ STEP 4 — Review ═══ */}
           {step===4 && <>
-            <div className="craft-type-label mt-1 mb-4">
-              <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Review</span>
-            </div>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-2">
-              Review your remodel brief
+            <h1 style={{ ...flowH1Style, marginBottom: 18 }}>
+              Review
             </h1>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 20px", lineHeight: 1.6, maxWidth: 640 }}>
-              The architect will see the <strong>same</strong> inputs: photos, room, goals, pain points, budget, and style. Next you&rsquo;ll
-              run a <strong>free</strong> AI v0 so they can read vision and constraints quickly. Real drawings and fees are between you and the pro you choose — execution stays in the project hub when you&rsquo;re ready.
-            </p>
             <div style={{ ...cardStyle, maxWidth: 640 }}>
               <div style={{ padding: "8px 0 12px", borderBottom: "1px solid #F0EBE3" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#78716C", marginBottom: 6 }}>Your vision</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#78716C", marginBottom: 6 }}>Brief</div>
                 <div style={{ fontSize: 13, color: "#1C1917", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{String(dreamVision ?? "").trim() || "—"}</div>
               </div>
               {[
@@ -995,16 +1046,11 @@ export default function RemodelHome() {
 
           {/* ═══ STEP 5 — AI v0 ═══ */}
           {step===5 && <>
-            <div className="craft-type-label mt-1 mb-4">
-              <span style={{ color: "#C85F2B" }}>●</span>
-              <span>AI v0</span>
-            </div>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-2">
-              Free AI v0 — briefing pack for your architect
+            <h1 style={{ ...flowH1Style, marginBottom: 12 }}>
+              AI concepts (v0)
             </h1>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 18px", lineHeight: 1.6, maxWidth: 640 }}>
-              Generate an indicative <strong>version 0</strong> estimate and concept from your <strong>complete</strong> brief — no charge.
-              No architect is assigned here; you share this pack so they understand you before they quote working drawings. Execution stays in the project hub when you&rsquo;re ready.
+            <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 18px", lineHeight: 1.55, maxWidth: 640 }}>
+              Indicative estimate and visuals from your brief. No architect assigned here — share with your pro before working drawings.
             </p>
             {!v0Generated && !v0Generating && (
               <div style={{ marginBottom: 20 }}>
@@ -1017,7 +1063,7 @@ export default function RemodelHome() {
               <div style={{ padding: "24px 18px", textAlign: "center", background: "#FFFBF7", border: "1px solid #EEDCCB", borderRadius: 14, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Running v0…</div>
                 <div style={{ fontSize: 12, color: "#7A6E62", lineHeight: 1.55 }}>
-                  Image API first, then estimate &amp; project skeleton (second API). Separate keys on the server.
+                  Image API first, then estimate and project skeleton (second API). Separate keys on the server.
                 </div>
               </div>
             )}
@@ -1025,7 +1071,7 @@ export default function RemodelHome() {
             {v0Generated && (<>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexWrap:"wrap", gap:16 }}>
               <div>
-                <h2 className="font-serif-display text-2xl font-medium text-[#1C1917] m-0 mb-2">
+                <h2 style={{ ...flowH1Style, fontSize: "1.25rem", marginBottom: 8 }}>
                   Your v0 concept is ready
                 </h2>
                 <p style={{ fontSize: 14, color: "#57534E", margin: 0, lineHeight: 1.6, maxWidth: 520 }}>
@@ -1145,18 +1191,13 @@ export default function RemodelHome() {
             </>)}
           </>}
 
-          {/* ═══ STEP 6 — Architect & project hub ═══ */}
+          {/* ═══ STEP 6 — Handoff ═══ */}
           {step===6 && <>
-            <div className="craft-type-label mt-1 mb-4">
-              <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Handoff</span>
-            </div>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-2">
-              Project spec for your architect
+            <h1 style={{ ...flowH1Style, marginBottom: 12 }}>
+              Handoff
             </h1>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 16px", lineHeight: 1.6, maxWidth: 640 }}>
-              The same <strong>readable brief</strong> you see is what you send your professional — vision, constraints, budget band, and style.
-              They quote and produce working drawings on their terms; this isn&apos;t a code dump.
+            <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 16px", lineHeight: 1.55, maxWidth: 640 }}>
+              Same brief you see — constraints, budget band, style. Fees and drawings stay between you and your architect.
             </p>
             <div style={{ background: "#F7F3EE", border: "1px solid #E6DFD3", borderRadius: 12, padding: 16, marginBottom: 16, maxHeight: 420, overflow: "auto" }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#44403C", marginBottom: 10 }}>Shared remodel specification</div>

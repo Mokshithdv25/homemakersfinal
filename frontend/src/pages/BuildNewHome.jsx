@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { BuildNewHomeSpecView } from "../components/ArchitectBriefSpec";
@@ -16,13 +16,24 @@ import { HM_HEADER_BAR_CLASS, HM_TAGLINE_NEW_HOME } from "../lib/hmBrand";
 import VisionCaptureStep from "../components/VisionCaptureStep";
 
 const STEPS = [
-  { n: 1, title: "Vision & site", sub: "Your words, location & plot", icon: "✨" },
-  { n: 2, title: "Home & layout", sub: "Rooms, floors, vastu & services", icon: "🛋️" },
-  { n: 3, title: "Look & budget", sub: "Style, materials, cost & timeline", icon: "🎨" },
-  { n: 4, title: "Review", sub: "Confirm then run free AI v0", icon: "📋" },
-  { n: 5, title: "AI v0", sub: "Free pack for your architect", icon: "✨" },
-  { n: 6, title: "Architect & project", sub: "Spec handoff & project hub", icon: "🤝" },
+  { n: 1, title: "Site and vision", sub: "Location, plot, brief", icon: "✨" },
+  { n: 2, title: "Layout", sub: "Rooms, floors, services", icon: "🛋️" },
+  { n: 3, title: "Style and budget", sub: "Materials, cost, timeline", icon: "🎨" },
+  { n: 4, title: "Review", sub: "Confirm before AI", icon: "📋" },
+  { n: 5, title: "AI v0", sub: "Concept pack", icon: "✨" },
+  { n: 6, title: "Handoff", sub: "Architect brief", icon: "🤝" },
 ];
+
+/** Traditional serif, restrained weight — avoids heavy display styling */
+const flowH1Style = {
+  fontFamily: "Georgia, 'Times New Roman', Times, serif",
+  fontSize: "clamp(1.35rem, 1.15rem + 0.5vw, 1.7rem)",
+  fontWeight: 400,
+  color: "#1C1917",
+  lineHeight: 1.3,
+  letterSpacing: "0",
+  margin: 0,
+};
 
 const RULES = [
   { label: "Front Setback", value: "10 ft" },
@@ -307,6 +318,7 @@ const EXTERIOR_OPTION_TILES = [
 
 export default function BuildNewHome() {
   const navigate = useNavigate();
+  const flowMainRef = useRef(null);
   const [searchParams] = useSearchParams();
   const [activeStep, setActiveStep] = useState(1);
   const [v0Generated, setV0Generated] = useState(false);
@@ -318,6 +330,7 @@ export default function BuildNewHome() {
   const [form, setForm] = useState({
     dreamVision:
       "Warm modern Indian home with lots of daylight, open kitchen–dining, and a calm terrace for evenings. Elder-friendly ground floor and quiet study space for kids.",
+    inspirationItems: [],
     location: "Bengaluru, Karnataka",
     dimW: "40", dimL: "60",
     facing: "North", roadAccess: "1 Side",
@@ -382,6 +395,22 @@ export default function BuildNewHome() {
     else if (source === "portfolio") setHasArchitect(true);
     if (f.architectComment) setArchitectHandoffNote(String(f.architectComment));
   }, [searchParams]);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Use instant behavior to prevent scroll interruption
+      if (flowMainRef.current) {
+        if (typeof flowMainRef.current.scrollTo === "function") {
+          flowMainRef.current.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        }
+        flowMainRef.current.scrollTop = 0;
+      }
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }, 50);
+    return () => clearTimeout(timeoutId);
+  }, [activeStep]);
 
   const runV0Generation = async () => {
     setV0Generating(true);
@@ -693,6 +722,7 @@ export default function BuildNewHome() {
         </aside>
 
         <main
+          ref={flowMainRef}
           style={{
             flex: 1,
             background: "#fff",
@@ -714,14 +744,14 @@ export default function BuildNewHome() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m15 18-6-6 6-6"/></svg> Back
           </button>
 
-          {/* ─── STEP 1 — Vision & site ─── */}
+          {/* ─── STEP 1 — Site and vision ─── */}
           {activeStep === 1 && (<>
             <div style={{ marginBottom: 8 }}>
-              <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-                Vision &amp; site
+              <h1 style={{ ...flowH1Style, marginBottom: 10 }}>
+                Site and vision
               </h1>
-              <p style={{ fontSize: 14, color: "#6A5E53", margin: 0, lineHeight: 1.65, maxWidth: 560 }}>
-                Start with how you want to live, then lock location and plot — both stay on your brief for AI and your architect.
+              <p style={{ fontSize: 13, color: "#6A5E53", margin: 0, lineHeight: 1.55, maxWidth: 560 }}>
+                Where you&apos;re building and what you want in your own words.
               </p>
             </div>
             <VisionCaptureStep
@@ -729,11 +759,14 @@ export default function BuildNewHome() {
               value={form.dreamVision}
               onChange={(v) => set("dreamVision", v)}
               minChars={30}
+              inspirationItems={form.inspirationItems}
+              onInspirationItemsChange={(items) => set("inspirationItems", items)}
+              inspirationLabel="Inspiration inputs"
             />
             <div style={{ marginTop: 28, paddingTop: 22, borderTop: "1px solid #EDE8E0" }}>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Plot &amp; location</span>
+              <span>Plot and location</span>
             </div>
             <div style={{ marginBottom: 18 }}>
               <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6, color: "#44403C" }}>
@@ -799,20 +832,20 @@ export default function BuildNewHome() {
             </div>
           </>)}
 
-          {/* ─── STEP 2 — Home & layout ─── */}
+          {/* ─── STEP 2 — Layout ─── */}
           {activeStep === 2 && (<>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-              Home &amp; layout
+            <h1 style={{ ...flowH1Style, marginBottom: 12 }}>
+              Layout
             </h1>
-            <p style={{ fontSize: 14, color: "#57534E", margin: "0 0 28px", lineHeight: 1.6, maxWidth: 640 }}>
-              How you live, room counts, then structure and services — one scroll, fewer step clicks.
+            <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 24px", lineHeight: 1.55, maxWidth: 640 }}>
+              Family, rooms, then structure and services.
             </p>
 
             {/* Family & Lifestyle — open layout (no enclosing card) */}
             <div style={{ marginBottom: 8, paddingBottom: 28, borderBottom: "1px solid #EDE8E0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
                 <span style={{ fontSize: 18, lineHeight: 1 }}>👨‍👩‍👧‍👦</span>
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#1C1917", letterSpacing: "-0.02em" }}>Family &amp; Lifestyle</span>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#1C1917", letterSpacing: "-0.02em" }}>Family and lifestyle</span>
               </div>
               <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
                 <div style={{ width: 168, flexShrink: 0 }}>
@@ -822,14 +855,14 @@ export default function BuildNewHome() {
                   <div style={{ display: "flex", justifyContent: "flex-start" }}>
                     <Stepper value={form.familyMembers} onChange={(v) => set("familyMembers", v)} min={0} max={STEPPER_UNBOUNDED} />
                   </div>
-                  <div style={{ fontSize: 10, color: "#A8A29E", marginTop: 8, lineHeight: 1.4 }}>Including kids &amp; elders</div>
+                  <div style={{ fontSize: 10, color: "#A8A29E", marginTop: 8, lineHeight: 1.4 }}>Including kids and elders</div>
                 </div>
                 <div style={{ flex: "1 1 260px", minWidth: 0 }}>
                   <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 6, color: "#78716C", letterSpacing: "0.06em" }}>
                     LIFESTYLE PRIORITIES <span style={{ fontWeight: 500, color: "#A8A29E" }}>(required · select all that apply)</span>
                   </label>
                   <div style={{ fontSize: 11, color: "#A8A29E", marginBottom: 12, lineHeight: 1.5 }}>
-                    Family headcount is on the left (kids &amp; elders included there). These tags only describe lifestyle and design direction—each appears once.
+                    Family headcount is on the left (kids and elders included there). These tags only describe lifestyle and design direction—each appears once.
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {LIFESTYLE_OPTIONS.map((o) => {
@@ -862,7 +895,7 @@ export default function BuildNewHome() {
             {/* Major rooms — one aligned grid (typical Indian home spaces; no duplicate outdoor rows) */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, marginTop: 8 }}>
               <span style={{ fontSize: 17, lineHeight: 1 }}>🏠</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#1C1917", letterSpacing: "-0.02em" }}>Major rooms &amp; spaces</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#1C1917", letterSpacing: "-0.02em" }}>Major rooms</span>
             </div>
             <div style={{ fontSize: 11, color: "#A8A29E", marginBottom: 14, lineHeight: 1.45, maxWidth: 720 }}>
               Count each space once: master vs other bedrooms, common vs attached baths, utility vs storage. At least one major space must be non-zero (parking below can stay at zero).
@@ -936,7 +969,7 @@ export default function BuildNewHome() {
             <div style={{ marginTop: 36, paddingTop: 28, borderTop: "1px solid #EDE8E0" }}>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Structure &amp; services</span>
+              <span>Structure and services</span>
             </div>
             <p style={{ fontSize: 14, color: "#6A5E53", margin: "0 0 24px", lineHeight: 1.6, maxWidth: 560 }}>
               Floors, footprint, circulation and utilities — tuned for {form.location.split(",")[0]}.
@@ -970,7 +1003,7 @@ export default function BuildNewHome() {
             <div style={{ marginBottom: 32, paddingBottom: 28, borderBottom: "1px solid #EDE8E0" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 18 }}>📐</span>
-                <span style={{ fontWeight: 700, fontSize: 15, color: "#1C1917" }}>Built-up &amp; open space</span>
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#1C1917" }}>Built-up and open space</span>
               </div>
               <div style={{ fontSize: 12, color: "#A8A29E", marginBottom: 18 }}>
                 One slider sets both: higher built-up means less open land for parking, garden and setbacks. The icon hints at the balance.
@@ -1081,7 +1114,7 @@ export default function BuildNewHome() {
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 18 }}>✨</span>
-                <span style={{ fontWeight: 700, fontSize: 15, color: "#1C1917" }}>Vastu &amp; services</span>
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#1C1917" }}>Vastu and services</span>
               </div>
               <div style={{ fontSize: 12, color: "#A8A29E", marginBottom: 14 }}>
                 Maid / staff and pooja are set in rooms above. Set vastu rigidity and overhead tank here.
@@ -1126,19 +1159,19 @@ export default function BuildNewHome() {
             </div>
           </>)}
 
-          {/* ─── STEP 3 — Look & budget ─── */}
+          {/* ─── STEP 3 — Style and budget ─── */}
           {activeStep === 3 && (<>
-            <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0 mb-3">
-              Look &amp; budget
+            <h1 style={{ ...flowH1Style, marginBottom: 12 }}>
+              Style and budget
             </h1>
-            <p style={{ fontSize: 14, color: "#5C5147", marginBottom: 28, lineHeight: 1.6 }}>
-              Style, materials and colours — then construction budget and timeline so estimates stay realistic.
+            <p style={{ fontSize: 13, color: "#5C5147", marginBottom: 22, lineHeight: 1.55 }}>
+              Style, materials, colour, then budget and timeline.
             </p>
 
             {/* Architectural Style */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <span style={{ fontSize: 18 }}>🏡</span>
-              <span style={{ fontWeight: 700, fontSize: 16 }}>Choose Your Architectural Style</span>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>Architectural style</span>
             </div>
             <div style={{ fontSize: 13, color: "#7A6E62", marginBottom: 14 }}>
               Pick a direction—if you choose Traditional, we&apos;ll narrow to Kerala, Chettinad or Rajasthani below.
@@ -1227,7 +1260,7 @@ export default function BuildNewHome() {
             {/* Material & Finish Preference */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <span style={{ fontSize: 18 }}>🏗️</span>
-              <span style={{ fontWeight: 700, fontSize: 16 }}>Material &amp; Finish Preference</span>
+              <span style={{ fontWeight: 700, fontSize: 16 }}>Materials and finish</span>
             </div>
             <div style={{ fontSize: 13, color: "#7A6E62", marginBottom: 10 }}>Quality level — affects look, durability and cost estimate.</div>
             <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: 6 }}>
@@ -1327,7 +1360,7 @@ export default function BuildNewHome() {
             <div style={{ marginTop: 36, paddingTop: 28, borderTop: "1px solid #EDE8E0" }}>
             <div className="craft-type-label mt-1 mb-4">
               <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Budget &amp; timeline</span>
+              <span>Budget and timeline</span>
             </div>
             <p style={{ fontSize: 14, color: "#5C5147", marginBottom: 24, lineHeight: 1.6, maxWidth: 560 }}>
               All-in construction band, schedule, and how you found us — keeps v0 estimates and handoff grounded.
@@ -1502,30 +1535,18 @@ export default function BuildNewHome() {
 
           {/* ─── STEP 4 — Review ─── */}
           {activeStep === 4 && (<>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 28 }}>✨</span>
-              <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0">
-                Review &amp; generate v0 designs
-              </h1>
-            </div>
-            <p style={{ fontSize: 14, color: "#5C5147", marginBottom: 20, lineHeight: 1.6 }}>
-              We’ve captured <strong>every</strong> input and option. Next, you’ll run a <strong>free</strong> AI v0 — indicative designs and
-              estimate — so an architect can see your vision and constraints clearly. Real floor plans and sanction-grade work are quoted by the professional you choose.
-            </p>
-
-            <div style={{ fontSize: 13, color: "#57534E", marginBottom: 22, lineHeight: 1.55, paddingBottom: 16, borderBottom: "1px solid #EDE8E0" }}>
-              On the next step you can generate up to <strong>3</strong> first-pass directions at <strong>no charge</strong>. Share that pack with
-              pros so they brief faster — nothing moves to site execution until you&apos;re ready in the project hub.
-            </div>
+            <h1 style={{ ...flowH1Style, marginBottom: 20 }}>
+              Review
+            </h1>
 
             {/* Design Preferences Summary */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>✨ Your Design Preferences (Summary)</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Summary</div>
               <button type="button" onClick={() => { setStepBlockError(""); setActiveStep(1); }} style={{ background: "#fff", border: "1.5px solid #D1C9BF", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", color: "#3D3530" }}>Edit All</button>
             </div>
             <div style={{ marginBottom: 24, paddingBottom: 8, borderBottom: "1px solid #EDE8E0" }}>
               <div style={{ padding: "10px 0 14px", borderBottom: "1px solid #F5F0EA" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#78716C", marginBottom: 6 }}>Your vision</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#78716C", marginBottom: 6 }}>Brief</div>
                 <div style={{ fontSize: 13, color: "#1C1917", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{String(form.dreamVision ?? "").trim() || "—"}</div>
               </div>
               {[
@@ -1534,8 +1555,9 @@ export default function BuildNewHome() {
                 ["Floors", form.floors],
                 ["Facing", form.facing],
                 ["Vastu", `${form.vastu} preference`],
+                ["Inspiration", `${(form.inspirationItems || []).filter((x) => x?.type === "image").length} images · ${(form.inspirationItems || []).filter((x) => x?.type === "link").length} links`],
                 ["Budget", budgetSingleLabel(form)],
-                ["Look & materials", `${archResolved} · ${form.finishTier}`],
+                ["Look and materials", `${archResolved} · ${form.finishTier}`],
                 ["Timeline", form.completionTime],
               ].map(([k, v], i) => (
                 <div key={k} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "8px 0", borderTop: i === 0 ? "none" : "1px solid #F5F0EA", fontSize: 13 }}>
@@ -1547,7 +1569,7 @@ export default function BuildNewHome() {
 
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Each design option includes</div>
             <div style={{ fontSize: 13, color: "#57534E", lineHeight: 1.65, marginBottom: 24 }}>
-              Floor plans · 3D exteriors &amp; interiors · Elevations · Cost estimate with breakup (indicative for {form.location.split(",")[0]}).
+              Floor plans · 3D exteriors and interiors · Elevations · Cost estimate with breakup (indicative for {form.location.split(",")[0]}).
             </div>
 
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Before you generate</div>
@@ -1564,16 +1586,11 @@ export default function BuildNewHome() {
           </>)}
 
           {activeStep === 5 && (<>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 28 }}>✨</span>
-              <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0">
-                Free AI v0 — send the pack to your architect
-              </h1>
-            </div>
-            <p style={{ fontSize: 14, color: "#5C5147", marginBottom: 18, lineHeight: 1.6, maxWidth: 640 }}>
-              Generate an indicative <strong>version 0</strong> estimate and design directions from your <strong>complete</strong> brief —{" "}
-              <strong>no charge</strong>, and we don&apos;t assign an architect here. This pack helps a professional understand vision,
-              constraints, and numbers before they quote real drawings. Nothing moves to execution until you pull your team in from the project hub.
+            <h1 style={{ ...flowH1Style, marginBottom: 12 }}>
+              AI concepts (v0)
+            </h1>
+            <p style={{ fontSize: 13, color: "#5C5147", marginBottom: 18, lineHeight: 1.55, maxWidth: 640 }}>
+              Indicative estimate and directions from your brief — free here. No architect assigned; share with your pro before working drawings.
             </p>
             <div
               style={{
@@ -1634,7 +1651,7 @@ export default function BuildNewHome() {
               <div style={{ padding: "28px 20px", textAlign: "center", background: "#FFFBF7", border: "1px solid #EEDCCB", borderRadius: 14, marginBottom: 20 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#1C1917", marginBottom: 6 }}>Running v0…</div>
                 <div style={{ fontSize: 12, color: "#7A6E62", lineHeight: 1.55 }}>
-                  Step 1 — image directions (image API). Step 2 — estimate &amp; project skeleton (plan API). Separate keys on the server.
+                  Step 1 — image directions (image API). Step 2 — estimate and project skeleton (plan API). Separate keys on the server.
                 </div>
               </div>
             )}
@@ -1665,15 +1682,11 @@ export default function BuildNewHome() {
           </>)}
 
           {activeStep === 6 && (<>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-              <span style={{ fontSize: 28 }}>🤝</span>
-              <h1 className="font-serif-display text-3xl md:text-[2.25rem] font-medium text-[#1C1917] tracking-tight leading-tight m-0">
-                Project spec for your architect
-              </h1>
-            </div>
-            <p style={{ fontSize: 14, color: "#5C5147", marginBottom: 16, lineHeight: 1.6, maxWidth: 640 }}>
-              This is the same <strong>readable brief</strong> you and your architect work from — not a raw code dump. It matches what you
-              entered in the wizard (plus your v0 context from the last step). Working drawings and fees are agreed with your professional separately.
+            <h1 style={{ ...flowH1Style, marginBottom: 12 }}>
+              Handoff
+            </h1>
+            <p style={{ fontSize: 13, color: "#5C5147", marginBottom: 16, lineHeight: 1.55, maxWidth: 640 }}>
+              One brief from your answers and v0. Fees and working drawings stay between you and your architect.
             </p>
             <div style={{ background: "#F7F3EE", border: "1px solid #E6DFD3", borderRadius: 12, padding: 16, marginBottom: 16, maxHeight: 420, overflow: "auto" }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "#44403C", marginBottom: 10 }}>Shared project specification</div>
@@ -1763,7 +1776,7 @@ export default function BuildNewHome() {
             <div style={{ padding: "16px 18px 20px", marginTop: 0 }}>
           {activeStep === 1 && (
             <div style={{ marginBottom: 16, paddingBottom: 14, borderBottom: "1px solid #EDE8E0" }}>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Your vision</div>
+              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Brief</div>
               <div style={{ fontSize: 12, color: "#5C5147", lineHeight: 1.45, marginBottom: 12 }}>
                 {(form.dreamVision || "").trim().slice(0, 200)}
                 {(form.dreamVision || "").trim().length > 200 ? "…" : ""}
@@ -1836,7 +1849,7 @@ export default function BuildNewHome() {
                 <button type="button" onClick={() => { setStepBlockError(""); setActiveStep(1); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#C85F2B", fontSize: 12, fontWeight: 600 }}>✏️ Edit</button>
               </div>
               <div style={{ marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #F0EBE3" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#7A6E62", marginBottom: 4 }}>Vision</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#7A6E62", marginBottom: 4 }}>Brief</div>
                 <div style={{ fontSize: 12, color: "#44403C", lineHeight: 1.45 }}>
                   {(form.dreamVision || "").trim().slice(0, 160)}
                   {(form.dreamVision || "").trim().length > 160 ? "…" : ""}
@@ -1880,7 +1893,7 @@ export default function BuildNewHome() {
           {activeStep === 3 && (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>Look &amp; budget</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Style and budget</div>
                 <button type="button" onClick={() => { setStepBlockError(""); setActiveStep(3); }} style={{ background: "none", border: "none", cursor: "pointer", color: "#C85F2B", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>✏️ Edit</button>
               </div>
               <div style={{ fontSize: 12, color: "#78716C", lineHeight: 1.55, marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid #EDE8E0" }}>
@@ -1923,9 +1936,9 @@ export default function BuildNewHome() {
               </div>
               <div style={{ fontSize: 12, color: "#78716C", lineHeight: 1.55 }}>
                 {activeStep === 1
-                  ? "Vision plus plot in one pass — fewer hops, same brief quality for AI and your architect."
+                  ? "Plot and brief together so AI and your architect see one story."
                   : activeStep === 2
-                  ? "Who lives here and how floors/circulation work drive cost and light — we ask once, together."
+                  ? "Who lives here and how floors work drive cost and light — asked once."
                   : ""}
               </div>
             </div>
@@ -1938,8 +1951,8 @@ export default function BuildNewHome() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>Next</div>
                 <div style={{ fontSize: 12, color: "#5C5147", lineHeight: 1.5 }}>
-                  {activeStep === 1 && "Home & layout: rooms, floors, vastu, parking."}
-                  {activeStep === 2 && "Look & budget: style, materials, colours, construction budget & timeline."}
+                  {activeStep === 1 && "Layout: rooms, floors, vastu, parking."}
+                  {activeStep === 2 && "Style and budget: materials, colours, construction band and timeline."}
                   {activeStep === 3 && ""}
                 </div>
               </div>

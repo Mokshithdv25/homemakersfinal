@@ -1,5 +1,7 @@
 import "@/App.css";
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import SignInPage from "./pages/SignInPage";
 import CraftSelection from "./pages/CraftSelection";
@@ -19,10 +21,40 @@ import TeamPage from "./pages/TeamPage";
 import StageDashboard from "./pages/StageDashboard";
 import ProDashboard from "./pages/ProDashboard";
 
+function ScrollToTopOnRouteChange() {
+  const { pathname, search, hash } = useLocation();
+
+  useEffect(() => {
+    // A setTimeout ensures this runs after the new page component renders and the DOM is updated
+    const timeoutId = setTimeout(() => {
+      // 1. Reset window scroll
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+
+      // 2. Reset any custom scroll containers (main, custom root, or tailwind overflow containers)
+      const scrollers = document.querySelectorAll("main, [data-scroll-root], .overflow-y-auto, .overflow-auto");
+      scrollers.forEach((el) => {
+        if (el && typeof el.scrollTo === "function") {
+          el.scrollTo({ top: 0, left: 0, behavior: "auto" });
+        } else if (el) {
+          el.scrollTop = 0;
+          el.scrollLeft = 0;
+        }
+      });
+    }, 50);
+
+    return () => clearTimeout(timeoutId);
+  }, [pathname, search, hash]);
+
+  return null;
+}
+
 function App() {
   return (
     <div className="App">
       <BrowserRouter>
+        <ScrollToTopOnRouteChange />
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/sign-in" element={<SignInPage />} />
