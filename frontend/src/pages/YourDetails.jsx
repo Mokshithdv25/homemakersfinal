@@ -5,6 +5,13 @@ import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import { findCraft } from "../lib/crafts";
 import {
+  getPortfolioBase,
+  getPortfolioMedia,
+  migrateLegacyPortfolioMedia,
+  setPortfolioBase,
+  setPortfolioMedia,
+} from "../lib/portfolioStorage";
+import {
   ArrowLeft,
   ArrowRight,
   User,
@@ -25,6 +32,7 @@ import {
 
 const MAX_COVER_BYTES = 5 * 1024 * 1024;
 const MAX_PROFILE_BYTES = 3 * 1024 * 1024;
+const MAX_MEDIA_CHARS = 3_200_000;
 
 function readImageDataUrl(file, maxBytes) {
   return new Promise((resolve, reject) => {
@@ -38,6 +46,34 @@ function readImageDataUrl(file, maxBytes) {
     }
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function optimizeImageDataUrl(file, { maxW = 1280, maxH = 720, quality = 0.72 } = {}) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Could not process image."));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("Could not process image."));
+      img.src = String(reader.result || "");
+    };
     reader.onerror = () => reject(new Error("Could not read file."));
     reader.readAsDataURL(file);
   });
@@ -81,8 +117,9 @@ export default function YourDetails() {
     }
     setPortfolioId(pid);
 
-    // Load from localStorage — no backend needed
-    const saved = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
+    migrateLegacyPortfolioMedia(pid);
+    const saved = getPortfolioBase();
+    const media = getPortfolioMedia(pid);
     const craft = saved.craft || localStorage.getItem("hm_craft") || "";
     setCraftId(craft);
     setCraftDetails(findCraft(craft));
@@ -97,8 +134,8 @@ export default function YourDetails() {
       license_number: saved.license_number || "",
       short_bio: saved.short_bio || "",
       specialties: saved.specialties || [],
-      cover_photo: saved.cover_photo || "",
-      profile_photo: saved.profile_photo || "",
+      cover_photo: media.cover_photo || "",
+      profile_photo: media.profile_photo || "",
     });
     setLoading(false);
   }, [navigate]);
@@ -112,7 +149,11 @@ export default function YourDetails() {
     e.target.value = "";
     if (!file) return;
     try {
-      const url = await readImageDataUrl(file, MAX_COVER_BYTES);
+      await readImageDataUrl(file, MAX_COVER_BYTES);
+      const url = await optimizeImageDataUrl(file, { maxW: 1600, maxH: 900, quality: 0.72 });
+      if (url.length > MAX_MEDIA_CHARS / 2) {
+        throw new Error("Cover image is still too large after optimization. Try a smaller image.");
+      }
       setForm((prev) => ({ ...prev, cover_photo: url }));
       setError(null);
     } catch (err) {
@@ -125,7 +166,8 @@ export default function YourDetails() {
     e.target.value = "";
     if (!file) return;
     try {
-      const url = await readImageDataUrl(file, MAX_PROFILE_BYTES);
+      await readImageDataUrl(file, MAX_PROFILE_BYTES);
+      const url = await optimizeImageDataUrl(file, { maxW: 640, maxH: 640, quality: 0.76 });
       setForm((prev) => ({ ...prev, profile_photo: url }));
       setError(null);
     } catch (err) {
@@ -145,10 +187,24 @@ export default function YourDetails() {
   };
 
   const handleSave = (nextRoute) => {
-    // Merge into localStorage portfolio
-    const saved = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
-    const updated = { ...saved, ...form, step: 2, profile_strength: 50 };
-    localStorage.setItem("hm_portfolio", JSON.stringify(updated));
+    const saved = getPortfolioBase();
+    const mediaPayload = {
+      cover_photo: form.cover_photo || "",
+      profile_photo: form.profile_photo || "",
+      photos: getPortfolioMedia(portfolioId).photos || [],
+    };
+    setPortfolioMedia(portfolioId, mediaPayload);
+
+    const { cover_photo, profile_photo, photos, ...nonMediaForm } = form;
+    const { photos: _p, cover_photo: _c, profile_photo: _pp, ...savedNoMedia } = saved;
+    const updated = { ...savedNoMedia, ...nonMediaForm, step: 2, profile_strength: 50 };
+    try {
+      setPortfolioBase(updated);
+      setError(null);
+    } catch {
+      setError("Storage is full in this browser. Remove some photos and try again.");
+      return;
+    }
     if (nextRoute) {
       navigate(nextRoute);
     } else {

@@ -1,6 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { findCraft } from "../lib/crafts";
+import {
+  getPortfolioBase,
+  getPortfolioMedia,
+  migrateLegacyPortfolioMedia,
+} from "../lib/portfolioStorage";
 
 /* ── Specialty SVG icons ── */
 const SPEC_SVG = {
@@ -15,43 +20,7 @@ const SPEC_SVG = {
   default:               <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><circle cx="16" cy="16" r="10"/><path d="M12 16l3 3 5-5"/></svg>,
 };
 
-/* ── Craft-specific placeholder work photos from Unsplash ── */
-const STOCK = {
-  electrician: [
-    "https://images.unsplash.com/photo-1621905251918-48416bd8575a?w=500&q=75",
-    "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=500&q=75",
-    "https://images.unsplash.com/photo-1609743522653-52354461eb27?w=500&q=75",
-    "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=500&q=75",
-    "https://images.unsplash.com/photo-1565608087341-404b25492fee?w=500&q=75",
-    "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=500&q=75",
-  ],
-  architect: [
-    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=500&q=75",
-    "https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=500&q=75",
-    "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=500&q=75",
-    "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=500&q=75",
-    "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500&q=75",
-    "https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=500&q=75",
-  ],
-  plumber: [
-    "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=500&q=75",
-    "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=500&q=75",
-    "https://images.unsplash.com/photo-1558618047-3c8c76ca7d13?w=500&q=75",
-    "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=500&q=75",
-    "https://images.unsplash.com/photo-1534182913551-6a62c5c6a99e?w=500&q=75",
-    "https://images.unsplash.com/photo-1613963931023-5dc59437c8a6?w=500&q=75",
-  ],
-  painter: [
-    "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=500&q=75",
-    "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=500&q=75",
-    "https://images.unsplash.com/photo-1598300042247-d088f8ab3a91?w=500&q=75",
-    "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=500&q=75",
-    "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=500&q=75",
-    "https://images.unsplash.com/photo-1618221118493-9cfa1a1c00da?w=500&q=75",
-  ],
-};
-
-const FALLBACK_HERO = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&q=80";
+const FALLBACK_HERO = `${process.env.PUBLIC_URL || ""}/landing-hero.png`;
 
 export default function PortfolioPage() {
   const { slug } = useParams();
@@ -60,9 +29,13 @@ export default function PortfolioPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const saved = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
-    if (saved && Object.keys(saved).length > 0 && (saved.slug === slug || saved.published || saved.full_name)) {
-      setData(saved);
+    const pid = localStorage.getItem("hm_portfolio_id") || "";
+    migrateLegacyPortfolioMedia(pid);
+    const saved = getPortfolioBase();
+    const media = getPortfolioMedia(pid);
+    const full = { ...saved, ...media };
+    if (full && Object.keys(full).length > 0 && (full.slug === slug || full.published || full.full_name)) {
+      setData(full);
     } else {
       setNotFound(true);
     }
@@ -81,16 +54,14 @@ export default function PortfolioPage() {
 
   const craft      = findCraft(data.craft);
   const craftLabel = craft?.name || data.craft || "Professional";
-  const hero       = data.cover_photo || craft?.hero || FALLBACK_HERO;
+  const photos     = Array.isArray(data.photos) ? data.photos.filter(Boolean) : [];
+  const hero       = data.cover_photo || photos[0] || craft?.hero || FALLBACK_HERO;
   const name       = data.full_name || "Your Name";
   const city       = data.city || "";
   const exp        = data.years_experience ? `${data.years_experience} yrs experience` : "";
   const business   = data.business_name || "";
   const bio        = data.short_bio || "";
   const specs      = data.specialties?.length > 0 ? data.specialties : (craft?.specialties?.slice(0, 5) || []);
-  const photos     = data.photos || [];
-  const craftKey = data.craft || "electrician";
-  const stock    = STOCK[craftKey] || STOCK.electrician;
 
   const email = data.email || "";
 
@@ -198,22 +169,31 @@ export default function PortfolioPage() {
       {/* ══ MY WORK ══ */}
       <div style={{ padding: "28px 32px 24px", background: "#fff" }}>
         <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 16, color: "#111", letterSpacing: "-0.3px" }}>My Work</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
-          {[0, 1, 2, 3, 4, 5].map((i) => {
-            const src = photos[i] || stock[i] || "";
-            const alt = `Portfolio photo ${i + 1}`;
-            return (
-              <div key={i} style={{ borderRadius: 8, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.08)" }}>
-                {src
-                  ? <img src={src} alt={alt} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", display: "block" }} />
-                  : <div style={{ background: "#F0EBE3", width: "100%", aspectRatio: "3/4", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C0B0A0" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-                    </div>
-                }
-              </div>
-            );
-          })}
-        </div>
+        {photos.length > 0 ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
+            {photos.slice(0, 6).map((src, i) => {
+              const alt = `Portfolio photo ${i + 1}`;
+              return (
+                <div key={`${src}-${i}`} style={{ borderRadius: 8, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.08)" }}>
+                  <img src={src} alt={alt} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", display: "block" }} />
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div
+            style={{
+              border: "1px solid #E7E5E4",
+              borderRadius: 12,
+              padding: "18px 16px",
+              fontSize: 13,
+              color: "#7A6E62",
+              background: "#FAFAF9",
+            }}
+          >
+            No work photos uploaded yet.
+          </div>
+        )}
       </div>
 
       {/* ══ BOTTOM CTA ══ */}

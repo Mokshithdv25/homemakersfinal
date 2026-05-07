@@ -4,6 +4,12 @@ import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
 import { Copy, Eye, LayoutGrid, CheckCircle2, Link2, QrCode, ShieldCheck } from "lucide-react";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
+import {
+  getPortfolioBase,
+  getPortfolioMedia,
+  migrateLegacyPortfolioMedia,
+  setPortfolioBase,
+} from "../lib/portfolioStorage";
 
 /** One-shot local demo so `/live?demo=1` opens the “you’re live” + Preview as client without the wizard. */
 function seedGoLiveDemoIfNeeded() {
@@ -31,9 +37,9 @@ function seedGoLiveDemoIfNeeded() {
   if (!localStorage.getItem("hm_craft")) {
     localStorage.setItem("hm_craft", "architect");
   }
-  const prev = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
+  const prev = getPortfolioBase();
   if (!String(prev.full_name || "").trim()) {
-    localStorage.setItem("hm_portfolio", JSON.stringify({ ...base, ...prev, ...base }));
+    setPortfolioBase({ ...base, ...prev, ...base });
   }
 }
 
@@ -60,8 +66,8 @@ export default function GoLive() {
       return;
     }
 
-    // Load from localStorage, generate slug from name
-    const saved = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
+    migrateLegacyPortfolioMedia(pid);
+    const saved = getPortfolioBase();
     if (!saved.full_name) {
       alert("Please fill in your details first.");
       navigate("/details");
@@ -71,8 +77,9 @@ export default function GoLive() {
     // Generate slug
     const base = saved.full_name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const generatedSlug = `${base}-${pid.slice(-4)}`;
-    const published = { ...saved, slug: generatedSlug, published: true, step: 4, profile_strength: 100 };
-    localStorage.setItem("hm_portfolio", JSON.stringify(published));
+    const media = getPortfolioMedia(pid);
+    const published = { ...saved, ...media, slug: generatedSlug, published: true, step: 4, profile_strength: 100 };
+    setPortfolioBase({ ...saved, slug: generatedSlug, published: true, step: 4, profile_strength: 100 });
 
     setForm(published);
     setSlug(generatedSlug);

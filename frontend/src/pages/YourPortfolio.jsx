@@ -4,6 +4,52 @@ import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import { ArrowLeft, ArrowRight, UploadCloud, X, Camera, Download, ShieldCheck } from "lucide-react";
+import {
+  getPortfolioBase,
+  getPortfolioMedia,
+  migrateLegacyPortfolioMedia,
+  setPortfolioBase,
+  setPortfolioMedia,
+} from "../lib/portfolioStorage";
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_MEDIA_CHARS = 3_200_000;
+
+function optimizeImageFile(file, { maxW = 1280, maxH = 960, quality = 0.7 } = {}) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) {
+      reject(new Error("Use JPG, PNG, or WebP images only."));
+      return;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      reject(new Error("Each image must be under 10 MB."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Could not process image."));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", quality));
+      };
+      img.onerror = () => reject(new Error("Could not process image."));
+      img.src = String(reader.result || "");
+    };
+    reader.onerror = () => reject(new Error("Could not read image."));
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function YourPortfolio() {
   const navigate = useNavigate();
@@ -23,32 +69,33 @@ export default function YourPortfolio() {
       return;
     }
     setPortfolioId(pid);
-    // Load from localStorage
-    const saved = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
+    migrateLegacyPortfolioMedia(pid);
+    const saved = getPortfolioBase();
+    const media = getPortfolioMedia(pid);
     setCraftId(saved.craft || localStorage.getItem("hm_craft") || "");
-    setForm(saved);
+    setForm({ ...saved, photos: media.photos || [] });
     setLoading(false);
   }, [navigate]);
 
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
+  const handleFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = "";
     if (!files.length) return;
-    
-    // Convert to base64 for simulation
-    const readers = files.map(f => {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (ev) => resolve(ev.target.result);
-        reader.readAsDataURL(f);
+    try {
+      const optimized = await Promise.all(files.map((f) => optimizeImageFile(f)));
+      setForm((prev) => {
+        const nextPhotos = [...(prev.photos || []), ...optimized].slice(0, 10);
+        const totalChars = nextPhotos.reduce((sum, p) => sum + String(p || "").length, 0);
+        if (totalChars > MAX_MEDIA_CHARS) {
+          setError("Too many/large photos for browser storage. Use fewer or smaller images.");
+          return prev;
+        }
+        setError(null);
+        return { ...prev, photos: nextPhotos };
       });
-    });
-
-    Promise.all(readers).then(results => {
-      setForm(prev => {
-        const newPhotos = [...(prev.photos || []), ...results];
-        return { ...prev, photos: newPhotos.slice(0, 10) }; // Max 10
-      });
-    });
+    } catch (err) {
+      setError(err?.message || "Image upload failed.");
+    }
   };
 
   const removePhoto = (index) => {
@@ -60,10 +107,17 @@ export default function YourPortfolio() {
   };
 
   const handleSave = (nextRoute) => {
-    // Save photos to localStorage
-    const saved = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
-    const updated = { ...saved, photos: form.photos || [], step: 3, profile_strength: 75 };
-    localStorage.setItem("hm_portfolio", JSON.stringify(updated));
+    const saved = getPortfolioBase();
+    const media = getPortfolioMedia(portfolioId);
+    try {
+      setPortfolioMedia(portfolioId, { ...media, photos: form.photos || [] });
+      const updated = { ...saved, step: 3, profile_strength: 75 };
+      setPortfolioBase(updated);
+      setError(null);
+    } catch {
+      setError("Storage is full in this browser. Remove some photos and try again.");
+      return;
+    }
     if (nextRoute) {
       navigate(nextRoute);
     } else {

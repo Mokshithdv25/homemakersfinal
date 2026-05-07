@@ -1,9 +1,13 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const aiClient =
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const normalizedBackendUrl =
   BACKEND_URL && !String(BACKEND_URL).includes("undefined")
-    ? axios.create({ baseURL: `${BACKEND_URL.replace(/\/$/, "")}/api` })
+    ? BACKEND_URL.replace(/\/$/, "")
+    : "";
+const aiClient =
+  normalizedBackendUrl
+    ? axios.create({ baseURL: `${normalizedBackendUrl}/api` })
     : null;
 
 async function fallbackDelay() {

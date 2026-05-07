@@ -20,6 +20,12 @@ try:
 except ImportError:
     _GENAI_AVAILABLE = False
 
+try:
+    from supabase import create_client as create_supabase_client
+    _SUPABASE_AVAILABLE = True
+except ImportError:
+    _SUPABASE_AVAILABLE = False
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -29,17 +35,69 @@ load_dotenv(ROOT_DIR / '.env')
 # ---------------------------------------------------------------------------
 from pymongo import MongoClient
 
-_mongo_client = MongoClient(os.getenv("MONGO_URL", "mongodb://localhost:27017"))
-_db = _mongo_client[os.getenv("DB_NAME", "homemaker")]
-_portfolios = _db["portfolios"]
+_supabase = None
+_mongo_client = None
+_db = None
+_portfolios = None
+
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip()
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "").strip()
+SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY
+if _SUPABASE_AVAILABLE and SUPABASE_URL and SUPABASE_KEY:
+    _supabase = create_supabase_client(SUPABASE_URL, SUPABASE_KEY)
+else:
+    _mongo_client = MongoClient(os.getenv("MONGO_URL", "mongodb://localhost:27017"))
+    _db = _mongo_client[os.getenv("DB_NAME", "homemaker")]
+    _portfolios = _db["portfolios"]
+
+
+def _repo_mode() -> str:
+    return "supabase" if _supabase is not None else "mongo"
 
 
 def _load_portfolio(portfolio_id: str) -> dict | None:
+    if _repo_mode() == "supabase":
+        res = _supabase.table("portfolios").select("*").eq("id", portfolio_id).limit(1).execute()
+        rows = res.data or []
+        return rows[0] if rows else None
     return _portfolios.find_one({"id": portfolio_id}, {"_id": 0})
 
 
+def _find_portfolio_by_slug(slug: str, published_only: bool = False) -> dict | None:
+    if _repo_mode() == "supabase":
+        q = _supabase.table("portfolios").select("*").eq("slug", slug)
+        if published_only:
+            q = q.eq("published", True)
+        res = q.limit(1).execute()
+        rows = res.data or []
+        return rows[0] if rows else None
+    query = {"slug": slug}
+    if published_only:
+        query["published"] = True
+    return _portfolios.find_one(query, {"_id": 0})
+
+
 def _save_portfolio(doc: dict):
+    if _repo_mode() == "supabase":
+        _supabase.table("portfolios").upsert(doc, on_conflict="id").execute()
+        return
     _portfolios.replace_one({"id": doc["id"]}, doc, upsert=True)
+
+
+def _slug_exists(slug: str, portfolio_id: str) -> bool:
+    if _repo_mode() == "supabase":
+        res = (
+            _supabase.table("portfolios")
+            .select("id")
+            .eq("slug", slug)
+            .neq("id", portfolio_id)
+            .limit(1)
+            .execute()
+        )
+        return bool(res.data)
+    existing = _portfolios.find_one({"slug": slug, "id": {"$ne": portfolio_id}}, {"_id": 0})
+    return existing is not None
 
 
 app = FastAPI()
@@ -168,8 +226,7 @@ async def publish_portfolio(portfolio_id: str):
     base = _slugify(doc.get("full_name"))
     slug = base
     # Ensure slug uniqueness across all portfolios
-    existing = _portfolios.find_one({"slug": slug, "id": {"$ne": portfolio_id}}, {"_id": 0})
-    if existing:
+    if _slug_exists(slug, portfolio_id):
         slug = f"{base}-{doc['id'][:6]}"
 
     doc.update({
@@ -185,7 +242,7 @@ async def publish_portfolio(portfolio_id: str):
 
 @api_router.get("/profile/{slug}", response_model=Portfolio)
 async def public_profile(slug: str):
-    doc = _portfolios.find_one({"slug": slug, "published": True}, {"_id": 0})
+    doc = _find_portfolio_by_slug(slug, published_only=True)
     if not doc:
         raise HTTPException(status_code=404, detail="Profile not found")
     return Portfolio(**doc)
