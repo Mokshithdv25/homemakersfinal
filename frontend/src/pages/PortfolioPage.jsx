@@ -6,6 +6,7 @@ import {
   getPortfolioMedia,
   migrateLegacyPortfolioMedia,
 } from "../lib/portfolioStorage";
+import { getPublicProfile } from "../lib/api";
 
 /* ── Specialty SVG icons ── */
 const SPEC_SVG = {
@@ -34,11 +35,18 @@ export default function PortfolioPage() {
     const saved = getPortfolioBase();
     const media = getPortfolioMedia(pid);
     const full = { ...saved, ...media };
-    if (full && Object.keys(full).length > 0 && (full.slug === slug || full.published || full.full_name)) {
-      setData(full);
-    } else {
-      setNotFound(true);
-    }
+    (async () => {
+      try {
+        const remote = await getPublicProfile(slug);
+        setData(remote);
+      } catch {
+        if (full && Object.keys(full).length > 0 && (full.slug === slug || full.published || full.full_name)) {
+          setData(full);
+        } else {
+          setNotFound(true);
+        }
+      }
+    })();
   }, [slug]);
 
   if (notFound) return (

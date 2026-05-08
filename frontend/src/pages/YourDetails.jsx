@@ -4,6 +4,7 @@ import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import { findCraft } from "../lib/crafts";
+import { updatePortfolio } from "../lib/api";
 import {
   getPortfolioBase,
   getPortfolioMedia,
@@ -186,29 +187,41 @@ export default function YourDetails() {
     });
   };
 
-  const handleSave = (nextRoute) => {
-    const saved = getPortfolioBase();
-    const mediaPayload = {
-      cover_photo: form.cover_photo || "",
-      profile_photo: form.profile_photo || "",
-      photos: getPortfolioMedia(portfolioId).photos || [],
-    };
-    setPortfolioMedia(portfolioId, mediaPayload);
-
-    const { cover_photo, profile_photo, photos, ...nonMediaForm } = form;
-    const { photos: _p, cover_photo: _c, profile_photo: _pp, ...savedNoMedia } = saved;
-    const updated = { ...savedNoMedia, ...nonMediaForm, step: 2, profile_strength: 50 };
+  const handleSave = async (nextRoute) => {
     try {
+      const saved = getPortfolioBase();
+      const mediaPayload = {
+        cover_photo: form.cover_photo || "",
+        profile_photo: form.profile_photo || "",
+        photos: getPortfolioMedia(portfolioId).photos || [],
+      };
+      setPortfolioMedia(portfolioId, mediaPayload);
+
+      const { cover_photo, profile_photo, photos, ...nonMediaForm } = form;
+      const { photos: _p, cover_photo: _c, profile_photo: _pp, ...savedNoMedia } = saved;
+      const updated = { ...savedNoMedia, ...nonMediaForm, step: 2, profile_strength: 50 };
+      
       setPortfolioBase(updated);
+      try {
+        await updatePortfolio(portfolioId, {
+          ...nonMediaForm,
+          ...mediaPayload,
+          step: 2,
+          profile_strength: 50,
+        });
+      } catch (apiErr) {
+        console.error("Backend save failed on details step:", apiErr);
+      }
       setError(null);
-    } catch {
-      setError("Storage is full in this browser. Remove some photos and try again.");
-      return;
-    }
-    if (nextRoute) {
-      navigate(nextRoute);
-    } else {
-      alert("Saved! You can come back later.");
+      
+      if (nextRoute) {
+        navigate(nextRoute);
+      } else {
+        alert("Saved! You can come back later.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Storage is full in this browser. Remove some photos or use smaller images and try again.");
     }
   };
 

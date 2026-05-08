@@ -11,6 +11,7 @@ import {
   setPortfolioBase,
   setPortfolioMedia,
 } from "../lib/portfolioStorage";
+import { updatePortfolio } from "../lib/api";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_MEDIA_CHARS = 3_200_000;
@@ -106,22 +107,33 @@ export default function YourPortfolio() {
     });
   };
 
-  const handleSave = (nextRoute) => {
-    const saved = getPortfolioBase();
-    const media = getPortfolioMedia(portfolioId);
+  const handleSave = async (nextRoute) => {
     try {
+      const saved = getPortfolioBase();
+      const media = getPortfolioMedia(portfolioId);
+      
       setPortfolioMedia(portfolioId, { ...media, photos: form.photos || [] });
       const updated = { ...saved, step: 3, profile_strength: 75 };
       setPortfolioBase(updated);
+      try {
+        await updatePortfolio(portfolioId, {
+          photos: form.photos || [],
+          step: 3,
+          profile_strength: 75,
+        });
+      } catch (apiErr) {
+        console.error("Backend save failed on portfolio step:", apiErr);
+      }
       setError(null);
-    } catch {
+      
+      if (nextRoute) {
+        navigate(nextRoute);
+      } else {
+        alert("Saved! You can come back later.");
+      }
+    } catch (err) {
+      console.error(err);
       setError("Storage is full in this browser. Remove some photos and try again.");
-      return;
-    }
-    if (nextRoute) {
-      navigate(nextRoute);
-    } else {
-      alert("Saved! You can come back later.");
     }
   };
 

@@ -10,6 +10,7 @@ import {
   migrateLegacyPortfolioMedia,
   setPortfolioBase,
 } from "../lib/portfolioStorage";
+import { publishPortfolio } from "../lib/api";
 
 /** One-shot local demo so `/live?demo=1` opens the “you’re live” + Preview as client without the wizard. */
 function seedGoLiveDemoIfNeeded() {
@@ -74,17 +75,37 @@ export default function GoLive() {
       return;
     }
 
-    // Generate slug
-    const base = saved.full_name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-    const generatedSlug = `${base}-${pid.slice(-4)}`;
     const media = getPortfolioMedia(pid);
-    const published = { ...saved, ...media, slug: generatedSlug, published: true, step: 4, profile_strength: 100 };
-    setPortfolioBase({ ...saved, slug: generatedSlug, published: true, step: 4, profile_strength: 100 });
+    const localFallback = () => {
+      const base = saved.full_name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      const generatedSlug = `${base}-${pid.slice(-4)}`;
+      const published = { ...saved, ...media, slug: generatedSlug, published: true, step: 4, profile_strength: 100 };
+      setPortfolioBase({ ...saved, slug: generatedSlug, published: true, step: 4, profile_strength: 100 });
+      setForm(published);
+      setSlug(generatedSlug);
+      setCraft(saved.craft || "");
+      setLoading(false);
+    };
 
-    setForm(published);
-    setSlug(generatedSlug);
-    setCraft(saved.craft || "");
-    setLoading(false);
+    (async () => {
+      try {
+        const published = await publishPortfolio(pid);
+        setPortfolioBase({
+          ...saved,
+          slug: published.slug,
+          published: true,
+          step: 4,
+          profile_strength: 100,
+        });
+        setForm({ ...published, ...media });
+        setSlug(published.slug || "");
+        setCraft(published.craft || saved.craft || "");
+        setLoading(false);
+      } catch (err) {
+        console.error("Publish via backend failed, using local fallback:", err);
+        localFallback();
+      }
+    })();
   }, [navigate, searchParams]);
 
   const handleCopy = () => {

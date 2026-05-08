@@ -36,7 +36,12 @@ export function setPortfolioBase(base) {
   } catch (err) {
     // Last-resort guard: clear heavy media blobs, then retry base save.
     purgePortfolioMediaKeys();
-    localStorage.setItem(K_PORTFOLIO, payload);
+    try {
+      localStorage.setItem(K_PORTFOLIO, payload);
+    } catch (finalErr) {
+      console.error("Failed to save portfolio base:", finalErr);
+      throw new Error("Storage quota exceeded even after purging media.");
+    }
   }
 }
 

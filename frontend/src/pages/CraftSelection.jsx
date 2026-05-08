@@ -31,6 +31,7 @@ import {
 
 
 import { CRAFTS, findCraft } from "../lib/crafts";
+import { createPortfolio } from "../lib/api";
 
 function CraftCard({ craft, selected, onSelect, wide }) {
   const Icon = craft.Icon;
@@ -87,26 +88,43 @@ export default function CraftSelection() {
 
   const profileStrength = useMemo(() => (selected ? 25 : 15), [selected]);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selected) return;
     setSubmitting(true);
-    // Save craft to localStorage — no backend needed
-    const id = `hm_${Date.now()}`;
-    localStorage.setItem("hm_portfolio_id", id);
-    localStorage.setItem("hm_craft", selected);
-    // Persist empty portfolio object
-    const portfolio = {
-      id,
-      craft: selected,
-      full_name: "", business_name: "", city: "",
-      years_experience: "", phone: "", email: "", license_number: "",
-      short_bio: "", specialties: [], photos: [],
-      cover_photo: "", profile_photo: "",
-      profile_strength: 25, step: 1, published: false, slug: null
-    };
-    localStorage.setItem("hm_portfolio", JSON.stringify(portfolio));
-    setSubmitting(false);
-    navigate("/details");
+    try {
+      const created = await createPortfolio(selected);
+      const id = created?.id || `hm_${Date.now()}`;
+      localStorage.setItem("hm_portfolio_id", id);
+      localStorage.setItem("hm_craft", selected);
+      // Keep local cache for offline/fallback pages.
+      const portfolio = {
+        ...(created || {}),
+        id,
+        craft: selected,
+      };
+      localStorage.setItem("hm_portfolio", JSON.stringify(portfolio));
+      setSubmitting(false);
+      navigate("/details");
+    } catch (err) {
+      console.error("Create portfolio failed, falling back to local only:", err);
+      // Fallback path keeps existing behavior if API is unavailable.
+      const id = `hm_${Date.now()}`;
+      localStorage.setItem("hm_portfolio_id", id);
+      localStorage.setItem("hm_craft", selected);
+      const portfolio = {
+        id,
+        craft: selected,
+        full_name: "", business_name: "", city: "",
+        years_experience: "", phone: "", email: "", license_number: "",
+        short_bio: "", specialties: [], photos: [],
+        cover_photo: "", profile_photo: "",
+        profile_strength: 25, step: 1, published: false, slug: null
+      };
+      localStorage.setItem("hm_portfolio", JSON.stringify(portfolio));
+      setError("Could not reach server, using local draft mode.");
+      navigate("/details");
+      setSubmitting(false);
+    }
   };
 
   return (
