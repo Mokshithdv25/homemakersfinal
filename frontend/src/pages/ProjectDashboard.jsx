@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ProjectHubAppHeader, ProjectHubProjectCenter } from "../components/HmBrandLockup";
 import {
@@ -8,6 +8,7 @@ import {
   hmProjectSidebarNavItemStyle,
   hmProjectSidebarNavScrollStyle,
 } from "../lib/hmBrand";
+import { loadProjectBoard } from "../lib/projectFlowApi";
 
 const OR = "#C85F2B";
 
@@ -356,6 +357,7 @@ export default function ProjectDashboard() {
     searchParams.get("phase") === "handoff";
   const [activeNav, setActiveNav] = useState("Overview");
   const [selectedPhase, setSelectedPhase] = useState("Structure");
+  const [phaseRows, setPhaseRows] = useState(phases);
   const [msg, setMsg] = useState("");
   const [msgs, setMsgs] = useState(INITIAL_MESSAGES);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
@@ -369,7 +371,33 @@ export default function ProjectDashboard() {
   );
 
   const stageDetail = STAGE_DETAILS[selectedPhase];
-  const phaseOrder = useMemo(() => phases.map((p) => p.name), []);
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const source = searchParams.get("source") || "";
+        const projectId = searchParams.get("projectId") || "";
+        const board = await loadProjectBoard({ source, projectId });
+        if (!board) return;
+        if (Array.isArray(board.phases) && board.phases.length) {
+          setPhaseRows(board.phases);
+          setSelectedPhase((prev) =>
+            board.phases.some((p) => p.name === prev) ? prev : board.phases[0].name
+          );
+        }
+        if (Array.isArray(board.tasks) && board.tasks.length) {
+          setTasks(board.tasks);
+        }
+        if (Array.isArray(board.messages) && board.messages.length) {
+          setMsgs(board.messages);
+        }
+      } catch (err) {
+        console.error("Failed to load project board from Supabase:", err);
+      }
+    };
+    run();
+  }, [searchParams]);
+
+  const phaseOrder = useMemo(() => phaseRows.map((p) => p.name), [phaseRows]);
   const phaseRank = useMemo(() => Object.fromEntries(phaseOrder.map((n, i) => [n, i])), [phaseOrder]);
 
   const filteredTasks = useMemo(() => tasks.filter((t) => t.phase === selectedPhase), [tasks, selectedPhase]);
@@ -661,7 +689,7 @@ export default function ProjectDashboard() {
           {/* Phase progress — clickable stages */}
           <div style={{ ...panel, padding: "18px 20px 14px", marginBottom: 14 }}>
             <div style={{ display: "flex", gap: 0, flex: 1, overflowX: "auto", paddingBottom: 8 }}>
-              {phases.map((p, i) => {
+              {phaseRows.map((p, i) => {
                 const sel = selectedPhase === p.name;
                 return (
                   <button

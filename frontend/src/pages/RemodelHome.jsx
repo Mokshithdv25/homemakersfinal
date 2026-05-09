@@ -6,6 +6,7 @@ import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout
 import { V0EstimateSection, V0VisualBundleSections } from "../components/V0MockResults";
 import { getRemodelFlow, setRemodelFlow } from "../lib/projectFlowStorage";
 import { requestV0Images, requestEstimatePlan, formatAiApiError } from "../lib/aiApi";
+import { createFlowProjectRecord } from "../lib/projectFlowApi";
 import {
   ColourHexSwatch,
   ColourOctagonCustom,
@@ -279,6 +280,7 @@ export default function RemodelHome() {
   const [postAiNotes, setPostAiNotes] = useState("");
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
+  const [projectSaving, setProjectSaving] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
   const [v0PlanBundle, setV0PlanBundle] = useState(null);
   const [architectHandoffNote, setArchitectHandoffNote] = useState("");
@@ -1287,9 +1289,9 @@ export default function RemodelHome() {
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                disabled={step === 5 && !v0Generated}
+                disabled={(step === 5 && !v0Generated) || projectSaving}
                 className="btn-continue text-sm md:text-[15px] !px-6 !py-3 md:!px-8 md:!py-3.5 !shadow-[0_8px_22px_-8px_rgba(200,95,43,0.45)] !rounded-[999px] disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => {
+                onClick={async () => {
                   setStepBlockError("");
                   if (step === 2 && budgetAmountClampedRemodel(budgetAmount) < 1) {
                     setStepBlockError("Please set a remodel budget above zero (same rule as new home).");
@@ -1311,7 +1313,29 @@ export default function RemodelHome() {
                     return;
                   }
                   if (step === 6) {
-                    navigate("/project?source=remodel&phase=handoff");
+                    setProjectSaving(true);
+                    try {
+                      const briefPayload = {
+                        ...remodelBriefPayload(),
+                        architectHandoffNote,
+                        postAiNotes,
+                        step,
+                        v0Generated,
+                      };
+                      const created = await createFlowProjectRecord({
+                        flowType: "remodel",
+                        brief: briefPayload,
+                        source: "remodel",
+                        aiPlan: v0PlanBundle,
+                      });
+                      const pid = created?.projectId ? `&projectId=${encodeURIComponent(created.projectId)}` : "";
+                      navigate(`/project?source=remodel&phase=handoff${pid}`);
+                    } catch (err) {
+                      console.error("Failed to persist project from remodel flow:", err);
+                      setStepBlockError("Could not save this project to database yet. Please retry.");
+                    } finally {
+                      setProjectSaving(false);
+                    }
                     return;
                   }
                   if (step === 1) {
@@ -1326,7 +1350,7 @@ export default function RemodelHome() {
               >
                 {step === 4 && "Continue to free AI v0"}
                 {step === 5 && "Continue to architect handoff"}
-                {step === 6 && "Open project management"}
+                {step === 6 && (projectSaving ? "Saving project..." : "Open project management")}
                 {step < 4 && "Continue"}
                 <svg className="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                   <path d="M5 12h14M12 5l7 7-7 7" />

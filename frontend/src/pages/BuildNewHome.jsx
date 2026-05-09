@@ -6,6 +6,7 @@ import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout
 import { V0EstimateSection, V0VisualBundleSections } from "../components/V0MockResults";
 import { getBuildFlow, setBuildFlow } from "../lib/projectFlowStorage";
 import { requestV0Images, requestEstimatePlan, formatAiApiError } from "../lib/aiApi";
+import { createFlowProjectRecord } from "../lib/projectFlowApi";
 import {
   ColourHexSwatch,
   ColourOctagonCustom,
@@ -323,6 +324,7 @@ export default function BuildNewHome() {
   const [activeStep, setActiveStep] = useState(1);
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
+  const [projectSaving, setProjectSaving] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
   const [v0PlanBundle, setV0PlanBundle] = useState(null);
   const [hasArchitect, setHasArchitect] = useState(false);
@@ -434,7 +436,7 @@ export default function BuildNewHome() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (activeStep === 4) {
       const bad = firstInvalidBuildStep(form);
       if (bad) {
@@ -458,7 +460,31 @@ export default function BuildNewHome() {
     }
     if (activeStep === 6) {
       setBuildFlow({ architectComment: architectHandoffNote });
-      navigate("/project?source=build-new&phase=handoff");
+      setProjectSaving(true);
+      try {
+        const briefPayload = {
+          ...form,
+          resolvedArchStyle: archResolved,
+          dreamVision: form.homeVision,
+          architectHandoffNote,
+          hasArchitect,
+          step: activeStep,
+          v0Generated,
+        };
+        const created = await createFlowProjectRecord({
+          flowType: "new_home",
+          brief: briefPayload,
+          source: "build-new",
+          aiPlan: v0PlanBundle,
+        });
+        const pid = created?.projectId ? `&projectId=${encodeURIComponent(created.projectId)}` : "";
+        navigate(`/project?source=build-new&phase=handoff${pid}`);
+      } catch (err) {
+        console.error("Failed to persist project from build flow:", err);
+        setStepBlockError("Could not save this project to database yet. Please retry.");
+      } finally {
+        setProjectSaving(false);
+      }
       return;
     }
     if (activeStep <= 2) {
@@ -1726,13 +1752,13 @@ export default function BuildNewHome() {
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <button
                 type="button"
-                disabled={activeStep === 5 && !v0Generated}
+                disabled={(activeStep === 5 && !v0Generated) || projectSaving}
                 className="btn-continue text-sm md:text-[15px] !px-6 !py-3 md:!px-8 md:!py-3.5 !shadow-[0_8px_22px_-8px_rgba(200,95,43,0.45)] !rounded-[999px] disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleContinue}
               >
                 {activeStep === 4 && "Continue to free AI v0"}
                 {activeStep === 5 && "Continue to architect handoff"}
-                {activeStep === 6 && "Open project management"}
+                {activeStep === 6 && (projectSaving ? "Saving project..." : "Open project management")}
                 {![4, 5, 6].includes(activeStep) && "Continue"}
                 <svg className="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
               </button>
