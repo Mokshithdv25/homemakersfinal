@@ -358,6 +358,7 @@ export default function ProjectDashboard() {
   const [activeNav, setActiveNav] = useState("Overview");
   const [selectedPhase, setSelectedPhase] = useState("Structure");
   const [phaseRows, setPhaseRows] = useState(phases);
+  const [briefData, setBriefData] = useState(null);
   const [msg, setMsg] = useState("");
   const [msgs, setMsgs] = useState(INITIAL_MESSAGES);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
@@ -370,7 +371,29 @@ export default function ProjectDashboard() {
     Object.fromEntries(Object.entries(MILESTONE_SEED).map(([phase, rows]) => [phase, rows.map((m) => ({ ...m }))]))
   );
 
-  const stageDetail = STAGE_DETAILS[selectedPhase];
+  const isLiveProject = Boolean(searchParams.get("projectId"));
+  const stageDetail = isLiveProject
+    ? {
+        siteImage: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=640&q=75",
+        siteCaption:
+          `Initial planning for ${selectedPhase}.` +
+          (briefData?.location ? ` Brief location: ${briefData.location}.` : ""),
+        siteTime: "Recently updated",
+        budgetTotal:
+          briefData?.budgetUnit && briefData?.budgetAmount
+            ? `₹${briefData.budgetAmount} ${briefData.budgetUnit === "Crores" ? "Cr" : "L"}`
+            : "TBD",
+        budgetSpent: "Early planning",
+        spentPct: 0,
+        barPct: 0,
+        budgetRemaining: "TBD",
+        expectedCost: "To be finalized",
+        traffic: "green",
+        docs: [{ name: "Project brief snapshot", ext: "JSON" }],
+        miniGallery: [],
+        budgetLines: [["Planning baseline", "TBD"]],
+      }
+    : STAGE_DETAILS[selectedPhase];
   useEffect(() => {
     const run = async () => {
       try {
@@ -390,6 +413,9 @@ export default function ProjectDashboard() {
         if (Array.isArray(board.messages) && board.messages.length) {
           setMsgs(board.messages);
         }
+        if (board.brief) {
+          setBriefData(board.brief);
+        }
       } catch (err) {
         console.error("Failed to load project board from Supabase:", err);
       }
@@ -403,6 +429,23 @@ export default function ProjectDashboard() {
   const filteredTasks = useMemo(() => tasks.filter((t) => t.phase === selectedPhase), [tasks, selectedPhase]);
   const filteredMsgs = useMemo(() => msgs.filter((m) => m.phase === selectedPhase), [msgs, selectedPhase]);
   const phaseMilestones = milestonesByPhase[selectedPhase] || [];
+  const fundingSnapshot = useMemo(() => {
+    if (!isLiveProject) return PROJECT_FUNDING;
+    const totalLabel =
+      briefData?.budgetUnit && briefData?.budgetAmount
+        ? `₹${briefData.budgetAmount} ${briefData.budgetUnit === "Crores" ? "Cr" : "L"}`
+        : "TBD";
+    return {
+      ...PROJECT_FUNDING,
+      totalBudget: totalLabel,
+      spentToDate: "Planning stage",
+      pctOfTotalSpent: 5,
+      monthlyBurnPlanned: "To be planned",
+      monthlyBurnActual: "To be planned",
+      runwayNote:
+        "Live project just initialized from brief. Budget drawdown will appear as execution data is added.",
+    };
+  }, [isLiveProject, briefData]);
 
   const allTasksSorted = useMemo(() => {
     return [...tasks].sort((a, b) => {
@@ -1145,18 +1188,18 @@ export default function ProjectDashboard() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 18 }}>
                 <div style={{ ...panel, padding: "18px 20px" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.06em" }}>TOTAL BUDGET</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, marginTop: 8 }}>{PROJECT_FUNDING.totalBudget}</div>
-                  <div style={{ fontSize: 13, color: "#7A6E62", marginTop: 6 }}>Spent to date: {PROJECT_FUNDING.spentToDate}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, marginTop: 8 }}>{fundingSnapshot.totalBudget}</div>
+                  <div style={{ fontSize: 13, color: "#7A6E62", marginTop: 6 }}>Spent to date: {fundingSnapshot.spentToDate}</div>
                   <div style={{ height: 10, background: "#E8E6E3", borderRadius: 6, marginTop: 14, overflow: "hidden" }}>
-                    <div style={{ width: `${PROJECT_FUNDING.pctOfTotalSpent}%`, height: "100%", background: `linear-gradient(90deg,#22A36B,${OR})`, borderRadius: 6 }} />
+                    <div style={{ width: `${fundingSnapshot.pctOfTotalSpent}%`, height: "100%", background: `linear-gradient(90deg,#22A36B,${OR})`, borderRadius: 6 }} />
                   </div>
-                  <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 6 }}>{PROJECT_FUNDING.pctOfTotalSpent}% of total budget used (illustrative)</div>
+                  <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 6 }}>{fundingSnapshot.pctOfTotalSpent}% of total budget used (illustrative)</div>
                 </div>
                 <div style={{ ...panel, padding: "18px 20px" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.06em" }}>PACING</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, marginTop: 10 }}>Planned burn {PROJECT_FUNDING.monthlyBurnPlanned}</div>
-                  <div style={{ fontSize: 15, fontWeight: 700, marginTop: 6, color: OR }}>Actual {PROJECT_FUNDING.monthlyBurnActual}</div>
-                  <p style={{ fontSize: 13, color: "#57534E", margin: "14px 0 0", lineHeight: 1.5 }}>{PROJECT_FUNDING.runwayNote}</p>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginTop: 10 }}>Planned burn {fundingSnapshot.monthlyBurnPlanned}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, marginTop: 6, color: OR }}>Actual {fundingSnapshot.monthlyBurnActual}</div>
+                  <p style={{ fontSize: 13, color: "#57534E", margin: "14px 0 0", lineHeight: 1.5 }}>{fundingSnapshot.runwayNote}</p>
                 </div>
               </div>
               <div style={{ ...panel, padding: "22px 24px", marginBottom: 18 }}>
@@ -1167,16 +1210,16 @@ export default function ProjectDashboard() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
                   <div style={{ background: "#F8F4EF", border: "1px solid #E2D9CF", borderRadius: 12, padding: "16px 18px" }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#57534E" }}>Sanctioned — own funds</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: "#1C1917", marginTop: 6 }}>{PROJECT_FUNDING.ownEquityBudgeted}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#1C1917", marginTop: 6 }}>{fundingSnapshot.ownEquityBudgeted}</div>
                     <div style={{ fontSize: 12, color: "#7A6E62", marginTop: 4 }}>Paid from your accounts</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: OR, marginTop: 8 }}>{PROJECT_FUNDING.spentFromOwnPocket}</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: OR, marginTop: 8 }}>{fundingSnapshot.spentFromOwnPocket}</div>
                   </div>
                   <div style={{ background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 12, padding: "16px 18px" }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#57534E" }}>Sanctioned — bank loan</div>
-                    <div style={{ fontSize: 22, fontWeight: 800, color: "#1C1917", marginTop: 6 }}>{PROJECT_FUNDING.bankLoanSanctioned}</div>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: "#1C1917", marginTop: 6 }}>{fundingSnapshot.bankLoanSanctioned}</div>
                     <div style={{ fontSize: 12, color: "#7A6E62", marginTop: 4 }}>Disbursed to site / vendors</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "#2563EB", marginTop: 8 }}>{PROJECT_FUNDING.spentFromLoanDisbursements}</div>
-                    <div style={{ fontSize: 11, color: "#64748B", marginTop: 8 }}>Tranches released: {PROJECT_FUNDING.loanTrancheReleasedPct}% of loan limit (demo)</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: "#2563EB", marginTop: 8 }}>{fundingSnapshot.spentFromLoanDisbursements}</div>
+                    <div style={{ fontSize: 11, color: "#64748B", marginTop: 8 }}>Tranches released: {fundingSnapshot.loanTrancheReleasedPct}% of loan limit (demo)</div>
                   </div>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#44403C", marginBottom: 8 }}>Spend this far — by source</div>
@@ -1194,7 +1237,7 @@ export default function ProjectDashboard() {
                     Loan
                   </div>
                 </div>
-                <div style={{ fontSize: 12, color: "#9A8F87" }}>Illustrative split of {PROJECT_FUNDING.spentToDate} — not tax advice.</div>
+                <div style={{ fontSize: 12, color: "#9A8F87" }}>Illustrative split of {fundingSnapshot.spentToDate} — not tax advice.</div>
                 <button
                   type="button"
                   onClick={() => {
@@ -1281,7 +1324,7 @@ export default function ProjectDashboard() {
                 {budgetModalLineItems}
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0 8px", marginTop: 4, fontSize: 14, fontWeight: 800 }}>
                   <span>{budgetDetailScope === "project" ? "Illustrative project spend" : "Stage spend (illustrative)"}</span>
-                  <span style={{ color: OR }}>{budgetDetailScope === "project" ? PROJECT_FUNDING.spentToDate : stageDetail.budgetSpent}</span>
+                  <span style={{ color: OR }}>{budgetDetailScope === "project" ? fundingSnapshot.spentToDate : stageDetail.budgetSpent}</span>
                 </div>
                 <button type="button" onClick={() => setBudgetDetailOpen(false)} style={{ marginTop: 12, width: "100%", padding: "10px", borderRadius: 8, border: "none", background: OR, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
                   Close

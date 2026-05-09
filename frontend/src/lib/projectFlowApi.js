@@ -32,8 +32,8 @@ function seedFromBrief(brief, flowType, aiPlan = null) {
   const goal = brief?.mainGoal || (Array.isArray(brief?.lifestyle) ? brief.lifestyle[0] : "") || "project goals";
 
   const phases = [
-    { name: "Design & Approval", pct: 20, color: "#C85F2B", status: "In Progress", statusColor: "#F59E0B" },
-    { name: "Sourcing", pct: 10, color: "#F59E0B", status: "Upcoming", statusColor: "#9A8F87" },
+    { name: "Design & Approval", pct: 8, color: "#C85F2B", status: "In Progress", statusColor: "#F59E0B" },
+    { name: "Sourcing", pct: 0, color: "#A8A29E", status: "Upcoming", statusColor: "#9A8F87" },
     { name: "Site & Foundation", pct: 0, color: "#A8A29E", status: "Upcoming", statusColor: "#9A8F87" },
     { name: "Structure", pct: 0, color: "#A8A29E", status: "Upcoming", statusColor: "#9A8F87" },
     { name: "Finishing", pct: 0, color: "#A8A29E", status: "Upcoming", statusColor: "#9A8F87" },
@@ -281,6 +281,7 @@ export async function loadProjectBoard({ projectId, source }) {
   return {
     projectId: resolvedProjectId,
     project,
+    brief,
     phases: phaseRows,
     tasks: taskRows,
     messages: messageRows,
