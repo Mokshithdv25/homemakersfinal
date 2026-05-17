@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Menu, X, User, ChevronDown, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../../lib/hmBrand";
+import { useHmSession } from "../../hooks/useHmSession";
+import HmUserMenu from "../HmUserMenu";
 
 /** Browse-only specialties → standalone shop (demo filter via query string). */
 const FIND_PROS_GROUPS = [
@@ -29,6 +31,7 @@ const FIND_PROS_GROUPS = [
  */
 export default function LandingNavbar() {
   const navigate = useNavigate();
+  const session = useHmSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [softwareOpen, setSoftwareOpen] = useState(false);
   const [findProsOpen, setFindProsOpen] = useState(false);
@@ -67,7 +70,7 @@ export default function LandingNavbar() {
   ];
 
   const navAfterFindPros = [
-    { label: "My Project", path: "/sign-in" },
+    { label: "My Project", path: session ? "/project" : "/sign-in" },
     { label: "Shop", path: "/shop" },
   ];
 
@@ -213,24 +216,30 @@ export default function LandingNavbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-2.5 shrink-0">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => go("/sign-in")}
-            className="rounded-full px-3.5 font-body text-sm gap-2"
-          >
-            <User className="w-4 h-4" />
-            Sign In
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => go("/craft")}
-            className="rounded-full border-foreground/15 bg-white/70 px-4 font-body text-sm gap-2 shadow-sm hover:bg-secondary"
-          >
-            <Briefcase className="w-4 h-4" />
-            Join as a Pro
-          </Button>
+          {session ? (
+            <HmUserMenu />
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => go("/sign-in")}
+                className="rounded-full px-3.5 font-body text-sm gap-2"
+              >
+                <User className="w-4 h-4" />
+                Sign In
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => go("/craft")}
+                className="rounded-full border-foreground/15 bg-white/70 px-4 font-body text-sm gap-2 shadow-sm hover:bg-secondary"
+              >
+                <Briefcase className="w-4 h-4" />
+                Join as a Pro
+              </Button>
+            </>
+          )}
         </div>
 
         <button
@@ -288,24 +297,32 @@ export default function LandingNavbar() {
               {item.label}
             </button>
           ))}
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => go("/sign-in")}
-            className="w-full justify-start font-body text-sm gap-2"
-          >
-            <User className="w-4 h-4" />
-            Sign In
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => go("/craft")}
-            className="w-full rounded-2xl border-foreground/20 font-body text-sm gap-2"
-          >
-            <Briefcase className="w-4 h-4" />
-            Join as a Pro
-          </Button>
+          {session ? (
+            <div className="flex justify-end py-1">
+              <HmUserMenu />
+            </div>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => go("/sign-in")}
+                className="w-full justify-start font-body text-sm gap-2"
+              >
+                <User className="w-4 h-4" />
+                Sign In
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => go("/craft")}
+                className="w-full rounded-2xl border-foreground/20 font-body text-sm gap-2"
+              >
+                <Briefcase className="w-4 h-4" />
+                Join as a Pro
+              </Button>
+            </>
+          )}
         </div>
       )}
     </nav>

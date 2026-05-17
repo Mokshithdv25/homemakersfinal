@@ -1,15 +1,19 @@
 import React from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
+import HmUserMenu from "../components/HmUserMenu";
+import { useHmSession } from "../hooks/useHmSession";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_BUILD_CHOOSER } from "../lib/hmBrand";
 
 /** Nav routes aligned with landing + project demo hub */
-const NAV_LINKS = [
-  { label: "Software", path: "/build" },
-  { label: "Find Pros", path: "/sign-in" },
-  { label: "My Project", path: "/project" },
-  { label: "Shop", path: "/shop" },
-];
+function buildNavLinks(session) {
+  return [
+    { label: "Software", path: "/build" },
+    { label: "Find Pros", path: session ? "/browse" : "/sign-in" },
+    { label: "My Project", path: session ? "/project" : "/sign-in" },
+    { label: "Shop", path: "/shop" },
+  ];
+}
 
 const NEW_HOME_STEPS = [
   { icon: "📍", label: "Define Plot" },
@@ -79,9 +83,11 @@ function FeatureRow({ text }) {
 
 export default function WhatAreYouBuilding() {
   const navigate = useNavigate();
+  const session = useHmSession();
   const [searchParams] = useSearchParams();
   const fromPortfolio = (searchParams.get("source") || "").toLowerCase() === "portfolio";
   const flowQuery = fromPortfolio ? "?source=portfolio" : "";
+  const NAV_LINKS = buildNavLinks(session);
 
   return (
     <div
@@ -120,28 +126,34 @@ export default function WhatAreYouBuilding() {
               <path d="m6 9 6 6 6-6" />
             </svg>
           </span>
-          <button
-            type="button"
-            onClick={() => navigate("/sign-in")}
-            className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1.5 hover:text-[#C85F2B] transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-            </svg>
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/craft")}
-            className="bg-white border border-[#E7D4C4] rounded-lg px-3 py-1.5 text-xs font-semibold text-[#1C1917] cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M3 9h18M9 21V9" />
-            </svg>
-            Join as a Pro
-          </button>
+          {session ? (
+            <HmUserMenu />
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => navigate("/sign-in")}
+                className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1.5 hover:text-[#C85F2B] transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg>
+                Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/craft")}
+                className="bg-white border border-[#E7D4C4] rounded-lg px-3 py-1.5 text-xs font-semibold text-[#1C1917] cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M3 9h18M9 21V9" />
+                </svg>
+                Join as a Pro
+              </button>
+            </>
+          )}
         </div>
       </header>
 

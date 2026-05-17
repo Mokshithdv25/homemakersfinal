@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../lib/hmBrand";
 import { getSupabase, isSupabaseConfigured, getSupabaseInitError } from "../lib/supabaseClient";
 import { fetchUserProfile, persistHmSessionFromSupabase, upsertUserProfile } from "../lib/userProfileApi";
+import { getPostLoginPath } from "../lib/hmAuth";
 
 /**
  * Sign-in: Supabase Auth — email/password and Google OAuth when env vars are set.
@@ -109,7 +110,7 @@ export default function SignInPage() {
     const resolvedRole = profile?.role || user.user_metadata?.role || accountRole;
     if (profile?.full_name?.trim()) {
       persistHmSessionFromSupabase(user, profile);
-      navigate(resolvedRole === "pro" ? "/pro/dashboard" : "/", { replace: true });
+      navigate(getPostLoginPath(resolvedRole), { replace: true });
       return;
     }
     const meta = user.user_metadata || {};
@@ -313,7 +314,7 @@ export default function SignInPage() {
       }
       setStep("done");
       setTimeout(() => {
-        navigate(accountRole === "pro" ? "/pro/dashboard" : "/", { replace: true });
+        navigate(getPostLoginPath(accountRole), { replace: true });
       }, 1800);
     } catch (err) {
       setAuthError(err?.message || "Could not save your profile.");

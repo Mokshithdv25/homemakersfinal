@@ -6,6 +6,7 @@ import { getSupabase } from "./lib/supabaseClient";
 import { fetchUserProfile, persistHmSessionFromSupabase } from "./lib/userProfileApi";
 import HomePage from "./pages/HomePage";
 import SignInPage from "./pages/SignInPage";
+import AccountPage from "./pages/AccountPage";
 import SignInErrorBoundary from "./components/SignInErrorBoundary";
 import CraftSelection from "./pages/CraftSelection";
 import YourDetails from "./pages/YourDetails";
@@ -104,6 +105,7 @@ function App() {
               </SignInErrorBoundary>
             }
           />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="/craft" element={<CraftSelection />} />
           <Route path="/details" element={<YourDetails />} />
           <Route path="/portfolio" element={<YourPortfolio />} />
