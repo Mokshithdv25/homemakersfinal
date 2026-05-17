@@ -6,6 +6,7 @@ import { getSupabase } from "./lib/supabaseClient";
 import { fetchUserProfile, persistHmSessionFromSupabase } from "./lib/userProfileApi";
 import HomePage from "./pages/HomePage";
 import SignInPage from "./pages/SignInPage";
+import SignInErrorBoundary from "./components/SignInErrorBoundary";
 import CraftSelection from "./pages/CraftSelection";
 import YourDetails from "./pages/YourDetails";
 import YourPortfolio from "./pages/YourPortfolio";
@@ -95,7 +96,14 @@ function App() {
         <ScrollToTopOnRouteChange />
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/sign-in" element={<SignInPage />} />
+          <Route
+            path="/sign-in"
+            element={
+              <SignInErrorBoundary>
+                <SignInPage />
+              </SignInErrorBoundary>
+            }
+          />
           <Route path="/craft" element={<CraftSelection />} />
           <Route path="/details" element={<YourDetails />} />
           <Route path="/portfolio" element={<YourPortfolio />} />

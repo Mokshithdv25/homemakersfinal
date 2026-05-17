@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../lib/hmBrand";
-import { getSupabase } from "../lib/supabaseClient";
+import { getSupabase, isSupabaseConfigured, getSupabaseInitError } from "../lib/supabaseClient";
 import { fetchUserProfile, persistHmSessionFromSupabase, upsertUserProfile } from "../lib/userProfileApi";
 
 /**
@@ -36,7 +36,8 @@ export default function SignInPage() {
   const [authError, setAuthError] = useState("");
 
   const isSignUp = mode === "signup";
-  const supabaseConfigured = Boolean(getSupabase());
+  const supabaseConfigured = isSupabaseConfigured();
+  const supabaseInitError = getSupabaseInitError();
 
   const otpRefs = useRef([]);
   const oauthReturnHandled = useRef(false);
@@ -369,10 +370,10 @@ export default function SignInPage() {
             {step === "entry" && (
               <motion.div
                 key="entry"
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.2 }}
                 className="space-y-7"
               >
                 <div className="text-center">
@@ -418,10 +419,28 @@ export default function SignInPage() {
                     </p>
                   </div>
 
+                  {!supabaseConfigured ? (
+                    <p className="rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-2 font-body text-sm text-amber-900">
+                      Supabase is not configured on this deploy. Add{" "}
+                      <strong>REACT_APP_SUPABASE_URL</strong> and <strong>REACT_APP_SUPABASE_ANON_KEY</strong> in
+                      Vercel → Settings → Environment Variables, then redeploy.
+                      {supabaseInitError ? (
+                        <span className="block mt-2 text-xs font-mono">{String(supabaseInitError.message)}</span>
+                      ) : null}
+                    </p>
+                  ) : null}
+
                   {authError && step === "entry" ? (
                     <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 font-body text-sm text-destructive">
                       {authError}
                     </p>
+                  ) : null}
+
+                  {loading && step === "entry" ? (
+                    <div className="flex items-center justify-center gap-2 py-2 text-copper font-body text-sm">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Completing sign-in…
+                    </div>
                   ) : null}
 
                   {/* Google */}
@@ -668,10 +687,10 @@ export default function SignInPage() {
               {step === "otp" && (
                 <motion.div
                   key="otp"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={false}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.2 }}
                   className="space-y-8"
                 >
                   <div>
@@ -735,10 +754,10 @@ export default function SignInPage() {
               {step === "details" && (
                 <motion.div
                   key="details"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={false}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
+                  exit={{ opacity: 0, y: -12 }}
+                  transition={{ duration: 0.2 }}
                   className="space-y-6"
                 >
                   <div>
@@ -833,7 +852,7 @@ export default function SignInPage() {
               {step === "done" && (
                 <motion.div
                   key="done"
-                  initial={{ opacity: 0, scale: 0.95 }}
+                  initial={false}
                   animate={{ opacity: 1, scale: 1 }}
                   className="text-center py-12 space-y-6"
                 >
