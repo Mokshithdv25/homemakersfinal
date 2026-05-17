@@ -10,8 +10,8 @@ import { getSupabase } from "../lib/supabaseClient";
 import { fetchUserProfile, persistHmSessionFromSupabase, upsertUserProfile } from "../lib/userProfileApi";
 
 /**
- * Sign-in: email + password uses Supabase Auth (database-backed) when configured.
- * Phone / Google remain demo flows until providers are wired.
+ * Sign-in: Supabase Auth — email/password and Google OAuth when env vars are set.
+ * Phone OTP remains a demo flow until enabled in Supabase.
  */
 export default function SignInPage() {
   const navigate = useNavigate();
@@ -33,10 +33,13 @@ export default function SignInPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
+  const [authError, setAuthError] = useState("");
 
   const isSignUp = mode === "signup";
+  const supabaseConfigured = Boolean(getSupabase());
 
   const otpRefs = useRef([]);
+  const oauthReturnHandled = useRef(false);
 
   useEffect(() => {
     if (searchParams.get("mode") === "signup") setMode("signup");
@@ -67,13 +70,31 @@ export default function SignInPage() {
   };
 
   const handleGoogleSignIn = async () => {
+    setAuthError("");
+    const sb = getSupabase();
+    if (!sb) {
+      setAuthError("Supabase is not configured. Add REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.");
+      return;
+    }
     setLoading(true);
-    // Simulate Google OAuth flow
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    // After Google, skip to details for phone + city
-    setName(""); // Google would fill this, simulated here
-    setStep("details");
+    try {
+      const params = new URLSearchParams();
+      params.set("role", accountRole);
+      if (isSignUp) params.set("mode", "signup");
+      const redirectTo = `${window.location.origin}/sign-in?${params.toString()}`;
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (error) throw error;
+      /* Browser leaves the app for Google; session resumes on redirectTo. */
+    } catch (err) {
+      setAuthError(err?.message || "Google sign-in failed. Check Supabase Google provider settings.");
+      setLoading(false);
+    }
   };
 
   const tryFinishEmailAuth = async (session) => {
@@ -90,7 +111,13 @@ export default function SignInPage() {
       navigate(resolvedRole === "pro" ? "/pro/dashboard" : "/", { replace: true });
       return;
     }
-    setName(profile?.full_name || user.user_metadata?.full_name || "");
+    const meta = user.user_metadata || {};
+    const googleName =
+      profile?.full_name ||
+      meta.full_name ||
+      meta.name ||
+      [meta.given_name, meta.family_name].filter(Boolean).join(" ");
+    setName(googleName || "");
     setEmail(user.email || authEmail);
     setCity(profile?.city || "");
     if (profile?.phone) {
@@ -99,6 +126,62 @@ export default function SignInPage() {
     }
     setStep("details");
   };
+
+  /** After Google OAuth redirect, Supabase puts tokens in the URL hash — finish sign-in here. */
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb) return undefined;
+
+    const roleFromUrl = searchParams.get("role");
+    if (roleFromUrl === "pro" || roleFromUrl === "homeowner") {
+      setAccountRole(roleFromUrl);
+    }
+
+    const finishOAuthReturn = async (session) => {
+      if (!session?.user || oauthReturnHandled.current) return;
+      oauthReturnHandled.current = true;
+      setLoading(true);
+      setAuthError("");
+      try {
+        const role = roleFromUrl === "pro" || roleFromUrl === "homeowner" ? roleFromUrl : accountRole;
+        if (role && !session.user.user_metadata?.role) {
+          await sb.auth.updateUser({ data: { role } });
+        }
+        await tryFinishEmailAuth(session);
+      } catch (err) {
+        setAuthError(err?.message || "Could not complete Google sign-in.");
+      } finally {
+        setLoading(false);
+        if (window.location.hash) {
+          window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+        }
+      }
+    };
+
+    const hash = window.location.hash?.slice(1) || "";
+    const hashParams = new URLSearchParams(hash);
+    if (hashParams.get("error_description")) {
+      setAuthError(decodeURIComponent(hashParams.get("error_description").replace(/\+/g, " ")));
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
+      return undefined;
+    }
+
+    const isOAuthReturn = hashParams.has("access_token") || hashParams.has("code");
+    if (!isOAuthReturn) return undefined;
+
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) finishOAuthReturn(session);
+    });
+
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) finishOAuthReturn(session);
+    });
+
+    return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- OAuth return only
+  }, []);
 
   const handleEmailSignIn = async () => {
     if (!authEmail || !authPassword) return;
@@ -371,6 +454,15 @@ export default function SignInPage() {
                     )}
                     Continue with Google
                   </button>
+                  {!supabaseConfigured ? (
+                    <p className="text-center font-body text-[11px] text-muted-foreground">
+                      Google sign-in needs Supabase env vars (local <code className="text-[10px]">.env</code> or Vercel).
+                    </p>
+                  ) : (
+                    <p className="text-center font-body text-[11px] text-muted-foreground">
+                      Secure sign-in via Google — account stored in Supabase.
+                    </p>
+                  )}
 
                   {/* Divider */}
                   <div className="relative">
