@@ -3,7 +3,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { BuildNewHomeSpecView } from "../components/ArchitectBriefSpec";
 import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout";
-import { V0EstimateSection, V0VisualBundleSections } from "../components/V0MockResults";
+import {
+  V0AiSourceBanner,
+  V0EstimateSection,
+  V0GeneratingPanel,
+  V0MilestonesSection,
+  V0VisualBundleSections,
+} from "../components/V0MockResults";
 import { getBuildFlow, setBuildFlow } from "../lib/projectFlowStorage";
 import { requestV0Images, requestEstimatePlan, formatAiApiError } from "../lib/aiApi";
 import { createFlowProjectRecord } from "../lib/projectFlowApi";
@@ -324,6 +330,7 @@ export default function BuildNewHome() {
   const [activeStep, setActiveStep] = useState(1);
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
+  const [v0GenPhase, setV0GenPhase] = useState("");
   const [projectSaving, setProjectSaving] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
   const [v0PlanBundle, setV0PlanBundle] = useState(null);
@@ -422,8 +429,11 @@ export default function BuildNewHome() {
         ...form,
         resolvedArchStyle: archResolved,
         flowWizard: "build_new_home",
+        budgetLabel: budgetSingleLabel(form),
       };
+      setV0GenPhase("images");
       const imagesPayload = await requestV0Images("new_home", brief);
+      setV0GenPhase("estimate");
       const planPayload = await requestEstimatePlan("new_home", brief, imagesPayload);
       setV0ImageBundle(imagesPayload);
       setV0PlanBundle(planPayload);
@@ -433,6 +443,7 @@ export default function BuildNewHome() {
       setStepBlockError(formatAiApiError(e));
     } finally {
       setV0Generating(false);
+      setV0GenPhase("");
     }
   };
 
@@ -1673,14 +1684,7 @@ export default function BuildNewHome() {
                 </button>
               </div>
             )}
-            {v0Generating && (
-              <div style={{ padding: "28px 20px", textAlign: "center", background: "#FFFBF7", border: "1px solid #EEDCCB", borderRadius: 14, marginBottom: 20 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#1C1917", marginBottom: 6 }}>Running v0…</div>
-                <div style={{ fontSize: 12, color: "#7A6E62", lineHeight: 1.55 }}>
-                  Step 1 — image directions (image API). Step 2 — estimate and project skeleton (plan API). Separate keys on the server.
-                </div>
-              </div>
-            )}
+            {v0Generating && <V0GeneratingPanel phase={v0GenPhase || "images"} />}
             {v0Generated && (
               <>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
@@ -1698,8 +1702,10 @@ export default function BuildNewHome() {
                   Floor plans, elevations, and a line-item estimate you can send to an architect — still not sanction-grade
                   drawings.
                 </p>
+                <V0AiSourceBanner imageBundle={v0ImageBundle} planBundle={v0PlanBundle} />
                 <V0VisualBundleSections bundle={v0ImageBundle} />
                 <V0EstimateSection planBundle={v0PlanBundle} />
+                <V0MilestonesSection planBundle={v0PlanBundle} />
                 <ArchitectEngagementCallout
                   onBrowseArchitects={hasArchitect ? undefined : () => navigate("/browse")}
                 />

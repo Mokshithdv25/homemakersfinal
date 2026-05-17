@@ -2,6 +2,63 @@ import React from "react";
 
 const OR = "#C85F2B";
 
+export function V0GeneratingPanel({ phase = "images" }) {
+  const step1Active = phase === "images";
+  const step2Active = phase === "estimate";
+  const step1Done = step2Active;
+  const row = (n, label, sub, active, done) => (
+    <div
+      key={n}
+      style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "10px 12px", borderRadius: 10,
+        background: active ? "rgba(200,95,43,0.08)" : "transparent",
+        border: active ? "1px solid rgba(200,95,43,0.25)" : "1px solid transparent" }}
+    >
+      <div
+        style={{ width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center",
+          justifyContent: "center", fontSize: 11, fontWeight: 800,
+          background: done ? "#22A36B" : active ? "#C85F2B" : "#E7E5E4", color: done || active ? "#fff" : "#78716C" }}
+      >{done ? "\u2713" : n}</div>
+      <div><div style={{ fontSize: 13, fontWeight: 700 }}>{label}</div><div style={{ fontSize: 12, color: "#78716C" }}>{sub}</div></div>
+    </div>
+  );
+  return (
+    <div style={{ padding: "24px 20px", background: "linear-gradient(180deg,#FFFBF7,#FDF8F3)", border: "1px solid #EEDCCB", borderRadius: 14, marginBottom: 20 }}>
+      <div style={{ fontSize: 15, fontWeight: 800, textAlign: "center", marginBottom: 4 }}>AI is generating your v0 pack</div>
+      <p style={{ fontSize: 12, color: "#7A6E62", textAlign: "center", margin: "0 0 16px" }}>Wizard answers → Grok on our server (~1–2 min).</p>
+      {row(1, "Design concepts", step1Active ? "Rendering…" : "Done", step1Active, step1Done)}
+      {row(2, "Estimate", step2Active ? "INR lines…" : "Waiting", step2Active, false)}
+    </div>
+  );
+}
+
+export function V0AiSourceBanner({ imageBundle, planBundle }) {
+  const isLive = imageBundle && !imageBundle.mock;
+  const note = imageBundle?.provider_note || planBundle?.provider_note;
+  if (!isLive && !note) return null;
+  return (
+    <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, fontSize: 12,
+      background: isLive ? "rgba(34,163,107,0.08)" : "rgba(200,95,43,0.08)",
+      border: `1px solid ${isLive ? "rgba(34,163,107,0.35)" : "rgba(200,95,43,0.25)"}` }}>
+      <strong>{isLive ? "Generated with Grok AI" : "Demo pack"}</strong>{note ? ` — ${note}` : ""}
+    </div>
+  );
+}
+
+export function V0MilestonesSection({ planBundle }) {
+  const milestones = planBundle?.milestones;
+  if (!milestones?.length) return null;
+  return (
+    <div style={{ marginBottom: 20, border: "1px solid #EEDCCB", borderRadius: 14, background: "#FFFBF7" }}>
+      <div style={{ padding: "12px 16px", borderBottom: "1px solid #EDE8E0", fontWeight: 800 }}>Project milestones</div>
+      <ul style={{ margin: 0, padding: "12px 16px 16px 32px", fontSize: 13, lineHeight: 1.6 }}>
+        {milestones.map((m, i) => (
+          <li key={i}><strong>{m.title}</strong>{m.timeframe ? ` — ${m.timeframe}` : ""}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function formatInr(amount) {
   if (amount == null || amount === "") return "—";
   const n = Number(amount);
@@ -46,7 +103,7 @@ export function V0EstimateSection({ planBundle, title = "Indicative v0 estimate"
         <div style={{ fontWeight: 800, fontSize: 15, color: "#1C1917" }}>{title}</div>
         <div style={{ fontSize: 12, color: "#78716C", marginTop: 4, lineHeight: 1.45 }}>
           Ballpark only — not a quote. Your architect validates scope and pricing.
-          {planBundle?.mock ? " Dummy totals for demo." : null}
+          {planBundle?.mock ? " Demo totals — start backend with XAI_API_KEY for live Grok estimates." : " Powered by Grok from your brief."}
         </div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -150,7 +207,7 @@ export function V0VisualBundleSections({ bundle, floorPlanTitle = "Floor plans (
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 6, color: "#1C1917" }}>{floorPlanTitle}</div>
           <p style={{ fontSize: 12, color: "#57534E", margin: "0 0 12px", lineHeight: 1.5 }}>
-            Dummy blueprint-style layouts for briefing — not sanction drawings.
+            {bundle?.mock ? "Indicative layouts for briefing — not sanction drawings." : "Reference floor plans — AI concepts are in the section below."}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             {floorPlans.map((e, i) => thumbCard(e, i, { tall: true, objectFit: "cover" }))}
@@ -161,7 +218,7 @@ export function V0VisualBundleSections({ bundle, floorPlanTitle = "Floor plans (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 6, color: "#1C1917" }}>{elevationTitle}</div>
           <p style={{ fontSize: 12, color: "#57534E", margin: "0 0 12px", lineHeight: 1.5 }}>
-            Concept renders and façade studies to pair with the plans above.
+            {bundle?.mock ? "Concept renders for discussion." : "Grok-generated concepts from your wizard answers."}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
             {elevations.map((e, i) => thumbCard(e, i, { tall: false, objectFit: "cover" }))}

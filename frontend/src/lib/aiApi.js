@@ -1,14 +1,29 @@
 import axios from "axios";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+const isDev = process.env.NODE_ENV === "development";
 const normalizedBackendUrl =
   BACKEND_URL && !String(BACKEND_URL).includes("undefined")
     ? BACKEND_URL.replace(/\/$/, "")
     : "";
-const aiClient =
-  normalizedBackendUrl
-    ? axios.create({ baseURL: `${normalizedBackendUrl}/api` })
+
+/** In dev, CRA proxy sends /api → localhost:8000 when REACT_APP_BACKEND_URL is unset. */
+const apiBase = normalizedBackendUrl
+  ? `${normalizedBackendUrl}/api`
+  : isDev
+    ? "/api"
     : null;
+
+const aiClient = apiBase
+  ? axios.create({
+      baseURL: apiBase,
+      timeout: 180000,
+    })
+  : null;
+
+export function isAiBackendConfigured() {
+  return Boolean(aiClient);
+}
 
 async function fallbackDelay() {
   await new Promise((r) => setTimeout(r, 400));
@@ -54,7 +69,8 @@ function mockV0ImagesClient(flow, brief) {
           hint: "Premium finish variant",
         },
       ],
-      provider_note: "Set REACT_APP_BACKEND_URL to call /api/ai/v0-images with HM_AI_IMAGE_API_KEY on the server.",
+      provider_note:
+        "Demo placeholders — start backend on :8000 (XAI_API_KEY in backend/.env) and restart npm start.",
     };
   }
 
@@ -89,7 +105,8 @@ function mockV0ImagesClient(flow, brief) {
         hint: "Materials + roofline option",
       },
     ],
-    provider_note: "Set REACT_APP_BACKEND_URL to call /api/ai/v0-images with HM_AI_IMAGE_API_KEY on the server.",
+    provider_note:
+      "Demo placeholders — start backend on :8000 (XAI_API_KEY in backend/.env) and restart npm start.",
   };
 }
 
@@ -112,7 +129,10 @@ function mockEstimateClient(flow, brief) {
           { label: "Core interiors (indicative)", amount_inr: 980000, note: "Kitchen, wardrobes, baths baseline" },
           { label: "Services (MEP rough-in)", amount_inr: 540000, note: "Electrical, plumbing, basic HVAC points" },
         ];
-  const total_indicative_inr = estimate_lines.reduce((s, l) => s + (typeof l.amount_inr === "number" ? l.amount_inr : 0), 0);
+  const total_indicative_inr = estimate_lines.reduce(
+    (s, l) => s + (typeof l.amount_inr === "number" ? l.amount_inr : 0),
+    0
+  );
   return {
     mock: true,
     estimate_lines,
@@ -122,15 +142,16 @@ function mockEstimateClient(flow, brief) {
       { title: "Lock scope & estimate", timeframe: "Next" },
       { title: "Execution window", timeframe: "Per timeline in brief" },
     ],
-    project_summary: flow === "remodel"
-      ? `Remodel roadmap for ${headline}.`
-      : `Build roadmap for ${headline}.`,
-    provider_note: "Set REACT_APP_BACKEND_URL to call /api/ai/estimate-plan with HM_AI_PLAN_API_KEY.",
+    project_summary:
+      flow === "remodel"
+        ? `Remodel roadmap for ${headline}.`
+        : `Build roadmap for ${headline}.`,
+    provider_note: "Demo estimate — connect backend for Grok-generated INR breakdown.",
   };
 }
 
 /**
- * Image-generation only — uses server env HM_AI_IMAGE_API_KEY when implemented.
+ * Design images from wizard brief → backend → Grok Imagine.
  */
 export async function requestV0Images(flow, brief) {
   if (!aiClient) {
@@ -138,19 +159,17 @@ export async function requestV0Images(flow, brief) {
     return mockV0ImagesClient(flow, brief);
   }
   const { data } = await aiClient.post("/ai/v0-images", { flow, brief });
-  
-  // Safety fallback: if the backend is running old code and didn't return floor_plans, inject them from mock
+
   if (!data.floor_plans || data.floor_plans.length === 0) {
     const fallbackMock = mockV0ImagesClient(flow, brief);
     data.floor_plans = fallbackMock.floor_plans;
   }
-  
+
   return data;
 }
 
 /**
- * Estimate + project/milestone structure — uses server env HM_AI_PLAN_API_KEY when implemented.
- * Call after requestV0Images; pass imageBundle for context.
+ * Estimate + milestones from same brief (+ optional image bundle context).
  */
 export async function requestEstimatePlan(flow, brief, imageBundle = null) {
   if (!aiClient) {
@@ -166,9 +185,16 @@ export async function requestEstimatePlan(flow, brief, imageBundle = null) {
 }
 
 export function formatAiApiError(err) {
+  if (err?.code === "ECONNABORTED") {
+    return "Generation timed out — Grok image steps can take 1–2 minutes. Try again.";
+  }
+  if (err?.message === "Network Error" || err?.code === "ERR_NETWORK") {
+    return "Cannot reach the API. Start the backend: cd backend && uvicorn server:app --reload --port 8000";
+  }
   const detail = err?.response?.data?.detail;
   if (typeof detail === "string") return detail;
-  if (Array.isArray(detail))
+  if (Array.isArray(detail)) {
     return detail.map((x) => (typeof x === "object" && x.msg ? x.msg : String(x))).join(" ");
+  }
   return err?.message || "Generation failed. Try again.";
 }

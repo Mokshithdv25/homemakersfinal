@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { RemodelSpecView } from "../components/ArchitectBriefSpec";
 import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout";
-import { V0EstimateSection, V0VisualBundleSections } from "../components/V0MockResults";
+import {
+  V0AiSourceBanner,
+  V0EstimateSection,
+  V0GeneratingPanel,
+  V0MilestonesSection,
+  V0VisualBundleSections,
+} from "../components/V0MockResults";
 import { getRemodelFlow, setRemodelFlow } from "../lib/projectFlowStorage";
 import { requestV0Images, requestEstimatePlan, formatAiApiError } from "../lib/aiApi";
 import { createFlowProjectRecord } from "../lib/projectFlowApi";
@@ -280,6 +286,7 @@ export default function RemodelHome() {
   const [postAiNotes, setPostAiNotes] = useState("");
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
+  const [v0GenPhase, setV0GenPhase] = useState("");
   const [projectSaving, setProjectSaving] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
   const [v0PlanBundle, setV0PlanBundle] = useState(null);
@@ -382,7 +389,9 @@ export default function RemodelHome() {
     setStepBlockError("");
     try {
       const brief = remodelBriefPayload();
+      setV0GenPhase("images");
       const imagesPayload = await requestV0Images("remodel", brief);
+      setV0GenPhase("estimate");
       const planPayload = await requestEstimatePlan("remodel", brief, imagesPayload);
       setV0ImageBundle(imagesPayload);
       setV0PlanBundle(planPayload);
@@ -392,6 +401,7 @@ export default function RemodelHome() {
       setStepBlockError(formatAiApiError(e));
     } finally {
       setV0Generating(false);
+      setV0GenPhase("");
     }
   };
 
@@ -1061,14 +1071,7 @@ export default function RemodelHome() {
                 <button type="button" onClick={runRemodelV0} className="btn-continue !rounded-xl !px-6 !py-3.5 text-sm">Generate v0</button>
               </div>
             )}
-            {v0Generating && (
-              <div style={{ padding: "24px 18px", textAlign: "center", background: "#FFFBF7", border: "1px solid #EEDCCB", borderRadius: 14, marginBottom: 20 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Running v0…</div>
-                <div style={{ fontSize: 12, color: "#7A6E62", lineHeight: 1.55 }}>
-                  Image API first, then estimate and project skeleton (second API). Separate keys on the server.
-                </div>
-              </div>
-            )}
+            {v0Generating && <V0GeneratingPanel phase={v0GenPhase || "images"} />}
 
             {v0Generated && (<>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16, flexWrap:"wrap", gap:16 }}>
@@ -1106,12 +1109,14 @@ export default function RemodelHome() {
                 Your <strong>free AI v0</strong> includes indicative <strong>layout plans</strong>, <strong>interior directions</strong>, and a
                 rough <strong>cost breakdown</strong> — same idea as new build, scoped to this room.
               </p>
+              <V0AiSourceBanner imageBundle={v0ImageBundle} planBundle={v0PlanBundle} />
               <V0VisualBundleSections
                 bundle={v0ImageBundle}
                 floorPlanTitle="Room / layout plans (v0)"
                 elevationTitle="Interior concept renders"
               />
               <V0EstimateSection planBundle={v0PlanBundle} title="Indicative remodel estimate (v0)" />
+              <V0MilestonesSection planBundle={v0PlanBundle} />
             </div>
 
             <ArchitectEngagementCallout onBrowseArchitects={() => navigate("/browse")} />

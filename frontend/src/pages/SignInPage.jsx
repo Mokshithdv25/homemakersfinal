@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../lib/hmBrand";
+import { getSupabase } from "../lib/supabaseClient";
+import { fetchUserProfile, persistHmSessionFromSupabase, upsertUserProfile } from "../lib/userProfileApi";
 
 /**
- * design-compass Sign In (Google, phone OTP, email) — demo auth only, then redirects home.
+ * Sign-in: email + password uses Supabase Auth (database-backed) when configured.
+ * Phone / Google remain demo flows until providers are wired.
  */
 export default function SignInPage() {
   const navigate = useNavigate();
@@ -73,14 +76,77 @@ export default function SignInPage() {
     setStep("details");
   };
 
+  const tryFinishEmailAuth = async (session) => {
+    const user = session.user;
+    let profile = null;
+    try {
+      profile = await fetchUserProfile(user.id);
+    } catch (_) {
+      /* user_profiles table or policies not ready — continue to profile step */
+    }
+    const resolvedRole = profile?.role || user.user_metadata?.role || accountRole;
+    if (profile?.full_name?.trim()) {
+      persistHmSessionFromSupabase(user, profile);
+      navigate(resolvedRole === "pro" ? "/pro/dashboard" : "/", { replace: true });
+      return;
+    }
+    setName(profile?.full_name || user.user_metadata?.full_name || "");
+    setEmail(user.email || authEmail);
+    setCity(profile?.city || "");
+    if (profile?.phone) {
+      const digits = String(profile.phone).replace(/\D/g, "");
+      if (digits.length >= 10) setPhone(digits.slice(-10));
+    }
+    setStep("details");
+  };
+
   const handleEmailSignIn = async () => {
     if (!authEmail || !authPassword) return;
     if (isSignUp && authPassword !== confirmPassword) return;
+    if (authPassword.length < 6) {
+      setAuthError("Password must be at least 6 characters.");
+      return;
+    }
+    setAuthError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    setEmail(authEmail);
-    setStep("details");
+    try {
+      const sb = getSupabase();
+      if (sb) {
+        if (isSignUp) {
+          const { data, error } = await sb.auth.signUp({
+            email: authEmail.trim(),
+            password: authPassword,
+            options: {
+              data: { role: accountRole },
+              emailRedirectTo: `${window.location.origin}/`,
+            },
+          });
+          if (error) throw error;
+          if (!data.session) {
+            setAuthError(
+              "Check your email to confirm this address (if confirmation is enabled), then sign in here.",
+            );
+            return;
+          }
+          await tryFinishEmailAuth(data.session);
+        } else {
+          const { data, error } = await sb.auth.signInWithPassword({
+            email: authEmail.trim(),
+            password: authPassword,
+          });
+          if (error) throw error;
+          await tryFinishEmailAuth(data.session);
+        }
+      } else {
+        await new Promise((r) => setTimeout(r, 900));
+        setEmail(authEmail);
+        setStep("details");
+      }
+    } catch (err) {
+      setAuthError(err?.message || "Something went wrong. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOTPChange = (index, value) => {
@@ -121,27 +187,55 @@ export default function SignInPage() {
 
   const handleComplete = async () => {
     if (!name.trim()) return;
+    setAuthError("");
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    setStep("done");
-    setTimeout(() => {
-      const profile = { phone: phone ? `+91${phone}` : "", name, email, city };
-      try {
-        localStorage.setItem("hmUser", JSON.stringify(profile));
-        localStorage.setItem(
-          "hmSession",
-          JSON.stringify({
+    try {
+      const sb = getSupabase();
+      if (sb) {
+        const {
+          data: { session },
+        } = await sb.auth.getSession();
+        if (session?.user) {
+          await upsertUserProfile({
+            fullName: name.trim(),
+            phone: phone ? `+91${phone}` : "",
+            city: city.trim() || null,
             role: accountRole,
-            signedInAt: new Date().toISOString(),
-            profile,
-          }),
-        );
-      } catch (_) {
-        // ignore
+          });
+          let profile = null;
+          try {
+            profile = await fetchUserProfile(session.user.id);
+          } catch (_) {
+            /* ignore */
+          }
+          persistHmSessionFromSupabase(session.user, profile);
+        }
+      } else {
+        await new Promise((r) => setTimeout(r, 800));
+        const profile = { phone: phone ? `+91${phone}` : "", name, email, city };
+        try {
+          localStorage.setItem("hmUser", JSON.stringify(profile));
+          localStorage.setItem(
+            "hmSession",
+            JSON.stringify({
+              role: accountRole,
+              signedInAt: new Date().toISOString(),
+              profile,
+            }),
+          );
+        } catch (_) {
+          // ignore
+        }
       }
-      navigate(accountRole === "pro" ? "/pro/dashboard" : "/", { replace: true });
-    }, 1800);
+      setStep("done");
+      setTimeout(() => {
+        navigate(accountRole === "pro" ? "/pro/dashboard" : "/", { replace: true });
+      }, 1800);
+    } catch (err) {
+      setAuthError(err?.message || "Could not save your profile.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResendOTP = () => {
@@ -240,6 +334,12 @@ export default function SignInPage() {
                         : "You will land in the homeowner experience after login."}
                     </p>
                   </div>
+
+                  {authError && step === "entry" ? (
+                    <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 font-body text-sm text-destructive">
+                      {authError}
+                    </p>
+                  ) : null}
 
                   {/* Google */}
                   <button
@@ -357,6 +457,15 @@ export default function SignInPage() {
                   {/* Email Input */}
                   {authMethod === "email" && (
                     <>
+                      {getSupabase() ? (
+                        <p className="text-[11px] leading-relaxed text-muted-foreground font-body text-center">
+                          Email sign-in saves your account in Supabase (upgrade to OAuth / phone OTP when you enable them in the dashboard).
+                        </p>
+                      ) : (
+                        <p className="text-[11px] leading-relaxed text-amber-800/90 font-body text-center rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2">
+                          Demo mode: Supabase env vars are missing, so this device only stores a local session after you finish the profile step.
+                        </p>
+                      )}
                       <div className="space-y-4">
                         <div>
                           <Label className="font-body text-sm font-semibold mb-1.5 block">
@@ -452,6 +561,7 @@ export default function SignInPage() {
                           setMode(isSignUp ? "signin" : "signup");
                           setAuthPassword("");
                           setConfirmPassword("");
+                          setAuthError("");
                         }}
                         className="text-copper font-semibold hover:underline"
                       >
@@ -605,6 +715,12 @@ export default function SignInPage() {
                       />
                     </div>
                   </div>
+
+                  {authError && step === "details" ? (
+                    <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 font-body text-sm text-destructive">
+                      {authError}
+                    </p>
+                  ) : null}
 
                   <Button
                     onClick={handleComplete}

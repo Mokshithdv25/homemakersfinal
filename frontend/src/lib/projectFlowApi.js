@@ -1,9 +1,6 @@
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase } from "./supabaseClient";
 
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || "";
-const SUPABASE_ANON = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
-const supabase =
-  SUPABASE_URL && SUPABASE_ANON ? createClient(SUPABASE_URL, SUPABASE_ANON) : null;
+const supabase = getSupabase();
 
 function stageColor(status) {
   if (status === "done") return "#22A36B";

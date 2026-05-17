@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HomeMakers — Pitch Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Playfair+Display:ital,wght@0,500..900;1,500..900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --hm-cream: #FBF2E8;
+    --hm-cream-soft: #F5E8D8;
+    --hm-orange: #C85F2B;
+    --hm-orange-dark: #B04F20;
+    --hm-amber: #E8A84A;
+    --hm-ink: #1C1917;
+    --hm-muted: #5C534A;
+    --hm-border: #E8D4C4;
+    --hm-card: #FFFFFF;
+    --font-display: "Playfair Display", Georgia, serif;
+    --font-body: "DM Sans", system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--hm-cream);
+    color: var(--hm-ink);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page { size: A4 landscape; margin: 0; }
+
+  .slide {
+    width: 297mm;
+    min-height: 210mm;
+    padding: 12mm 16mm 14mm;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    background: var(--hm-cream);
+  }
+
+  .slide-center { justify-content: center; }
+
+  .slide-white { background: var(--hm-card); }
+
+  .slide:last-child { page-break-after: avoid; }
+
+  .roof-accent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--hm-orange) 0%, var(--hm-amber) 50%, var(--hm-orange) 100%);
+  }
+
+  .slide-num {
+    position: absolute;
+    top: 7mm;
+    right: 10mm;
+    font-size: 11pt;
+    color: var(--hm-orange);
+    opacity: 0.85;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+
+  .slide-label {
+    font-size: 9pt;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--hm-orange);
+    margin-bottom: 3mm;
+    font-weight: 700;
+  }
+
+  /* Golden mark — same path as homepage / public/logo.svg */
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 4mm;
+    margin-bottom: 5mm;
+  }
+
+  .brand-mark {
+    width: 20mm;
+    height: 20mm;
+    flex-shrink: 0;
+    display: block;
+  }
+
+  h1.hero {
+    font-family: var(--font-display);
+    font-size: 56pt;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--hm-ink);
+    margin-bottom: 4mm;
+    letter-spacing: -0.02em;
+  }
+
+  h2.slide-title {
+    font-family: var(--font-display);
+    font-size: 24pt;
+    font-weight: 700;
+    color: var(--hm-ink);
+    margin-bottom: 5mm;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    max-width: 185mm;
+  }
+
+  .lede {
+    font-size: 14pt;
+    color: var(--hm-muted);
+    font-weight: 500;
+    line-height: 1.45;
+    max-width: 168mm;
+  }
+
+  .lede strong { color: var(--hm-ink); font-weight: 700; }
+
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 9mm;
+    border: 1px solid var(--hm-border);
+    border-radius: 10px;
+    overflow: hidden;
+    width: fit-content;
+  }
+
+  .meta-item { padding: 4mm 7mm; background: rgba(200, 95, 43, 0.07); }
+  .meta-item:not(:last-child) { border-right: 1px solid var(--hm-border); }
+
+  .meta-label {
+    font-size: 8.5pt;
+    color: var(--hm-muted);
+    margin-bottom: 1mm;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .meta-value {
+    font-size: 12.5pt;
+    font-weight: 700;
+    color: var(--hm-ink);
+  }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10mm;
+    align-items: start;
+  }
+
+  .prob-item { margin-bottom: 5mm; }
+  .prob-item:last-child { margin-bottom: 0; }
+
+  .prob-title {
+    font-size: 13pt;
+    font-weight: 700;
+    color: var(--hm-ink);
+    margin-bottom: 1.5mm;
+  }
+
+  .prob-body {
+    font-size: 12pt;
+    color: var(--hm-muted);
+    line-height: 1.45;
+    font-weight: 500;
+    max-width: 88mm;
+  }
+
+  .prob-body strong { color: var(--hm-ink); font-weight: 700; }
+
+  .callout-one {
+    margin-top: 6mm;
+    padding: 5mm 6mm;
+    background: var(--hm-cream-soft);
+    border-radius: 10px;
+    border: 1px solid var(--hm-border);
+    font-size: 12.5pt;
+    color: var(--hm-muted);
+    line-height: 1.45;
+    font-weight: 500;
+    max-width: 88mm;
+  }
+
+  .callout-one strong { color: var(--hm-ink); font-weight: 700; }
+
+  /* Market: numbers lead */
+  .market-hero-line {
+    font-size: 13pt;
+    color: var(--hm-muted);
+    font-weight: 500;
+    line-height: 1.5;
+    max-width: 95mm;
+    margin-bottom: 6mm;
+  }
+
+  .market-hero-line strong { color: var(--hm-ink); font-weight: 700; }
+
+  .market-big-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4mm;
+    margin-bottom: 4mm;
+  }
+
+  .stat-big {
+    background: var(--hm-card);
+    border: 1px solid var(--hm-border);
+    border-radius: 12px;
+    padding: 5mm 5.5mm;
+  }
+
+  .stat-big .num {
+    font-family: var(--font-display);
+    font-size: 38pt;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--hm-ink);
+    letter-spacing: -0.03em;
+  }
+
+  .stat-big .lbl {
+    font-size: 11.5pt;
+    color: var(--hm-muted);
+    font-weight: 600;
+    margin-top: 2.5mm;
+    line-height: 1.3;
+  }
+
+  .stat-mega {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, var(--hm-orange) 0%, var(--hm-orange-dark) 100%);
+    border: none;
+    padding: 6mm 6.5mm;
+    border-radius: 12px;
+  }
+
+  .stat-mega .num {
+    font-size: 42pt;
+    color: #fff;
+  }
+
+  .stat-mega .lbl {
+    color: rgba(255,255,255,0.92);
+    font-size: 12.5pt;
+    margin-top: 3mm;
+    max-width: 120mm;
+  }
+
+  .stat-mega .lbl strong { color: #fff; font-weight: 700; }
+
+  .stat-tag {
+    display: inline-block;
+    margin-top: 2mm;
+    font-size: 10pt;
+    font-weight: 700;
+    color: var(--hm-orange-dark);
+    background: rgba(200, 95, 43, 0.12);
+    padding: 1mm 2.5mm;
+    border-radius: 4px;
+  }
+
+  .stat-big .stat-tag { margin-top: 2.5mm; }
+
+  /* UVP */
+  .uvp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5mm;
+  }
+
+  .uvp-block {
+    background: var(--hm-card);
+    border: 1px solid var(--hm-border);
+    border-radius: 12px;
+    padding: 5.5mm 6mm;
+  }
+
+  .uvp-block h3 {
+    font-family: var(--font-display);
+    font-size: 17pt;
+    font-weight: 700;
+    margin-bottom: 4mm;
+    padding-bottom: 3mm;
+    border-bottom: 1px solid var(--hm-border);
+  }
+
+  .uvp-line {
+    font-size: 12.5pt;
+    color: var(--hm-muted);
+    font-weight: 500;
+    line-height: 1.45;
+    margin-bottom: 2.8mm;
+    padding-left: 4mm;
+    border-left: 3px solid var(--hm-orange);
+  }
+
+  .uvp-line:last-child { margin-bottom: 0; }
+
+  .uvp-line strong { color: var(--hm-ink); font-weight: 700; }
+
+  .uvp-foot {
+    grid-column: 1 / -1;
+    font-size: 12.5pt;
+    color: var(--hm-muted);
+    font-weight: 500;
+    line-height: 1.45;
+    padding: 4.5mm 5.5mm;
+    background: var(--hm-cream-soft);
+    border-radius: 10px;
+    border: 1px solid var(--hm-border);
+  }
+
+  .uvp-foot strong { color: var(--hm-ink); font-weight: 700; }
+
+  /* Business */
+  .biz-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4mm;
+  }
+
+  .biz-card {
+    background: var(--hm-card);
+    border: 1px solid var(--hm-border);
+    border-radius: 12px;
+    padding: 5mm 5.5mm;
+  }
+
+  .biz-card h3 {
+    font-family: var(--font-display);
+    font-size: 15pt;
+    font-weight: 700;
+    margin-bottom: 2.5mm;
+  }
+
+  .biz-card p {
+    font-size: 12pt;
+    color: var(--hm-muted);
+    line-height: 1.45;
+    font-weight: 500;
+  }
+
+  .biz-card strong { color: var(--hm-ink); font-weight: 700; }
+
+  /* Founder */
+  .founder-name {
+    font-family: var(--font-display);
+    font-size: 34pt;
+    font-weight: 700;
+    line-height: 1.05;
+    margin-bottom: 2mm;
+  }
+
+  .founder-role {
+    font-size: 13pt;
+    color: var(--hm-orange);
+    font-weight: 700;
+    margin-bottom: 6mm;
+  }
+
+  .founder-line {
+    height: 3px;
+    width: 22mm;
+    background: var(--hm-orange);
+    border-radius: 2px;
+    margin-bottom: 7mm;
+  }
+
+  .founder-bullets { list-style: none; max-width: 178mm; }
+
+  .founder-bullets li {
+    position: relative;
+    padding-left: 6mm;
+    margin-bottom: 5mm;
+    font-size: 13.5pt;
+    color: var(--hm-muted);
+    line-height: 1.45;
+    font-weight: 500;
+  }
+
+  .founder-bullets li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.5em;
+    width: 3mm;
+    height: 3mm;
+    border-radius: 50%;
+    background: var(--hm-orange);
+  }
+
+  .founder-bullets strong { color: var(--hm-ink); font-weight: 700; }
+
+  /* Funds */
+  .fund-row { margin-bottom: 5mm; }
+
+  .fund-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4mm;
+    margin-bottom: 2mm;
+  }
+
+  .fund-label {
+    font-size: 14pt;
+    font-weight: 700;
+    color: var(--hm-ink);
+  }
+
+  .fund-pct {
+    font-family: var(--font-display);
+    font-size: 22pt;
+    font-weight: 700;
+    color: var(--hm-orange);
+    line-height: 1;
+  }
+
+  .fund-sub {
+    font-size: 11.5pt;
+    color: var(--hm-muted);
+    line-height: 1.4;
+    margin-bottom: 2mm;
+    font-weight: 500;
+    max-width: 115mm;
+  }
+
+  .fund-sub strong { color: var(--hm-ink); font-weight: 700; }
+
+  .bar-track {
+    height: 7px;
+    background: var(--hm-cream-soft);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .bar-fill { height: 100%; border-radius: 6px; background: var(--hm-orange); }
+  .bar-fill.b { background: #D97A45; }
+  .bar-fill.c { background: #E8A84A; }
+  .bar-fill.d { background: #B9A896; }
+
+  .side-note {
+    font-size: 12pt;
+    color: var(--hm-muted);
+    line-height: 1.45;
+    font-weight: 500;
+    padding: 5mm 6mm;
+    background: var(--hm-card);
+    border-radius: 10px;
+    border-left: 4px solid var(--hm-orange);
+  }
+
+  .side-note strong { color: var(--hm-ink); font-weight: 700; }
+
+  /* Closing */
+  .closing-slide {
+    background: var(--hm-ink);
+    color: var(--hm-cream);
+    justify-content: center;
+  }
+
+  .closing-slide .roof-accent {
+    background: linear-gradient(90deg, #C59353 0%, #EBC494 50%, #8E5A2A 100%);
+  }
+
+  .vision-label {
+    font-size: 9pt;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #EBC494;
+    margin-bottom: 4mm;
+    font-weight: 700;
+  }
+
+  .closing-headline {
+    font-family: var(--font-display);
+    font-size: 34pt;
+    font-weight: 700;
+    line-height: 1.15;
+    max-width: 185mm;
+    margin-bottom: 6mm;
+  }
+
+  .closing-headline span { color: #EBC494; }
+
+  .closing-lede {
+    font-size: 15pt;
+    color: rgba(251, 242, 232, 0.82);
+    line-height: 1.45;
+    max-width: 175mm;
+    margin-bottom: 8mm;
+    font-weight: 500;
+  }
+
+  .closing-lede strong { color: #fff; font-weight: 700; }
+
+  .vision-bullets {
+    list-style: none;
+    padding: 0;
+    font-size: 14pt;
+    font-weight: 600;
+    color: rgba(251, 242, 232, 0.95);
+    line-height: 1.55;
+  }
+
+  .vision-bullets li {
+    margin-bottom: 3mm;
+    padding-left: 5mm;
+    position: relative;
+  }
+
+  .vision-bullets li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 2.5mm;
+    height: 2.5mm;
+    border-radius: 1px;
+    background: #EBC494;
+  }
+
+  .closing-footer {
+    margin-top: 10mm;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 4mm;
+  }
+
+  .founder-credit {
+    font-size: 11pt;
+    color: rgba(251, 242, 232, 0.5);
+    font-weight: 500;
+  }
+
+  .url-badge {
+    background: var(--hm-orange);
+    color: #fff;
+    padding: 3mm 6mm;
+    border-radius: 8px;
+    font-size: 12pt;
+    font-weight: 700;
+  }
+
+  @media print {
+    body { margin: 0; }
+  }
+
+  @media screen {
+    body { padding: 12px; }
+    .slide { margin: 0 auto 16px; box-shadow: 0 8px 28px rgba(28, 25, 23, 0.07); border-radius: 2px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 01 COVER -->
+<div class="slide slide-center">
+  <div class="roof-accent"></div>
+  <div class="slide-num">01 / 08</div>
+
+  <div class="logo-row">
+    <svg class="brand-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" role="img" aria-label="HomeMakers">
+      <defs>
+        <linearGradient id="hmDeckGold" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#EBC494" />
+          <stop offset="50%" stop-color="#C59353" />
+          <stop offset="100%" stop-color="#8E5A2A" />
+        </linearGradient>
+        <filter id="hmDeckGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+      <path
+        d="M 100 25 C 75 35 35 55 25 80 C 15 105 20 135 35 155 C 50 175 80 165 100 145 C 125 120 155 105 155 80 C 155 50 120 50 100 85 C 80 50 45 50 45 80 C 45 105 75 120 100 145 C 120 165 150 175 165 155 C 180 135 185 105 175 80 C 165 55 125 35 100 25 Z"
+        stroke="url(#hmDeckGold)"
+        stroke-width="3"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        fill="url(#hmDeckGold)"
+        fill-opacity="0.05"
+        filter="url(#hmDeckGlow)"
+      />
+    </svg>
+  </div>
+
+  <h1 class="hero">HomeMakers</h1>
+  <p class="lede"><strong>AI-native</strong> design, estimate, project management, and marketplace — the <strong>planning and coordination</strong> layer for construction and renovation in India (on the order of <strong>5–10%</strong> of the combined industry).</p>
+  <p class="lede" style="margin-top: 4mm;">One-stop software for <strong>homes in India</strong>.</p>
+
+  <div class="meta-row">
+    <div class="meta-item">
+      <div class="meta-label">Stage</div>
+      <div class="meta-value">Pre-seed · MVP live</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Founder</div>
+      <div class="meta-value">ex-Cisco · Global Supply Chain</div>
+    </div>
+    <div class="meta-item">
+      <div class="meta-label">Market</div>
+      <div class="meta-value">India</div>
+    </div>
+  </div>
+</div>
+
+<!-- 02 PROBLEM -->
+<div class="slide slide-white">
+  <div class="roof-accent"></div>
+  <div class="slide-num">02 / 08</div>
+  <div class="slide-label">Problem</div>
+  <h2 class="slide-title">Projects are opaque. Choice is narrow. Most pros never make it online.</h2>
+
+  <div class="two-col">
+    <div>
+      <div class="prob-item">
+        <div class="prob-title">Homeowners</div>
+        <div class="prob-body">Scope and costs drift. Limited say when a brand <strong>owns the full job</strong> with its own teams.</div>
+      </div>
+      <div class="prob-item">
+        <div class="prob-title">Incumbent model</div>
+        <div class="prob-body">End-to-end players (e.g. <strong>Livspace</strong> and similar) optimize for their network — <strong>not an open market</strong>.</div>
+      </div>
+      <div class="prob-item">
+        <div class="prob-title">Independents</div>
+        <div class="prob-body">Small and mid-tier firms — especially <strong>Tier 2 / Tier 3</strong> — are largely <strong>off the digital map</strong>.</div>
+      </div>
+    </div>
+    <div>
+      <div class="prob-item">
+        <div class="prob-title">How work actually runs</div>
+        <div class="prob-body">WhatsApp, cash, verbal quotes. <strong>No single system</strong> for design, estimates, and delivery.</div>
+      </div>
+      <div class="callout-one"><strong>Remodeling is growing</strong> as households reinvest in existing homes — while the <strong>coordination layer</strong> stays offline. That is the opening.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 03 MARKET -->
+<div class="slide">
+  <div class="roof-accent"></div>
+  <div class="slide-num">03 / 08</div>
+  <div class="slide-label">Market opportunity</div>
+
+  <div class="two-col">
+    <div>
+      <div class="market-big-grid">
+        <div class="stat-big">
+          <div class="num">$687B</div>
+          <div class="lbl">India construction</div>
+        </div>
+        <div class="stat-big">
+          <div class="num">~$190B</div>
+          <div class="lbl">Residential <span class="stat-tag">Remodeling ↑</span></div>
+        </div>
+        <div class="stat-big">
+          <div class="num">~5M</div>
+          <div class="lbl">Homes renovating yearly <span class="stat-tag">Demand</span></div>
+        </div>
+        <div class="stat-big">
+          <div class="num">0.8%</div>
+          <div class="lbl">Online penetration <span class="stat-tag">Headroom</span></div>
+        </div>
+        <div class="stat-big stat-mega">
+          <div class="num">$1.5–2.5B</div>
+          <div class="lbl">Serviceable focus: decision + coordination on a <strong>~$35–50B</strong> renovation / interiors envelope</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <h2 class="slide-title">A very large industry; software at the start of its curve.</h2>
+      <p class="market-hero-line"><strong>~$687B</strong> construction · <strong>~$190B</strong> residential. <strong>Remodeling and renovation</strong> are rising as families stretch existing homes. <strong>Online home services ~0.8%</strong> — coordination still mostly offline.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 04 UVP -->
+<div class="slide slide-white">
+  <div class="roof-accent"></div>
+  <div class="slide-num">04 / 08</div>
+  <div class="slide-label">What we offer</div>
+  <h2 class="slide-title">Homeowners get clarity and choice. Professionals get reach and workflow.</h2>
+
+  <div class="uvp-grid">
+    <div class="uvp-block">
+      <h3>Homeowners</h3>
+      <div class="uvp-line"><strong>Vision → estimate</strong> before build</div>
+      <div class="uvp-line"><strong>Track the project</strong> · fewer site visits</div>
+      <div class="uvp-line"><strong>Protected payments</strong></div>
+      <div class="uvp-line"><strong>One place</strong> to compare contractors</div>
+    </div>
+    <div class="uvp-block">
+      <h3>Professionals</h3>
+      <div class="uvp-line"><strong>Portfolio + discovery</strong></div>
+      <div class="uvp-line"><strong>More leads</strong> · faster deals</div>
+      <div class="uvp-line"><strong>CRM</strong> · design alignment · <strong>milestone payments</strong></div>
+    </div>
+    <div class="uvp-foot">Open network: <strong>independent to premium</strong> firms. Homeowners can <strong>bring their own pros</strong> — including <strong>Tier 2 / Tier 3</strong>, where bundled incumbents rarely go deep.</div>
+  </div>
+</div>
+
+<!-- 05 BUSINESS MODEL -->
+<div class="slide">
+  <div class="roof-accent"></div>
+  <div class="slide-num">05 / 08</div>
+  <div class="slide-label">Business model</div>
+  <h2 class="slide-title">Freemium entry. Revenue tied to depth, traffic, and transactions.</h2>
+
+  <div class="biz-grid">
+    <div class="biz-card">
+      <h3>Subscriptions</h3>
+      <p>Core tools <strong>free</strong> on both sides. <strong>Premium</strong> and <strong>use-case</strong> plans as teams adopt more.</p>
+    </div>
+    <div class="biz-card">
+      <h3>Commissions</h3>
+      <p>Share of <strong>payments</strong> that run on-platform.</p>
+    </div>
+    <div class="biz-card">
+      <h3>Discovery</h3>
+      <p><strong>Ads</strong> and placement for pros, contractors, and <strong>material vendors</strong>.</p>
+    </div>
+    <div class="biz-card">
+      <h3>Commerce &amp; services</h3>
+      <p><strong>Materials and home products</strong>; optional <strong>HomeMakers</strong> services over time.</p>
+    </div>
+  </div>
+</div>
+
+<!-- 06 FOUNDER -->
+<div class="slide slide-white">
+  <div class="roof-accent"></div>
+  <div class="slide-num">06 / 08</div>
+  <div class="slide-label">Founder</div>
+
+  <div class="founder-name">Mokshith Kumar</div>
+  <div class="founder-role">Founder &amp; CEO</div>
+  <div class="founder-line"></div>
+  <ul class="founder-bullets">
+    <li><strong>2.5 years at Cisco</strong> — Global Supply Chain (analysis and associate PM); large-scale coordination systems.</li>
+    <li><strong>Built environment</strong> — Father is a <strong>civil engineering professor</strong>; hands-on role in our <strong>family home</strong>; ongoing work with <strong>architects, contractors, and homeowners</strong>.</li>
+    <li><strong>M.S. Artificial Intelligence &amp; Business Management</strong> — plus CS foundation; ties models to product and commercial judgment.</li>
+    <li><strong>AI systems and product management</strong> — owns delivery end to end.</li>
+  </ul>
+</div>
+
+<!-- 07 USE OF FUNDS -->
+<div class="slide">
+  <div class="roof-accent"></div>
+  <div class="slide-num">07 / 08</div>
+  <div class="slide-label">Use of funds</div>
+  <div class="two-col" style="align-items: start;">
+    <div>
+      <h2 class="slide-title">Product and go-to-market first, in balance. Then team and buffer.</h2>
+
+      <div class="fund-row">
+        <div class="fund-top">
+          <span class="fund-label">Product</span>
+          <span class="fund-pct">40%</span>
+        </div>
+        <div class="fund-sub">Near term: <strong>design generation, estimates, marketplace, project management</strong> — production-grade. Next: <strong>CRM, 3D, renders, document vault</strong>.</div>
+        <div class="bar-track"><div class="bar-fill" style="width: 40%;"></div></div>
+      </div>
+
+      <div class="fund-row">
+        <div class="fund-top">
+          <span class="fund-label">Go-to-market</span>
+          <span class="fund-pct">40%</span>
+        </div>
+        <div class="fund-sub">City activations, <strong>mobile outdoor</strong> formats, partnerships, <strong>creator channels</strong> — measured tests.</div>
+        <div class="bar-track"><div class="bar-fill b" style="width: 40%;"></div></div>
+      </div>
+
+      <div class="fund-row">
+        <div class="fund-top">
+          <span class="fund-label">Team</span>
+          <span class="fund-pct">12%</span>
+        </div>
+        <div class="fund-sub">Engineering and GTM.</div>
+        <div class="bar-track"><div class="bar-fill c" style="width: 12%;"></div></div>
+      </div>
+
+      <div class="fund-row">
+        <div class="fund-top">
+          <span class="fund-label">Ops, legal, buffer</span>
+          <span class="fund-pct">8%</span>
+        </div>
+        <div class="fund-sub">Entity, IP, compliance, <strong>runway cushion</strong>.</div>
+        <div class="bar-track"><div class="bar-fill d" style="width: 8%;"></div></div>
+      </div>
+    </div>
+    <div style="padding-top: 14mm;">
+      <div class="side-note"><strong>India base</strong> — strong product cadence and capital efficiency at a high quality bar.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 08 CLOSING -->
+<div class="slide closing-slide">
+  <div class="roof-accent"></div>
+  <div class="slide-num" style="color: rgba(235,196,148,0.5);">08 / 08</div>
+
+  <div class="vision-label">Vision</div>
+  <div class="closing-headline">One-stop <span>software</span> for everything home — online.</div>
+
+  <p class="closing-lede"><strong>Building and remodeling</strong> for <strong>homeowners and professionals</strong>: materials and products, a <strong>professional marketplace</strong>, and <strong>design + project tools</strong> in one system.</p>
+
+  <ul class="vision-bullets">
+    <li>Open platform — customers and pros choose who they work with</li>
+    <li>AI-native workflows from brief to payment</li>
+    <li>India scale with a global product standard</li>
+  </ul>
+
+  <div class="closing-footer">
+    <div class="founder-credit">Mokshith Kumar · ex-Cisco GSC · AI &amp; Business (graduate) · MVP live</div>
+    <div class="url-badge">homemakersfinal.vercel.app</div>
+  </div>
+</div>
+
+</body>
+</html>

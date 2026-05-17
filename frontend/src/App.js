@@ -2,6 +2,8 @@ import "@/App.css";
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import { getSupabase } from "./lib/supabaseClient";
+import { fetchUserProfile, persistHmSessionFromSupabase } from "./lib/userProfileApi";
 import HomePage from "./pages/HomePage";
 import SignInPage from "./pages/SignInPage";
 import CraftSelection from "./pages/CraftSelection";
@@ -51,6 +53,42 @@ function ScrollToTopOnRouteChange() {
 }
 
 function App() {
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb) return undefined;
+
+    const syncSession = async (session) => {
+      if (!session?.user) return;
+      let profile = null;
+      try {
+        profile = await fetchUserProfile(session.user.id);
+      } catch (_) {
+        /* table missing or RLS — still keep auth session */
+      }
+      persistHmSessionFromSupabase(session.user, profile);
+    };
+
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) syncSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event, session) => {
+      if (session) syncSession(session);
+      else if (event === "SIGNED_OUT") {
+        try {
+          localStorage.removeItem("hmSession");
+          localStorage.removeItem("hmUser");
+        } catch (_) {
+          /* ignore */
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <div className="App">
       <BrowserRouter>
