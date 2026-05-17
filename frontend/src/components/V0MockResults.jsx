@@ -144,40 +144,50 @@ export function V0EstimateSection({ planBundle, title = "Indicative v0 estimate"
   );
 }
 
-function thumbCard(entry, i, { tall, objectFit = "cover" }) {
-  const label = entry && typeof entry === "object" ? entry.label || `Item ${i + 1}` : `Item ${i + 1}`;
+/** Large concept image — caption below, minimal chrome (no thumbnail boxes). */
+function conceptImageCard(entry, i, variant = "elevation") {
+  const label = entry && typeof entry === "object" ? entry.label || `Concept ${i + 1}` : `Concept ${i + 1}`;
   const url = entry?.url;
   const hint = entry?.hint;
+  const isPlan = variant === "plan";
+
   return (
-    <div
-      key={label + i}
-      style={{
-        borderRadius: 12,
-        border: "1px solid #EEDCCB",
-        padding: 12,
-        minHeight: tall ? 140 : 100,
-        background: "linear-gradient(180deg,#FFFBF7,#FDFBF8)",
-        overflow: "hidden",
-      }}
-    >
-      {url ? (
-        <img
-          src={url}
-          alt=""
-          style={{
-            width: "100%",
-            height: tall ? 160 : 88,
-            objectFit,
-            objectPosition: "center",
-            borderRadius: 8,
-            marginBottom: 8,
-            background: "#E7E5E4",
-          }}
-        />
-      ) : null}
-      <div style={{ fontSize: 11, fontWeight: 700, color: OR }}>{label}</div>
-      <div style={{ fontSize: 11, color: "#78716C", marginTop: 4, lineHeight: 1.35 }}>{hint || ""}</div>
-    </div>
+    <figure key={label + i} style={{ margin: 0 }}>
+      <div
+        style={{
+          width: "100%",
+          borderRadius: 16,
+          overflow: "hidden",
+          background: "#F5F0EA",
+          boxShadow: "0 12px 40px -12px rgba(28, 25, 23, 0.18)",
+          ...(isPlan
+            ? { minHeight: 340, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }
+            : { aspectRatio: "16 / 9", minHeight: 300 }),
+        }}
+      >
+        {url ? (
+          <img
+            src={url}
+            alt={label}
+            loading="lazy"
+            style={{
+              width: "100%",
+              height: isPlan ? "auto" : "100%",
+              maxHeight: isPlan ? 520 : undefined,
+              display: "block",
+              objectFit: isPlan ? "contain" : "cover",
+              objectPosition: "center",
+            }}
+          />
+        ) : null}
+      </div>
+      <figcaption style={{ paddingTop: 12, paddingBottom: 4 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: "#1C1917", letterSpacing: "-0.01em" }}>{label}</div>
+        {hint ? (
+          <div style={{ fontSize: 13, color: "#57534E", marginTop: 6, lineHeight: 1.5, maxWidth: 720 }}>{hint}</div>
+        ) : null}
+      </figcaption>
+    </figure>
   );
 }
 
@@ -204,24 +214,30 @@ export function V0VisualBundleSections({ bundle, floorPlanTitle = "Floor plans (
   return (
     <>
       {floorPlans.length ? (
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 6, color: "#1C1917" }}>{floorPlanTitle}</div>
-          <p style={{ fontSize: 12, color: "#57534E", margin: "0 0 12px", lineHeight: 1.5 }}>
+        <div style={{ marginBottom: 36 }}>
+          <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8, color: "#1C1917" }}>{floorPlanTitle}</div>
+          <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 20px", lineHeight: 1.5 }}>
             {bundle?.mock ? "Indicative layouts for briefing — not sanction drawings." : "Reference floor plans — AI concepts are in the section below."}
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
-            {floorPlans.map((e, i) => thumbCard(e, i, { tall: true, objectFit: "cover" }))}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: floorPlans.length > 1 ? "repeat(auto-fit, minmax(320px, 1fr))" : "1fr",
+              gap: 28,
+            }}
+          >
+            {floorPlans.map((e, i) => conceptImageCard(e, i, "plan"))}
           </div>
         </div>
       ) : null}
       {elevations.length ? (
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 6, color: "#1C1917" }}>{elevationTitle}</div>
-          <p style={{ fontSize: 12, color: "#57534E", margin: "0 0 12px", lineHeight: 1.5 }}>
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8, color: "#1C1917" }}>{elevationTitle}</div>
+          <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 20px", lineHeight: 1.5 }}>
             {bundle?.mock ? "Concept renders for discussion." : "Grok-generated concepts from your wizard answers."}
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
-            {elevations.map((e, i) => thumbCard(e, i, { tall: false, objectFit: "cover" }))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+            {elevations.map((e, i) => conceptImageCard(e, i, "elevation"))}
           </div>
         </div>
       ) : null}
