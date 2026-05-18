@@ -253,7 +253,7 @@ export default function GoLive() {
                 <Eye size={18} /> Preview as Client
               </button>
               <button
-                onClick={() => alert("Dashboard not implemented yet.")}
+                onClick={() => navigate("/pro/dashboard")}
                 className="w-full md:w-auto btn-continue"
               >
                 Go to My Dashboard

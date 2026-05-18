@@ -19,6 +19,17 @@ export default function SignInPage() {
   const [searchParams] = useSearchParams();
   const modeFromQuery = searchParams.get("mode") === "signup" ? "signup" : "signin";
   const roleFromQuery = searchParams.get("role") === "pro" ? "pro" : "homeowner";
+  const redirectFromQuery = (() => {
+    const raw = searchParams.get("redirect");
+    if (!raw) return null;
+    try {
+      const path = decodeURIComponent(raw);
+      if (path.startsWith("/") && !path.startsWith("//")) return path;
+    } catch (_) {
+      /* ignore */
+    }
+    return null;
+  })();
 
   const [step, setStep] = useState("entry");
   const [mode, setMode] = useState(modeFromQuery);
@@ -83,6 +94,7 @@ export default function SignInPage() {
       const params = new URLSearchParams();
       params.set("role", accountRole);
       if (isSignUp) params.set("mode", "signup");
+      if (redirectFromQuery) params.set("redirect", redirectFromQuery);
       const redirectTo = `${window.location.origin}/sign-in?${params.toString()}`;
       const { error } = await sb.auth.signInWithOAuth({
         provider: "google",
@@ -110,7 +122,7 @@ export default function SignInPage() {
     const resolvedRole = profile?.role || user.user_metadata?.role || accountRole;
     if (profile?.full_name?.trim()) {
       persistHmSessionFromSupabase(user, profile);
-      navigate(getPostLoginPath(resolvedRole), { replace: true });
+      navigate(getPostLoginPath(resolvedRole, redirectFromQuery), { replace: true });
       return;
     }
     const meta = user.user_metadata || {};
@@ -314,7 +326,7 @@ export default function SignInPage() {
       }
       setStep("done");
       setTimeout(() => {
-        navigate(getPostLoginPath(accountRole), { replace: true });
+        navigate(getPostLoginPath(accountRole, redirectFromQuery), { replace: true });
       }, 1800);
     } catch (err) {
       setAuthError(err?.message || "Could not save your profile.");
@@ -415,7 +427,7 @@ export default function SignInPage() {
                     </div>
                     <p className="mt-2 px-1 text-[11px] leading-relaxed text-muted-foreground font-body">
                       {accountRole === "pro"
-                        ? "You will land in the pro dashboard after login."
+                        ? "Sign in first, then build your portfolio. After you go live, your pro dashboard unlocks."
                         : "You will land in the homeowner experience after login."}
                     </p>
                   </div>

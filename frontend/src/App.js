@@ -24,6 +24,8 @@ import ProjectDesignJourney from "./pages/ProjectDesignJourney";
 import TeamPage from "./pages/TeamPage";
 import StageDashboard from "./pages/StageDashboard";
 import ProDashboard from "./pages/ProDashboard";
+import ProOnboardingGuard from "./components/ProOnboardingGuard";
+import ProDashboardGuard from "./components/ProDashboardGuard";
 
 function ScrollToTopOnRouteChange() {
   const { pathname, search, hash } = useLocation();
@@ -124,7 +126,14 @@ function App() {
           <Route path="/project/journey" element={<ProjectDesignJourney />} />
           <Route path="/team" element={<TeamPage />} />
           <Route path="/stage" element={<StageDashboard />} />
-          <Route path="/pro/dashboard" element={<ProDashboard />} />
+          <Route
+            path="/pro/dashboard"
+            element={
+              <ProDashboardGuard>
+                <ProDashboard />
+              </ProDashboardGuard>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </div>

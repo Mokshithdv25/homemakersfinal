@@ -110,20 +110,57 @@ function mockV0ImagesClient(flow, brief) {
   };
 }
 
+function remodelBudgetInr(brief) {
+  if (brief?.budgetInr) return Number(brief.budgetInr);
+  const n = parseInt(String(brief?.budgetAmount ?? "0"), 10) || 0;
+  if (n <= 0) return 700000;
+  return String(brief?.budgetUnit || "").toLowerCase().startsWith("cr")
+    ? n * 10_000_000
+    : n * 100_000;
+}
+
 function mockEstimateClient(flow, brief) {
   const headline =
     brief?.location?.split?.(",")?.[0]?.trim?.() ||
     brief?.room ||
     "Project";
+  if (flow === "remodel") {
+    const cap = remodelBudgetInr(brief);
+    const weights = [
+      ["Demolition & site prep (indicative)", 0.08],
+      ["Civil & carpentry (indicative)", 0.34],
+      ["Electrical & lighting (indicative)", 0.16],
+      ["Finishes & fixtures (indicative)", 0.34],
+      ["Contingency (within cap)", 0.08],
+    ];
+    let running = 0;
+    const estimate_lines = weights.slice(0, -1).map(([label, pct]) => {
+      const amount_inr = Math.round(cap * pct);
+      running += amount_inr;
+      return { label, amount_inr, note: `${headline} — room-scope v0` };
+    });
+    estimate_lines.push({
+      label: weights[weights.length - 1][0],
+      amount_inr: Math.max(cap - running, 0),
+      note: "Stays inside your stated budget band",
+    });
+    const total_indicative_inr = estimate_lines.reduce((s, l) => s + l.amount_inr, 0);
+    return {
+      mock: true,
+      estimate_lines,
+      total_indicative_inr,
+      milestones: [
+        { title: "Concept lock & samples", timeframe: "Weeks 1–2" },
+        { title: "Working drawings & BOQ", timeframe: "Weeks 3–5" },
+        { title: "Execution on site", timeframe: "Per timeline in brief" },
+        { title: "Snag & handover", timeframe: "Final week" },
+      ],
+      project_summary: `Indicative ${brief?.room || "room"} remodel in ${headline} scoped to ~₹${Math.round(total_indicative_inr / 100000)} L (your budget band).`,
+      provider_note: "Demo estimate aligned to remodel budget — start backend for live Grok.",
+    };
+  }
   const estimate_lines =
-    flow === "remodel"
-      ? [
-          { label: "Demolition / prep (indicative)", amount_inr: 55000, note: `${headline} — v0 interior scope` },
-          { label: "Civil + carpentry (indicative)", amount_inr: 240000, note: "Layout/storage updates from brief" },
-          { label: "Electrical + lighting (indicative)", amount_inr: 85000, note: "Interior services allowance" },
-          { label: "Finishes + fixtures (indicative)", amount_inr: 190000, note: "Depends on finish tier" },
-        ]
-      : [
+      [
           { label: "Structure & shell (indicative)", amount_inr: 2650000, note: `${headline} — tied to floor plans v0` },
           { label: "Exterior facade package", amount_inr: 620000, note: "Elevations v0 + materials allowance" },
           { label: "Core interiors (indicative)", amount_inr: 980000, note: "Kitchen, wardrobes, baths baseline" },

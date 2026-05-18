@@ -5,6 +5,7 @@ import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import { findCraft } from "../lib/crafts";
 import { updatePortfolio } from "../lib/api";
+import { useHmSession } from "../hooks/useHmSession";
 import {
   getPortfolioBase,
   getPortfolioMedia,
@@ -84,6 +85,8 @@ function optimizeImageDataUrl(file, { maxW = 1280, maxH = 720, quality = 0.72 } 
 
 export default function YourDetails() {
   const navigate = useNavigate();
+  const hmSession = useHmSession();
+  const hmProfile = hmSession?.profile;
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -124,14 +127,16 @@ export default function YourDetails() {
     const craft = saved.craft || localStorage.getItem("hm_craft") || "";
     setCraftId(craft);
     setCraftDetails(findCraft(craft));
+    const profilePhone = hmProfile?.phone || "";
+    const phoneDigits = profilePhone.replace(/\D/g, "").slice(-10);
     setForm({
-      full_name: saved.full_name || "",
+      full_name: saved.full_name || hmProfile?.name || "",
       business_name: saved.business_name || "",
-      city: saved.city || "",
+      city: saved.city || hmProfile?.city || "",
       address: saved.address || "",
       years_experience: saved.years_experience || "",
-      phone: saved.phone || "",
-      email: saved.email || "",
+      phone: saved.phone || phoneDigits || "",
+      email: saved.email || hmProfile?.email || "",
       license_number: saved.license_number || "",
       short_bio: saved.short_bio || "",
       specialties: saved.specialties || [],
@@ -139,7 +144,7 @@ export default function YourDetails() {
       profile_photo: media.profile_photo || "",
     });
     setLoading(false);
-  }, [navigate]);
+  }, [navigate, hmProfile]);
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));

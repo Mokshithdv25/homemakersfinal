@@ -44,7 +44,7 @@ export default function HomePage() {
           </p>
           <button
             type="button"
-            onClick={() => navigate("/craft")}
+            onClick={() => navigate("/sign-in?role=pro&mode=signup")}
             className="mt-8 gradient-copper rounded-xl px-10 py-3.5 font-body text-base font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
           >
             Set up your practice

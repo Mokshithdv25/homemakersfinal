@@ -337,13 +337,107 @@ def _parse_estimate_plan_json(parsed: dict) -> Optional[AIEstimatePlanResponse]:
     )
 
 
-def _estimate_system_prompt() -> str:
+def _brief_budget_inr(brief: dict) -> Optional[int]:
+    """Parse homeowner budget cap from wizard brief (lakhs or crores)."""
+    raw = brief.get("budgetInr")
+    if raw is not None:
+        try:
+            n = int(float(raw))
+            return max(n, 0) if n > 0 else None
+        except (TypeError, ValueError):
+            pass
+    try:
+        amount = int(float(brief.get("budgetAmount") or 0))
+    except (TypeError, ValueError):
+        amount = 0
+    if amount <= 0:
+        return None
+    unit = str(brief.get("budgetUnit") or "Lakhs").lower()
+    if unit.startswith("cr"):
+        return amount * 10_000_000
+    return amount * 100_000
+
+
+def _estimate_system_prompt(flow: FlowKind) -> str:
+    if flow == "remodel":
+        return (
+            "You are an interior remodel cost estimator for Indian homes (single room or zone only). "
+            "Return strict JSON only with keys: estimate_lines, milestones, project_summary. "
+            "estimate_lines: array of {label, amount_inr, note} — 4-6 lines for ROOM-SCALE work only "
+            "(demolition/prep, civil/carpentry, electrical/lighting, finishes/fixtures, soft furnishings, contingency). "
+            "NEVER include whole-house items: no RCC frame, no structure & shell, no G+1/3BHK, no foundation, "
+            "no external works, no boundary wall, no facade package. "
+            "milestones: array of {title, timeframe} for a remodel (design lock, procurement, execution, handover). "
+            "The sum of amount_inr MUST stay within the homeowner budgetInr in the brief (use 90-100% of cap; "
+            "contingency is one line inside the cap, not on top). "
+            "project_summary: 2-3 sentences referencing room, budget band, and timeline only. No markdown."
+        )
     return (
-        "You are a construction planning assistant for Indian residential projects. "
+        "You are a construction planning assistant for Indian residential new-build projects. "
         "Return strict JSON only with keys: estimate_lines, milestones, project_summary. "
         "estimate_lines: array of {label, amount_inr, note}. "
         "milestones: array of {title, timeframe}. "
         "Use realistic INR ranges for the city/region in the brief. No markdown."
+    )
+
+
+_REMODEL_WRONG_ESTIMATE = re.compile(
+    r"structure\s*&\s*shell|\brcc\b|g\+[0-9]?|3\s*bhk|facade\s*package|"
+    r"foundation\s*&\s*plinth|external\s*works|boundary\s*wall",
+    re.IGNORECASE,
+)
+
+
+def _estimate_looks_like_new_build(lines: List[dict]) -> bool:
+    for line in lines or []:
+        blob = f"{line.get('label', '')} {line.get('note', '')}"
+        if _REMODEL_WRONG_ESTIMATE.search(blob):
+            return True
+    return False
+
+
+def _remodel_estimate_from_brief(brief: dict) -> AIEstimatePlanResponse:
+    """Deterministic remodel estimate anchored to homeowner budget cap."""
+    cap = _brief_budget_inr(brief) or 700_000
+    room = str(brief.get("room") or "room")
+    loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
+    finish = str(brief.get("finishTier") or "mid-range")
+    timeline = str(brief.get("completionTime") or brief.get("startTimeline") or "per brief")
+
+    weights = [
+        ("Demolition & site prep (indicative)", 0.08, f"{room} — dust control, protection, strip-out"),
+        ("Civil & carpentry (indicative)", 0.34, "Layout tweaks, storage, false ceiling allowance"),
+        ("Electrical & lighting (indicative)", 0.16, "Points, fixtures, dimming — per dealbreakers"),
+        ("Finishes & fixtures (indicative)", 0.34, f"{finish} tier — paint, flooring, loose furniture"),
+        ("Contingency (within cap)", 0.08, "Buffer for site surprises — stays inside your budget band"),
+    ]
+    estimate_lines = []
+    running = 0
+    for label, pct, note in weights[:-1]:
+        amt = int(round(cap * pct))
+        running += amt
+        estimate_lines.append({"label": label, "amount_inr": amt, "note": note})
+    last_amt = max(cap - running, 0)
+    estimate_lines.append(
+        {"label": weights[-1][0], "amount_inr": last_amt, "note": weights[-1][2]}
+    )
+    total = sum(int(x["amount_inr"]) for x in estimate_lines)
+
+    return AIEstimatePlanResponse(
+        estimate_lines=estimate_lines,
+        milestones=[
+            {"title": "Concept lock & material samples", "timeframe": "Weeks 1–2"},
+            {"title": "Working drawings & vendor BOQ", "timeframe": "Weeks 3–5"},
+            {"title": "Execution on site", "timeframe": timeline},
+            {"title": "Snag, handover & styling", "timeframe": "Final week"},
+        ],
+        project_summary=(
+            f"Indicative {room.lower()} remodel in {loc} scoped to your stated budget band "
+            f"(≈ {total // 100_000} L all-in, ex-GST). Room-size allowances only — not a full-home build."
+        ),
+        total_indicative_inr=total,
+        mock=False,
+        provider_note="Remodel estimate aligned to your wizard budget (room scope).",
     )
 
 
@@ -359,8 +453,13 @@ def _grok_estimate_plan(
     brief_json = json.dumps(brief or {}, ensure_ascii=False)
     image_json = json.dumps(image_bundle or {}, ensure_ascii=False)
     constraints = _brief_constraints_summary(flow, brief)
+    budget_inr = _brief_budget_inr(brief)
+    budget_line = (
+        f"Budget cap (INR, hard limit): {budget_inr}\n" if budget_inr else ""
+    )
     user_prompt = (
         f"Flow: {flow_label}\n"
+        f"{budget_line}"
         f"Structured constraints:\n{constraints}\n\n"
         f"Full brief JSON: {brief_json}\n"
         f"Image bundle JSON: {image_json}\n"
@@ -376,9 +475,9 @@ def _grok_estimate_plan(
             },
             json={
                 "model": model,
-                "temperature": 0.3,
+                "temperature": 0.25 if flow == "remodel" else 0.3,
                 "messages": [
-                    {"role": "system", "content": _estimate_system_prompt()},
+                    {"role": "system", "content": _estimate_system_prompt(flow)},
                     {"role": "user", "content": user_prompt},
                 ],
             },
@@ -398,7 +497,21 @@ def _grok_estimate_plan(
         parsed = json.loads(content)
         result = _parse_estimate_plan_json(parsed)
         if result is None:
+            if flow == "remodel":
+                return _remodel_estimate_from_brief(brief)
             return None
+        if flow == "remodel":
+            cap = budget_inr
+            if _estimate_looks_like_new_build(result.estimate_lines):
+                logger.warning("Grok returned new-build-style lines for remodel; using budget-anchored estimate")
+                return _remodel_estimate_from_brief(brief)
+            if cap and result.total_indicative_inr and result.total_indicative_inr > int(cap * 1.15):
+                logger.warning(
+                    "Grok remodel total %s exceeds budget cap %s; using budget-anchored estimate",
+                    result.total_indicative_inr,
+                    cap,
+                )
+                return _remodel_estimate_from_brief(brief)
         result.provider_note = f"Generated by xAI {model} (Grok)."
         return result
     except Exception as exc:
@@ -480,6 +593,13 @@ def _brief_constraints_summary(flow: FlowKind, brief: dict) -> str:
     if flow == "remodel":
         room = str(brief.get("room") or "room")
         lines.append(f"Room / space: {room}")
+        lines.append("Project type: interior remodel (single room/zone — NOT a new house build)")
+        size = brief.get("roomSizeLabel") or ""
+        if size:
+            lines.append(f"Room size: {size}")
+        ptype = brief.get("propertyType") or brief.get("ptype")
+        if ptype:
+            lines.append(f"Property: {ptype}")
         for label, key in (
             ("Goals", "mainGoal"),
             ("Pain points", "painPoints"),
@@ -493,6 +613,9 @@ def _brief_constraints_summary(flow: FlowKind, brief: dict) -> str:
             v = brief.get(key)
             if v:
                 lines.append(f"{label}: {_brief_list(v) if isinstance(v, list) else v}")
+        cap = _brief_budget_inr(brief)
+        if cap:
+            lines.append(f"Budget cap (INR): {cap} — total estimate must not exceed this")
     else:
         floors = str(brief.get("floors") or "G+1")
         dim_w = brief.get("dimW")
@@ -538,33 +661,66 @@ def _grok_v0_image_prompts(flow: FlowKind, brief: dict) -> List[tuple]:
     constraints = _brief_constraints_summary(flow, brief)
 
     if flow == "remodel":
+        indoor_only = (
+            "STRICT: indoor photograph ONLY — no building exterior, no facade, no roofline, "
+            "no street view, no cars, no aerial. Show the furnished room interior.\n"
+        )
         base = (
             f"Photorealistic interior design visualization for a {room} remodel in {loc}, India.\n"
+            f"{indoor_only}"
             f"Constraints from homeowner brief:\n{constraints}\n"
         )
         return [
             (
-                "Interior mood A",
+                "Interior direction A",
                 f"{room} — palette and joinery",
                 base
-                + "Variant A: main palette and joinery direction. Warm natural light. No text, no watermark.",
+                + "Variant A: main palette, joinery, and seating layout. Warm natural window light. No text, no watermark.",
                 "4:3",
             ),
             (
-                "Interior mood B",
+                "Interior direction B",
                 "Alternate materials / lighting",
                 base
-                + "Variant B: alternate materials and lighting mood. No text, no watermark.",
+                + "Variant B: alternate wall finish, flooring, and lighting mood. Same room, different materials. No text, no watermark.",
                 "4:3",
             ),
             (
-                "Interior mood C",
-                "Premium finish variant",
+                "Interior direction C",
+                "Refined finish variant",
                 base
-                + "Variant C: refined premium finish level. No text, no watermark.",
+                + "Variant C: refined premium finish level inside the room. No text, no watermark.",
                 "4:3",
             ),
         ]
+
+
+def _grok_remodel_floor_plan_prompts(brief: dict) -> List[tuple]:
+    """Layout sketches for remodel — interior plan, not building exterior."""
+    loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
+    room = str(brief.get("room") or "living room")
+    size = str(brief.get("roomSizeLabel") or "medium room")
+    style = _brief_style_hint(brief)
+    base = (
+        f"Architectural interior layout plan drawing, top-down view, {room} in {loc}, India. "
+        f"Room size: {size}. Style: {style}. "
+        "Black ink lines on white paper, furniture placement, doors/windows as symbols. "
+        "NO exterior elevation, NO house facade, NO 3D building render. No text labels, no watermark.\n"
+    )
+    return [
+        (
+            f"{room} — layout v0 (plan sketch)",
+            "Furniture + circulation overlay on room footprint (indicative)",
+            base + "Focus: sofa, TV unit, circulation paths.",
+            "4:3",
+        ),
+        (
+            "Services & ceiling v0",
+            "Lighting grid + services assumptions for discussion",
+            base + "Focus: ceiling plan, light positions, AC diffuser symbols.",
+            "4:3",
+        ),
+    ]
 
     base = (
         f"Photorealistic residential architecture in {loc}, India. {floors} home.\n"
@@ -601,26 +757,39 @@ def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]
     except ValueError:
         mood_count = 3
 
-    specs = _grok_v0_image_prompts(flow, brief)[:mood_count]
+    mood_specs = _grok_v0_image_prompts(flow, brief)[:mood_count]
     images: List[dict] = []
-    for label, hint, prompt, aspect in specs:
+    for label, hint, prompt, aspect in mood_specs:
         url = _grok_generate_image(prompt, aspect_ratio=aspect)
         if not url:
             continue
         images.append({"url": url, "label": label, "hint": hint})
 
+    floor_plans: List[dict] = []
+    if flow == "remodel":
+        for label, hint, prompt, aspect in _grok_remodel_floor_plan_prompts(brief):
+            url = _grok_generate_image(prompt, aspect_ratio=aspect)
+            if url:
+                floor_plans.append({"url": url, "label": label, "hint": hint})
+    if not floor_plans:
+        floor_plans = list(_mock_v0_images(flow, brief).floor_plans or [])
+
     if not images:
         return None
 
-    mock_fp = _mock_v0_images(flow, brief).floor_plans or []
     model = os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image").strip() or "grok-imagine-image"
+    fp_note = (
+        f" Generated {len(floor_plans)} room layout sketch(es)."
+        if flow == "remodel" and floor_plans
+        else " Floor plans are indicative placeholders to conserve credits."
+    )
     return AIV0ImagesResponse(
         images=images,
-        floor_plans=mock_fp,
+        floor_plans=floor_plans,
         mock=False,
         provider_note=(
-            f"Generated {len(images)} concept image(s) via xAI {model} (~$0.02/img). "
-            "Floor plans are indicative placeholders to conserve credits."
+            f"Generated {len(images)} interior concept image(s) via xAI {model} (~$0.02/img)."
+            + fp_note
         ),
     )
 
@@ -702,21 +871,15 @@ def _mock_v0_images(flow: FlowKind, brief: dict) -> AIV0ImagesResponse:
 def _mock_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[dict]) -> AIEstimatePlanResponse:
     loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
     if flow == "remodel":
-        estimate_lines = [
-            {"label": "Demolition / prep (indicative)", "amount_inr": 55000, "note": f"{loc} interior scope"},
-            {"label": "Civil + carpentry (indicative)", "amount_inr": 240000, "note": "Layout/storage updates"},
-            {"label": "Electrical + lighting (indicative)", "amount_inr": 85000, "note": "Interior services allowance"},
-            {"label": "Finishes + fixtures (indicative)", "amount_inr": 190000, "note": "Depends on finish tier"},
-        ]
-        summary = f"Dummy remodel estimate + milestones for {loc}. Replace with HM_AI_PLAN_API_KEY output later."
-    else:
-        estimate_lines = [
-            {"label": "Structure & shell (indicative)", "amount_inr": 2650000, "note": f"{loc} floor plan + exterior v0"},
-            {"label": "Exterior facade package", "amount_inr": 620000, "note": "Elevation style + materials allowance"},
-            {"label": "Core interiors (indicative)", "amount_inr": 980000, "note": "Kitchen, wardrobes, baths baseline"},
-            {"label": "Services (MEP rough-in)", "amount_inr": 540000, "note": "Electrical, plumbing, basic HVAC points"},
-        ]
-        summary = f"Dummy new-home estimate + milestones for {loc}. Replace with HM_AI_PLAN_API_KEY output later."
+        return _remodel_estimate_from_brief(brief)
+
+    estimate_lines = [
+        {"label": "Structure & shell (indicative)", "amount_inr": 2650000, "note": f"{loc} floor plan + exterior v0"},
+        {"label": "Exterior facade package", "amount_inr": 620000, "note": "Elevation style + materials allowance"},
+        {"label": "Core interiors (indicative)", "amount_inr": 980000, "note": "Kitchen, wardrobes, baths baseline"},
+        {"label": "Services (MEP rough-in)", "amount_inr": 540000, "note": "Electrical, plumbing, basic HVAC points"},
+    ]
+    summary = f"Dummy new-home estimate + milestones for {loc}. Replace with HM_AI_PLAN_API_KEY output later."
     total = sum(int(x["amount_inr"]) for x in estimate_lines if isinstance(x.get("amount_inr"), (int, float)))
 
     return AIEstimatePlanResponse(
@@ -744,9 +907,16 @@ def _openai_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[di
     flow_label = "remodel" if flow == "remodel" else "new home build"
     brief_json = json.dumps(brief or {}, ensure_ascii=False)
     image_json = json.dumps(image_bundle or {}, ensure_ascii=False)
+    constraints = _brief_constraints_summary(flow, brief)
+    budget_inr = _brief_budget_inr(brief)
+    budget_line = (
+        f"Budget cap (INR, hard limit): {budget_inr}\n" if budget_inr else ""
+    )
 
     user_prompt = (
         f"Flow: {flow_label}\n"
+        f"{budget_line}"
+        f"Structured constraints:\n{constraints}\n\n"
         f"Brief JSON: {brief_json}\n"
         f"Image bundle JSON: {image_json}\n"
         "Return 4-6 estimate lines and 4-6 milestones."
@@ -761,10 +931,10 @@ def _openai_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[di
             },
             json={
                 "model": "gpt-4o-mini",
-                "temperature": 0.3,
+                "temperature": 0.25 if flow == "remodel" else 0.3,
                 "response_format": {"type": "json_object"},
                 "messages": [
-                    {"role": "system", "content": _estimate_system_prompt()},
+                    {"role": "system", "content": _estimate_system_prompt(flow)},
                     {"role": "user", "content": user_prompt},
                 ],
             },
@@ -780,7 +950,18 @@ def _openai_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[di
         parsed = json.loads(content)
         result = _parse_estimate_plan_json(parsed)
         if result is None:
+            if flow == "remodel":
+                return _remodel_estimate_from_brief(brief)
             return None
+        if flow == "remodel" and (
+            _estimate_looks_like_new_build(result.estimate_lines)
+            or (
+                budget_inr
+                and result.total_indicative_inr
+                and result.total_indicative_inr > int(budget_inr * 1.15)
+            )
+        ):
+            return _remodel_estimate_from_brief(brief)
         result.provider_note = "Generated by OpenAI gpt-4o-mini via HM_AI_PLAN_API_KEY."
         return result
     except Exception as exc:
@@ -821,7 +1002,19 @@ async def ai_estimate_plan(payload: AIEstimatePlanRequest):
         return grok
     llm = _openai_estimate_plan(payload.flow, payload.brief, payload.image_bundle)
     if llm is not None:
+        if payload.flow == "remodel" and (
+            _estimate_looks_like_new_build(llm.estimate_lines)
+            or (
+                _brief_budget_inr(payload.brief)
+                and llm.total_indicative_inr
+                and llm.total_indicative_inr
+                > int(_brief_budget_inr(payload.brief) * 1.15)
+            )
+        ):
+            return _remodel_estimate_from_brief(payload.brief)
         return llm
+    if payload.flow == "remodel":
+        return _remodel_estimate_from_brief(payload.brief)
     return _mock_estimate_plan(payload.flow, payload.brief, payload.image_bundle)
 
 

@@ -162,7 +162,7 @@ function conceptImageCard(entry, i, variant = "elevation") {
           boxShadow: "0 12px 40px -12px rgba(28, 25, 23, 0.18)",
           ...(isPlan
             ? { minHeight: 340, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }
-            : { aspectRatio: "16 / 9", minHeight: 300 }),
+            : { aspectRatio: variant === "interior" ? "4 / 3" : "16 / 9", minHeight: 300 }),
         }}
       >
         {url ? (
@@ -194,7 +194,12 @@ function conceptImageCard(entry, i, variant = "elevation") {
 /**
  * Renders `floor_plans` + `images` from v0 image bundle (mock or API).
  */
-export function V0VisualBundleSections({ bundle, floorPlanTitle = "Floor plans (v0, indicative)", elevationTitle = "Elevations & massing" }) {
+export function V0VisualBundleSections({
+  bundle,
+  floorPlanTitle = "Floor plans (v0, indicative)",
+  elevationTitle = "Elevations & massing",
+  interiorRenders = false,
+}) {
   let floorPlans = Array.isArray(bundle?.floor_plans) ? bundle.floor_plans : [];
   let elevations = Array.isArray(bundle?.images) ? bundle.images : [];
 
@@ -237,7 +242,7 @@ export function V0VisualBundleSections({ bundle, floorPlanTitle = "Floor plans (
             {bundle?.mock ? "Concept renders for discussion." : "Grok-generated concepts from your wizard answers."}
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-            {elevations.map((e, i) => conceptImageCard(e, i, "elevation"))}
+            {elevations.map((e, i) => conceptImageCard(e, i, interiorRenders ? "interior" : "elevation"))}
           </div>
         </div>
       ) : null}

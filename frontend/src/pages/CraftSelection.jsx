@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
+import HmUserMenu from "../components/HmUserMenu";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import {
   Home,
@@ -140,7 +141,10 @@ export default function CraftSelection() {
           <StepRail currentStep={1} />
         </div>
 
-        <ProfileStrength value={profileStrength} />
+        <div className="flex items-center gap-3">
+          <ProfileStrength value={profileStrength} />
+          <HmUserMenu />
+        </div>
       </header>
 
       {/* Mobile step rail */}

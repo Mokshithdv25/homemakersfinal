@@ -232,7 +232,7 @@ export default function LandingNavbar() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => go("/craft")}
+                onClick={() => go("/sign-in?role=pro&mode=signup")}
                 className="rounded-full border-foreground/15 bg-white/70 px-4 font-body text-sm gap-2 shadow-sm hover:bg-secondary"
               >
                 <Briefcase className="w-4 h-4" />
@@ -315,7 +315,7 @@ export default function LandingNavbar() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => go("/craft")}
+                onClick={() => go("/sign-in?role=pro&mode=signup")}
                 className="w-full rounded-2xl border-foreground/20 font-body text-sm gap-2"
               >
                 <Briefcase className="w-4 h-4" />

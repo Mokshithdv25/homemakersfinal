@@ -31,7 +31,7 @@ const PATHS = [
     title: "Professionals",
     description:
       "Portfolio, marketplace visibility, leads, and a workspace to run jobs — get discovered, collaborate, and close faster with AI where it saves time.",
-    to: "/craft",
+    to: "/sign-in?role=pro&mode=signup",
     icon: Briefcase,
   },
 ];

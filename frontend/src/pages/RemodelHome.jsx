@@ -356,33 +356,47 @@ export default function RemodelHome() {
     return () => window.cancelAnimationFrame(raf);
   }, [step]);
 
-  const remodelBriefPayload = () => ({
-    flowWizard: "remodel_home",
-    dreamVision,
-    location: "Bengaluru, Karnataka",
-    room,
-    ptype,
-    len,
-    breadth,
-    spaceNotes,
-    mainGoal,
-    painPoints,
-    changeLevel,
-    budgetUnit,
-    budgetAmount,
-    budgetNotes,
-    startTimeline,
-    completionTime,
-    layoutOk,
-    mustKeep,
-    dealbreakers3,
-    styles,
-    finishTier,
-    colourBase,
-    colourSecondary,
-    visionInspirationCount: visionInspirationItems.length,
-    inspirationCount: inspirationImgs.length,
-  });
+  const remodelBriefPayload = () => {
+    const areaSqFt = (parseInt(len, 10) || 0) * (parseInt(breadth, 10) || 0);
+    const budgetN = budgetAmountClampedRemodel(budgetAmount);
+    const budgetInr =
+      budgetUnit === "Crores" ? budgetN * 10_000_000 : budgetN * 100_000;
+    return {
+      flowWizard: "remodel_home",
+      dreamVision,
+      location: "Bengaluru, Karnataka",
+      room,
+      ptype,
+      propertyType: ptype,
+      len,
+      breadth,
+      roomSizeLabel:
+        areaSqFt > 0
+          ? `${len} ft × ${breadth} ft (${areaSqFt} sq ft)`
+          : `${len} ft × ${breadth} ft`,
+      areaSqFt,
+      spaceNotes,
+      mainGoal,
+      painPoints,
+      changeLevel,
+      budgetUnit,
+      budgetAmount: String(budgetN),
+      budgetLabel: remodelBudgetLabel(budgetUnit, budgetAmount),
+      budgetInr,
+      budgetNotes,
+      startTimeline,
+      completionTime,
+      layoutOk,
+      mustKeep,
+      dealbreakers3,
+      styles,
+      finishTier,
+      colourBase,
+      colourSecondary,
+      visionInspirationCount: visionInspirationItems.length,
+      inspirationCount: inspirationImgs.length,
+    };
+  };
 
   const runRemodelV0 = async () => {
     setV0Generating(true);
@@ -1114,6 +1128,7 @@ export default function RemodelHome() {
                 bundle={v0ImageBundle}
                 floorPlanTitle="Room / layout plans (v0)"
                 elevationTitle="Interior concept renders"
+                interiorRenders
               />
               <V0EstimateSection planBundle={v0PlanBundle} title="Indicative remodel estimate (v0)" />
               <V0MilestonesSection planBundle={v0PlanBundle} />

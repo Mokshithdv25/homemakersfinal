@@ -1,6 +1,9 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ProjectHubAppHeader } from "../components/HmBrandLockup";
+import HmUserMenu from "../components/HmUserMenu";
+import { useHmSession } from "../hooks/useHmSession";
+import { getProOnboardingResumePath, readProPortfolioState } from "../lib/hmAuth";
 
 const OR = "#C85F2B";
 
@@ -72,21 +75,17 @@ const invoices = [
 
 export default function ProDashboard() {
   const navigate = useNavigate();
-  const session = (() => {
+  const session = useHmSession();
+  const portfolioState = readProPortfolioState();
+  const firstName = (session?.profile?.name || "Pro").split(" ")[0];
+  const portfolioSlug = (() => {
     try {
-      return JSON.parse(localStorage.getItem("hmSession") || "{}");
-    } catch (_) {
-      return {};
+      const p = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
+      return p.slug || null;
+    } catch {
+      return null;
     }
   })();
-  const user = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("hmUser") || "{}");
-    } catch (_) {
-      return {};
-    }
-  })();
-  const firstName = (user?.name || "Pro").split(" ")[0];
 
   return (
     <div style={{ minHeight: "100vh", background: "#FBF7F2", color: "#1C1917", fontFamily: "'DM Sans', Inter, system-ui, sans-serif" }}>
@@ -112,11 +111,12 @@ export default function ProDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => navigate("/craft")}
+              onClick={() => navigate(getProOnboardingResumePath())}
               className="rounded-lg border border-[#E7D4C4] bg-white px-3 py-1.5 text-xs font-semibold text-[#1C1917] hover:bg-[#FDF8F3] cursor-pointer"
             >
-              Edit profile
+              {portfolioState.status === "published" ? "Edit portfolio" : "Finish portfolio"}
             </button>
+            <HmUserMenu />
           </>
         }
       />
@@ -135,10 +135,25 @@ export default function ProDashboard() {
             Welcome back, {firstName}
           </div>
           <p style={{ margin: 0, fontSize: 13, color: "#57534E", lineHeight: 1.55 }}>
-            {session?.role === "pro"
-              ? "You are signed in as a professional. Review homeowner AI-v0 packs, share quotes, and move confirmed work into project management."
-              : "Switch to professional mode from sign in to manage leads and project delivery."}
+            You are signed in as a professional. Review homeowner AI-v0 packs, share quotes, and move confirmed work into project management.
           </p>
+          {portfolioState.status !== "published" ? (
+            <button
+              type="button"
+              onClick={() => navigate(getProOnboardingResumePath())}
+              className="mt-3 rounded-lg bg-[#C85F2B] px-4 py-2 text-sm font-semibold text-white hover:bg-[#B04F20] cursor-pointer border-none"
+            >
+              Continue portfolio setup
+            </button>
+          ) : portfolioSlug ? (
+            <button
+              type="button"
+              onClick={() => window.open(`/profile/${portfolioSlug}`, "_blank")}
+              className="mt-3 rounded-lg border border-[#E7D4C4] bg-white px-4 py-2 text-sm font-semibold text-[#1C1917] hover:bg-[#FDF8F3] cursor-pointer"
+            >
+              View live portfolio
+            </button>
+          ) : null}
         </div>
 
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-5">
