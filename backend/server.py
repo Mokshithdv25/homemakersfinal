@@ -9,7 +9,8 @@ import logging
 import requests
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import uuid
 from datetime import datetime, timezone
 
@@ -519,12 +520,22 @@ def _grok_estimate_plan(
         return None
 
 
-def _grok_generate_image(prompt: str, aspect_ratio: str = "16:9") -> Optional[str]:
+def _grok_image_timeout_sec() -> int:
+    try:
+        return max(12, min(90, int(os.getenv("GROK_IMAGE_TIMEOUT", "24"))))
+    except ValueError:
+        return 24
+
+
+def _grok_generate_image(
+    prompt: str, aspect_ratio: str = "16:9", timeout_sec: Optional[int] = None
+) -> Optional[str]:
     key = _xai_api_key("image")
     if not key:
         return None
 
     model = os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image").strip() or "grok-imagine-image"
+    timeout = timeout_sec if timeout_sec is not None else _grok_image_timeout_sec()
     try:
         resp = requests.post(
             "https://api.x.ai/v1/images/generations",
@@ -538,7 +549,7 @@ def _grok_generate_image(prompt: str, aspect_ratio: str = "16:9") -> Optional[st
                 "aspect_ratio": aspect_ratio,
                 "n": 1,
             },
-            timeout=120,
+            timeout=timeout,
         )
         resp.raise_for_status()
         data = resp.json().get("data") or []
@@ -748,47 +759,98 @@ def _grok_remodel_floor_plan_prompts(brief: dict) -> List[tuple]:
     ]
 
 
+def _generate_specs_parallel(
+    specs: List[Tuple[str, str, str, str]], max_workers: int = 3
+) -> List[dict]:
+    """Run Grok image calls in parallel so Render's ~30s HTTP limit is not exceeded."""
+    if not specs:
+        return []
+
+    timeout = _grok_image_timeout_sec()
+
+    def _one(spec: Tuple[str, str, str, str]) -> Optional[dict]:
+        label, hint, prompt, aspect = spec
+        url = _grok_generate_image(prompt, aspect_ratio=aspect, timeout_sec=timeout)
+        if not url:
+            return None
+        return {"url": url, "label": label, "hint": hint}
+
+    workers = max(1, min(max_workers, len(specs)))
+    out: List[dict] = []
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = [pool.submit(_one, s) for s in specs]
+        for fut in as_completed(futures):
+            try:
+                item = fut.result()
+                if item:
+                    out.append(item)
+            except Exception as exc:
+                logger.warning("Parallel Grok image task failed: %s", exc)
+    return out
+
+
+def _remodel_static_floor_plans(brief: dict) -> List[dict]:
+    """Indicative layout cards — interior-scoped stock (not building exteriors)."""
+    room = str(brief.get("room") or "Room")
+    return [
+        {
+            "url": "https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?w=1000&q=80",
+            "label": f"{room} — layout v0 (indicative)",
+            "hint": "Furniture + circulation overlay for discussion (not GFC)",
+        },
+        {
+            "url": "https://images.unsplash.com/photo-1615874694520-474822394e73?w=1000&q=80",
+            "label": "Services & ceiling v0 (indicative)",
+            "hint": "Lighting + services assumptions — confirm with your pro",
+        },
+    ]
+
+
 def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]:
     if not _xai_api_key("image"):
+        logger.warning("Grok images skipped: no XAI_API_KEY / HM_AI_IMAGE_API_KEY")
         return None
 
     try:
-        mood_count = max(1, min(5, int(os.getenv("GROK_V0_MOOD_IMAGES", "3"))))
+        default_moods = "2" if flow == "remodel" else "3"
+        mood_count = max(1, min(5, int(os.getenv("GROK_V0_MOOD_IMAGES", default_moods))))
     except ValueError:
-        mood_count = 3
+        mood_count = 2 if flow == "remodel" else 3
 
     mood_specs = _grok_v0_image_prompts(flow, brief)[:mood_count]
-    images: List[dict] = []
-    for label, hint, prompt, aspect in mood_specs:
-        url = _grok_generate_image(prompt, aspect_ratio=aspect)
-        if not url:
-            continue
-        images.append({"url": url, "label": label, "hint": hint})
+    images = _generate_specs_parallel(mood_specs, max_workers=mood_count)
 
     floor_plans: List[dict] = []
     if flow == "remodel":
-        for label, hint, prompt, aspect in _grok_remodel_floor_plan_prompts(brief):
-            url = _grok_generate_image(prompt, aspect_ratio=aspect)
-            if url:
-                floor_plans.append({"url": url, "label": label, "hint": hint})
-    if not floor_plans:
+        gen_fp = os.getenv("GROK_V0_REMODEL_FLOOR_PLANS", "0").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        if gen_fp:
+            fp_specs = _grok_remodel_floor_plan_prompts(brief)
+            floor_plans = _generate_specs_parallel(fp_specs, max_workers=2)
+        if not floor_plans:
+            floor_plans = _remodel_static_floor_plans(brief)
+    else:
         floor_plans = list(_mock_v0_images(flow, brief).floor_plans or [])
 
     if not images:
+        logger.warning("Grok returned zero images for flow=%s", flow)
         return None
 
     model = os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image").strip() or "grok-imagine-image"
     fp_note = (
-        f" Generated {len(floor_plans)} room layout sketch(es)."
-        if flow == "remodel" and floor_plans
-        else " Floor plans are indicative placeholders to conserve credits."
+        " Layout cards are indicative references."
+        if flow == "remodel"
+        else " Floor plans are indicative placeholders."
     )
     return AIV0ImagesResponse(
         images=images,
         floor_plans=floor_plans,
         mock=False,
         provider_note=(
-            f"Generated {len(images)} interior concept image(s) via xAI {model} (~$0.02/img)."
+            f"Generated {len(images)} concept image(s) via xAI {model} (parallel, ~$0.02/img)."
             + fp_note
         ),
     )
@@ -992,7 +1054,13 @@ async def ai_v0_images(payload: AIV0ImagesRequest):
     grok = _grok_v0_images(payload.flow, payload.brief)
     if grok is not None:
         return grok
-    return _mock_v0_images(payload.flow, payload.brief)
+    mock = _mock_v0_images(payload.flow, payload.brief)
+    mock.provider_note = (
+        "Demo placeholders — set XAI_API_KEY on Render (homemakers service) and redeploy. "
+        + (mock.provider_note or "")
+    )
+    logger.warning("ai/v0-images falling back to mock for flow=%s", payload.flow)
+    return mock
 
 
 @api_router.post("/ai/estimate-plan", response_model=AIEstimatePlanResponse)

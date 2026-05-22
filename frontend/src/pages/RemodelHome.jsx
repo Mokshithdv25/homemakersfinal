@@ -11,7 +11,13 @@ import {
   V0VisualBundleSections,
 } from "../components/V0MockResults";
 import { getRemodelFlow, setRemodelFlow } from "../lib/projectFlowStorage";
-import { requestV0Images, requestEstimatePlan, formatAiApiError } from "../lib/aiApi";
+import {
+  requestV0Images,
+  requestEstimatePlan,
+  formatAiApiError,
+  isAiBackendConfigured,
+  getAiBackendHost,
+} from "../lib/aiApi";
 import { createFlowProjectRecord } from "../lib/projectFlowApi";
 import {
   ColourHexSwatch,
@@ -346,6 +352,11 @@ export default function RemodelHome() {
     if (f.v0Images) setV0ImageBundle(f.v0Images);
     if (f.v0Plan) setV0PlanBundle(f.v0Plan);
     if (f.architectComment) setArchitectHandoffNote(String(f.architectComment));
+    if (f.v0Images?.mock && isAiBackendConfigured()) {
+      setV0Generated(false);
+      setV0ImageBundle(null);
+      setV0PlanBundle(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -401,6 +412,9 @@ export default function RemodelHome() {
   const runRemodelV0 = async () => {
     setV0Generating(true);
     setStepBlockError("");
+    setV0ImageBundle(null);
+    setV0PlanBundle(null);
+    setV0Generated(false);
     try {
       const brief = remodelBriefPayload();
       setV0GenPhase("images");
@@ -1078,6 +1092,34 @@ export default function RemodelHome() {
             <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 18px", lineHeight: 1.55, maxWidth: 640 }}>
               Indicative estimate and visuals from your brief. No architect assigned here — share with your pro before working drawings.
             </p>
+            <div
+              style={{
+                marginBottom: 14,
+                padding: "10px 14px",
+                borderRadius: 10,
+                fontSize: 12,
+                lineHeight: 1.45,
+                background: isAiBackendConfigured() ? "rgba(34,163,107,0.08)" : "rgba(200,95,43,0.12)",
+                border: `1px solid ${isAiBackendConfigured() ? "rgba(34,163,107,0.35)" : "rgba(200,95,43,0.35)"}`,
+                color: "#44403C",
+              }}
+            >
+              {isAiBackendConfigured() ? (
+                <>
+                  <strong>API connected</strong> → {getAiBackendHost()}. Grok runs on the server (~30s). Your domain only hosts the app; it does not call xAI by itself.
+                </>
+              ) : (
+                <>
+                  <strong>Placeholders until Vercel is wired:</strong> set{" "}
+                  <code style={{ fontSize: 11 }}>REACT_APP_BACKEND_URL=https://homemakers-6o3h.onrender.com</code> on Vercel, redeploy, then regenerate.
+                </>
+              )}
+              {v0ImageBundle?.mock ? (
+                <span style={{ display: "block", marginTop: 6, color: "#B04F20", fontWeight: 700 }}>
+                  Cached demo pack in browser — click Regenerate v0 after fixing env.
+                </span>
+              ) : null}
+            </div>
             {!v0Generated && !v0Generating && (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Generate v0 for {room}</div>

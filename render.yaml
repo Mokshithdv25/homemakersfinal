@@ -21,7 +21,11 @@ services:
       - key: GROK_CHAT_MODEL
         value: grok-3-mini
       - key: GROK_V0_MOOD_IMAGES
-        value: "3"
+        value: "2"
+      - key: GROK_IMAGE_TIMEOUT
+        value: "24"
+      - key: GROK_V0_REMODEL_FLOOR_PLANS
+        value: "0"
       - key: MONGO_URL
         sync: false
       - key: DB_NAME

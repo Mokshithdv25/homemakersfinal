@@ -25,6 +25,16 @@ export function isAiBackendConfigured() {
   return Boolean(aiClient);
 }
 
+/** Hostname only — safe to show in UI (no secrets). */
+export function getAiBackendHost() {
+  if (!normalizedBackendUrl) return null;
+  try {
+    return new URL(normalizedBackendUrl).host;
+  } catch {
+    return normalizedBackendUrl;
+  }
+}
+
 async function fallbackDelay() {
   await new Promise((r) => setTimeout(r, 400));
 }
@@ -192,14 +202,30 @@ function mockEstimateClient(flow, brief) {
  */
 export async function requestV0Images(flow, brief) {
   if (!aiClient) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "AI backend is not connected. In Vercel → Settings → Environment Variables, set REACT_APP_BACKEND_URL to https://homemakers-6o3h.onrender.com (no /api), then redeploy the site.",
+      );
+    }
     await fallbackDelay();
     return mockV0ImagesClient(flow, brief);
   }
   const { data } = await aiClient.post("/ai/v0-images", { flow, brief });
 
+  if (data?.mock) {
+    const hint =
+      data.provider_note ||
+      "Server returned demo images. Add XAI_API_KEY on Render and redeploy the homemakers API.";
+    throw new Error(hint);
+  }
+
   if (!data.floor_plans || data.floor_plans.length === 0) {
     const fallbackMock = mockV0ImagesClient(flow, brief);
     data.floor_plans = fallbackMock.floor_plans;
+  }
+
+  if (!data.images || data.images.length === 0) {
+    throw new Error("No concept images returned from the API. Try again in a minute.");
   }
 
   return data;
