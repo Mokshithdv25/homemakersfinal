@@ -1907,7 +1907,7 @@ export default function BuildNewHome() {
                 <div style={{ marginTop: 14, paddingTop: 4 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#44403C", marginBottom: 8 }}>What happens next</div>
                   <ol style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: "#78716C", lineHeight: 1.55 }}>
-                    <li style={{ marginBottom: 4 }}>Run <strong>free</strong> AI v0 (estimate + up to 3 directions) from your full brief</li>
+                    <li style={{ marginBottom: 4 }}>Run <strong>free</strong> AI v0 (estimate + 2 complementary concept images) from your full brief</li>
                     <li style={{ marginBottom: 4 }}>Share that pack with an architect — their fee for real drawings is between you and them</li>
                     <li style={{ marginBottom: 4 }}>Same readable spec on the next step for you and your pro</li>
                     <li>Execution starts from the project hub when you&rsquo;re ready</li>

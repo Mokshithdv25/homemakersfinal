@@ -1223,7 +1223,7 @@ export default function RemodelHome() {
             <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:12, marginBottom:8 }}>
               {[
                 { icon:"✏️", title:"Request tweaks", sub:"Layout, palette, storage, or phasing — your expert updates the brief.", toProject: false },
-                { icon:"🔄", title:"Regenerate v0", sub:"Spin another AI direction (up to three included in free v0).", toProject: false },
+                { icon:"🔄", title:"Regenerate v0", sub:"Spin another pair of complementary AI directions (2 images in free v0).", toProject: false },
                 { icon:"🚀", title:"Go to detailed design", sub:"Lock a direction and open tasks, milestones, and site coordination.", toProject: true },
               ].map(a => (
                 <button

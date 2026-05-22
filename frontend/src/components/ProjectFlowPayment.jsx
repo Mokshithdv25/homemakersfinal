@@ -7,9 +7,9 @@ const COPY = {
   preV0: {
     title: "AI v0 access",
     amount: 2999,
-    sub: "Unlocks the AI to draft up to three first-pass directions from your full brief. No working drawings — those come after your professional signs on.",
+    sub: "Unlocks the AI to draft two complementary first-pass directions from your full brief. No working drawings — those come after your professional signs on.",
     bullets: [
-      "Up to 3 layout + elevation directions (v0, indicative)",
+      "2 complementary layout + elevation directions (v0, indicative)",
       "Uses all inputs and option picks from your wizard",
       "Suitable to discuss with a designer before sanction-grade work",
       "No architect assigned here — that starts when you pay for the drawing package; revisions route through your pro",

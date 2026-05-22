@@ -663,13 +663,31 @@ def _brief_constraints_summary(flow: FlowKind, brief: dict) -> str:
     return "\n".join(lines)
 
 
+def _v0_pair_instruction(flow: FlowKind) -> str:
+    """Shared instruction: exactly two complementary Grok images per v0 pack."""
+    if flow == "remodel":
+        return (
+            "Generate ONE image that is part of a set of exactly TWO complementary interior concept "
+            "renders for the same remodel brief. Together the pair must give a complete first-pass "
+            "picture: layout, palette, materials, and lighting intent. Use a different camera angle "
+            "and emphasis than the sibling image. No text, no watermark.\n"
+        )
+    return (
+        "Generate ONE image that is part of a set of exactly TWO complementary architectural "
+        "concept renders for the same new-home brief. Together the pair must give a complete "
+        "first-pass picture: street presence, massing, roofline, materials, and outdoor connection. "
+        "Use a different viewpoint than the sibling image. No text, no watermark.\n"
+    )
+
+
 def _grok_v0_image_prompts(flow: FlowKind, brief: dict) -> List[tuple]:
-    """Returns list of (label, hint, prompt, aspect_ratio)."""
+    """Exactly two complementary concept images per flow (credit-efficient)."""
     loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
     style = _brief_style_hint(brief)
     room = str(brief.get("room") or "living space")
     floors = str(brief.get("floors") or "G+1")
     constraints = _brief_constraints_summary(flow, brief)
+    pair_note = _v0_pair_instruction(flow)
 
     if flow == "remodel":
         indoor_only = (
@@ -680,30 +698,50 @@ def _grok_v0_image_prompts(flow: FlowKind, brief: dict) -> List[tuple]:
             f"Photorealistic interior design visualization for a {room} remodel in {loc}, India.\n"
             f"{indoor_only}"
             f"Constraints from homeowner brief:\n{constraints}\n"
+            f"{pair_note}"
         )
         return [
             (
-                "Interior direction A",
-                f"{room} — palette and joinery",
+                "Interior concept — main view",
+                f"{room} — layout, palette & key furniture",
                 base
-                + "Variant A: main palette, joinery, and seating layout. Warm natural window light. No text, no watermark.",
+                + "IMAGE 1 OF 2: Wide hero view of the room — seating layout, circulation, "
+                "main palette and joinery. Warm natural window light.",
                 "4:3",
             ),
             (
-                "Interior direction B",
-                "Alternate materials / lighting",
+                "Interior concept — complementary view",
+                f"{room} — materials, lighting & detail",
                 base
-                + "Variant B: alternate wall finish, flooring, and lighting mood. Same room, different materials. No text, no watermark.",
-                "4:3",
-            ),
-            (
-                "Interior direction C",
-                "Refined finish variant",
-                base
-                + "Variant C: refined premium finish level inside the room. No text, no watermark.",
+                + "IMAGE 2 OF 2: Complementary angle — highlight wall/floor finishes, lighting mood, "
+                "storage and material accents. Same brief, clearly related but not duplicate.",
                 "4:3",
             ),
         ]
+
+    base = (
+        f"Photorealistic residential architecture in {loc}, India. {floors} home.\n"
+        f"Constraints from homeowner brief:\n{constraints}\n"
+        f"{pair_note}"
+    )
+    return [
+        (
+            "Exterior concept — street view",
+            "Front façade, massing & materials",
+            base
+            + "IMAGE 1 OF 2: Front elevation, street-facing — clear daylight, roofline, "
+            "materials, and entry hierarchy.",
+            "16:9",
+        ),
+        (
+            "Exterior concept — complementary view",
+            "Garden/rear connection & roof study",
+            base
+            + "IMAGE 2 OF 2: Three-quarter or rear-angled view — garden/courtyard connection, "
+            "roof form, and secondary façade. Completes the massing story with image 1.",
+            "16:9",
+        ),
+    ]
 
 
 def _grok_remodel_floor_plan_prompts(brief: dict) -> List[tuple]:
@@ -730,31 +768,6 @@ def _grok_remodel_floor_plan_prompts(brief: dict) -> List[tuple]:
             "Lighting grid + services assumptions for discussion",
             base + "Focus: ceiling plan, light positions, AC diffuser symbols.",
             "4:3",
-        ),
-    ]
-
-    base = (
-        f"Photorealistic residential architecture in {loc}, India. {floors} home.\n"
-        f"Constraints from homeowner brief:\n{constraints}\n"
-    )
-    return [
-        (
-            "Front elevation v0",
-            "Street-facing façade concept",
-            base + "Front elevation, street-facing façade, clear daylight. No text, no watermark.",
-            "16:9",
-        ),
-        (
-            "Rear / garden elevation",
-            "Outdoor connection",
-            base + "Rear elevation with garden or courtyard connection. No text, no watermark.",
-            "16:9",
-        ),
-        (
-            "Massing & roof study",
-            "Materials + roofline",
-            base + "Three-quarter massing view showing roofline and materials. No text, no watermark.",
-            "16:9",
         ),
     ]
 
@@ -812,10 +825,9 @@ def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]
         return None
 
     try:
-        default_moods = "2" if flow == "remodel" else "3"
-        mood_count = max(1, min(5, int(os.getenv("GROK_V0_MOOD_IMAGES", default_moods))))
+        mood_count = max(1, min(2, int(os.getenv("GROK_V0_MOOD_IMAGES", "2"))))
     except ValueError:
-        mood_count = 2 if flow == "remodel" else 3
+        mood_count = 2
 
     mood_specs = _grok_v0_image_prompts(flow, brief)[:mood_count]
     images = _generate_specs_parallel(mood_specs, max_workers=mood_count)
@@ -850,7 +862,8 @@ def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]
         floor_plans=floor_plans,
         mock=False,
         provider_note=(
-            f"Generated {len(images)} concept image(s) via xAI {model} (parallel, ~$0.02/img)."
+            f"Generated {len(images)} complementary concept image(s) via xAI {model} "
+            f"(2-image v0 pack, ~$0.02/img)."
             + fp_note
         ),
     )

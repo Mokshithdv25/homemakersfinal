@@ -65,18 +65,13 @@ function mockV0ImagesClient(flow, brief) {
       images: [
         {
           url: "https://images.unsplash.com/photo-1616594039964-3b6b8f9fbe16?w=640&q=75",
-          label: "Interior mood A",
-          hint: "Palette + joinery direction",
+          label: "Interior concept — main view",
+          hint: "Layout, palette & key furniture",
         },
         {
           url: "https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?w=640&q=75",
-          label: "Interior mood B",
-          hint: "Alternate materials / lighting",
-        },
-        {
-          url: "https://images.unsplash.com/photo-1615874694520-474822394e73?w=640&q=75",
-          label: "Interior mood C",
-          hint: "Premium finish variant",
+          label: "Interior concept — complementary view",
+          hint: "Materials, lighting & detail",
         },
       ],
       provider_note:
@@ -101,18 +96,13 @@ function mockV0ImagesClient(flow, brief) {
     images: [
       {
         url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=75",
-        label: "Front elevation v0",
-        hint: "Street-facing façade concept",
+        label: "Exterior concept — street view",
+        hint: "Front façade, massing & materials",
       },
       {
         url: "https://images.unsplash.com/photo-1600607687644-aac4c3eac7f4?w=800&q=75",
-        label: "Rear / garden elevation",
-        hint: "Opening pattern + outdoor connection",
-      },
-      {
-        url: "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?w=800&q=75",
-        label: "Massing & roof study",
-        hint: "Materials + roofline option",
+        label: "Exterior concept — complementary view",
+        hint: "Garden/rear connection & roof study",
       },
     ],
     provider_note:
