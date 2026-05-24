@@ -5,20 +5,21 @@ import { CheckCircle2 } from "lucide-react";
 const features = [
   {
     id: 1,
-    title: "Beautiful AI design, faster",
-    description: "Layouts, plans, and estimates from your brief in days. Share with family before you spend on drawings.",
+    title: "AI design, plans & estimates",
+    description:
+      "Turn your brief into layouts, floor plans, visuals, and cost ranges your family can align on. Your vision, clear and shareable before sanction drawings.",
   },
   {
     id: 2,
-    title: "Pros and marketplace",
+    title: "AI contractor matching",
     description:
-      "Bring your team or compare architects and contractors. We surface strong matches for your city and scope. You choose who to hire.",
+      "Browse our marketplace or bring your own team. AI surfaces architects and contractors that fit your city and scope. You choose who to hire.",
   },
   {
     id: 3,
-    title: "Hassle-free project hub",
+    title: "Smart project hub",
     description:
-      "Site visits, documents, checklists, team updates, and materials shopping in one place. Assistance highlights what's next. You approve what matters.",
+      "Site visits, documents, checklists, and team updates in one place. AI assistance on what needs attention next. Agentic materials shopping with picks you approve.",
   },
   {
     id: 4,

@@ -11,21 +11,21 @@ const steps = [
   },
   {
     icon: Unlock,
-    title: "Get designs and estimates fast",
+    title: "Unlock designs & estimates",
     description:
-      "Free AI layouts, visuals, and cost ranges in days. Review at home, then share with your team.",
+      "AI generates layouts, visuals, and cost ranges in days so your dream is easy to explain. Review at home, align family, then share with your team.",
   },
   {
     icon: UsersRound,
     title: "Bring in the right pros",
     description:
-      "Use your own architect or pick from our marketplace. We help surface strong matches. You choose who to hire.",
+      "AI contractor matching in our marketplace, or bring your own architect. You approve every hire before work starts.",
   },
   {
     icon: ClipboardList,
     title: "Run the build with clarity",
     description:
-      "One hub for visits, photos, documents, and checklists. Shop materials with picks you can review. Smart assistance keeps everyone aligned to handover.",
+      "One AI-assisted hub for visits, photos, documents, and checklists. Agentic materials shopping with picks you can edit. You stay in control to handover.",
   },
 ];
 
@@ -47,7 +47,8 @@ export default function LandingHowItWorks() {
             From first sketch to keys in hand
           </h2>
           <p className="text-muted-foreground font-body text-lg leading-relaxed max-w-2xl">
-            Built for Indian homes. Brief, marketplace, and project hub connected so your build stays calm and clear.
+            AI helps at each stage: design, estimates, contractor matching, project management, and materials. Built
+            for Indian homes. You approve what matters.
           </p>
         </motion.div>
 

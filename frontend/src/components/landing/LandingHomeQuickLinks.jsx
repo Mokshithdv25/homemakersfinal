@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUpRight, Home, Hammer, LayoutDashboard, Briefcase } from "lucide-react";
+import { ArrowUpRight, Home, Hammer, LayoutDashboard, Briefcase, Store } from "lucide-react";
 import { navigateToHomeownerFlow } from "../../lib/requireHomeownerAuth";
 
 const OR = "#C85F2B";
@@ -26,6 +26,13 @@ const PATHS = [
     description: "Visits, photos, documents, and checklists. AI keeps next steps clear.",
     to: "/project",
     icon: LayoutDashboard,
+  },
+  {
+    id: "marketplace",
+    title: "Marketplace & shop",
+    description: "AI contractor matching, browse pros, and materials picks you review before you buy.",
+    to: "/browse",
+    icon: Store,
   },
   {
     id: "pro",
@@ -58,10 +65,10 @@ export default function LandingHomeQuickLinks() {
           Start <span className="italic" style={{ color: OR }}>here</span>
         </h2>
         <p className="mb-10 max-w-lg font-body text-sm text-muted-foreground md:text-base">
-          Four paths. One platform. Pick what fits today.
+          Five paths. One platform. Pick what fits today.
         </p>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {PATHS.map((p) => {
             const Icon = p.icon;
             return (
