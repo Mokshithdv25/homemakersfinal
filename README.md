@@ -1,54 +1,105 @@
 # HomeMakers
 
-Design, build, and manage your home — web app plus **iOS & Android** native shells (Capacitor).
+India’s home platform: AI design and estimates, marketplace, project hub, and materials — homeowners and pros on the same projects.
 
-**Product vision vs. shipped:** [docs/PLATFORM_VISION.md](docs/PLATFORM_VISION.md) — two-sided marketplace, AI design/estimates, project hub, agentic shop, milestone payment protection. **Later (not now):** lending and **AI financier matching** (project + credit score). Homepage unchanged until those ship.
+**Repo:** [homemakersfinal](https://github.com/Mokshithdv25/homemakersfinal) → deploys to production via Vercel.
 
-## Quick start (web)
+---
 
-```bash
-cd frontend
-npm install
-npm start
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Web + mobile app (React, Capacitor iOS/Android)            │
+│  Hosted on Vercel                                           │
+└──────────────────────────┬──────────────────────────────────┘
+                           │
+         ┌─────────────────┼─────────────────┐
+         ▼                 ▼                 ▼
+┌─────────────┐   ┌─────────────┐   ┌─────────────────────┐
+│  Supabase   │   │  Render     │   │  xAI (Grok)         │
+│  Auth, DB,  │   │  FastAPI    │   │  Floor plans &      │
+│  storage    │   │  backend    │   │  design images      │
+└─────────────┘   └─────────────┘   └─────────────────────┘
+
+Domain / DNS: Ionos
+Source control: GitHub
 ```
 
-See `frontend/.env.example` for Supabase and backend URL.
+| Layer | Role |
+|--------|------|
+| **Frontend** | React (CRA + CRACO), Tailwind, Framer Motion; Capacitor for native shells |
+| **Backend** | Python FastAPI on Render — AI generation, project flow APIs |
+| **Data** | Supabase (Postgres, auth, file storage) |
+| **AI** | Grok via xAI API (`XAI_API_KEY` on Render) |
+| **Hosting** | Vercel (app), Render (API), Ionos (domain) |
 
-## Production (Vercel + Render)
+---
 
-What you see on the **live site** is whatever was last deployed — not your local `npm start` unless you redeploy.
+## Capabilities today
 
-**Vercel (frontend)** — Project → Settings → Environment Variables:
+**Homeowners**
 
-| Variable | Example |
-|----------|---------|
-| `REACT_APP_BACKEND_URL` | `https://homemakers-6o3h.onrender.com` (no trailing `/api`) |
-| `REACT_APP_SUPABASE_URL` | your Supabase project URL |
-| `REACT_APP_SUPABASE_ANON_KEY` | your anon key |
+- New-home and remodel wizards with **AI layouts, visuals, and estimates**
+- Sign-in–gated flows; project pack can persist to Supabase
+- Marketing site and inspiration content
+- Project hub UI (**demo** — not full live PM yet)
+- Browse marketplace / shop UI (**partial**)
 
-After changing env vars, trigger a **new deployment** (Deployments → Redeploy).
+**Professionals**
 
-**Render (backend)** — ensure `XAI_API_KEY` is set so v0 returns **AI-generated** floor plans and images (not preview placeholders).
+- Onboarding: craft → details → portfolio → go live
+- Public portfolio (`/profile/:slug`)
+- Pro dashboard (**mostly demo**)
 
-## Mobile apps (iOS & Android)
+**Mobile**
 
-The same React app ships as native apps via Capacitor. Native projects: `frontend/ios/` and `frontend/android/`.
+- Capacitor apps (iOS / Android) sharing the same React codebase
 
-**Full guide:** [docs/MOBILE.md](docs/MOBILE.md)
+**Not built yet**
 
-```bash
-cd frontend
-npm install
-cp .env.mobile.example .env.production   # set production API URLs
-npm run cap:sync
-npm run cap:open:ios      # Xcode
-npm run cap:open:android  # Android Studio
-```
+- Two-sided “project posted → pro opts in” marketplace loop
+- Homeowner ↔ pro messaging and hire/award flow
+- Live milestone **payment protection** (escrow / payouts)
+- Full agentic materials checkout
+- **Financing / AI financier matching** (project + credit) — later
 
-## Backend
+---
 
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn server:app --reload --port 8001
-```
+## Vision & roadmap
+
+**North star:** One place from idea to move-in. Homeowner builds a rich **project package** (design + estimates + details). Contractors **see it and choose to work on it**; homeowners **pick and message** pros. Same hub for execution, **agentic materials shopping** (AI suggests, human approves), and **milestone payment protection**.
+
+**Next (in order)**
+
+1. Project as a marketplace object (shared designs/estimates, access control)
+2. Pro project feed — discover jobs, express interest
+3. Hire flow — shortlist, message, award
+4. Project management MVP — real tasks, phases, site feed, discussion
+5. Agentic shop v1 — BOM-linked materials, approval before buy
+6. Payment protection v1 — milestones, hold/release, pro payouts
+
+**Later**
+
+- AI **financier matching** (project context + credit score, with consent/compliance)
+- Construction financing UX (partners, legal) — only after payments core
+
+---
+
+## Stack & tools
+
+| Tool | Use |
+|------|-----|
+| **GitHub** | Source, `homemakersfinal` main branch |
+| **Vercel** | Production frontend |
+| **Render** | Production API |
+| **Supabase** | Database, auth, storage |
+| **Ionos** | Domain / DNS |
+| **xAI (Grok)** | AI floor plans and design images |
+| **Capacitor** | Native iOS & Android |
+| **FastAPI** | Backend |
+| **React** | Web and mobile UI |
+
+---
+
+*Detailed PM backlog: [docs/PROJECT_MANAGEMENT_ROADMAP.md](docs/PROJECT_MANAGEMENT_ROADMAP.md). Native build notes: [docs/MOBILE.md](docs/MOBILE.md).*
