@@ -1,16 +1,18 @@
 import "@/App.css";
 import "./mobile/mobile.css";
 import { useEffect } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { getSupabase } from "./lib/supabaseClient";
 import { fetchUserProfile, persistHmSessionFromSupabase } from "./lib/userProfileApi";
 import { claimAnonymousProjects } from "./lib/projectFlowApi";
+import { syncProPortfolioFromServer } from "./lib/hmAuth";
 import { useMobileNative } from "./hooks/useMobileNative";
 import MobileAppRoutes from "./mobile/MobileAppRoutes";
 import HomePage from "./pages/HomePage";
 import SignInPage from "./pages/SignInPage";
 import AccountPage from "./pages/AccountPage";
+import SubscriptionsPage from "./pages/SubscriptionsPage";
 import SignInErrorBoundary from "./components/SignInErrorBoundary";
 import CraftSelection from "./pages/CraftSelection";
 import YourDetails from "./pages/YourDetails";
@@ -30,6 +32,7 @@ import StageDashboard from "./pages/StageDashboard";
 import ProDashboard from "./pages/ProDashboard";
 import ProOnboardingGuard from "./components/ProOnboardingGuard";
 import ProDashboardGuard from "./components/ProDashboardGuard";
+import HomeownerFlowGuard from "./components/HomeownerFlowGuard";
 
 function ScrollToTopOnRouteChange() {
   const { pathname, search, hash } = useLocation();
@@ -68,14 +71,31 @@ function DesktopRoutes() {
         }
       />
       <Route path="/account" element={<AccountPage />} />
+      <Route path="/account/settings" element={<AccountPage />} />
+      <Route path="/subscriptions" element={<SubscriptionsPage />} />
       <Route path="/craft" element={<CraftSelection />} />
       <Route path="/details" element={<YourDetails />} />
       <Route path="/portfolio" element={<YourPortfolio />} />
       <Route path="/live" element={<GoLive />} />
       <Route path="/profile/:slug" element={<PortfolioPage />} />
       <Route path="/build" element={<WhatAreYouBuilding />} />
-      <Route path="/build/new-home" element={<BuildNewHome />} />
-      <Route path="/build/remodel" element={<RemodelHome />} />
+      <Route
+        path="/build/new-home"
+        element={
+          <HomeownerFlowGuard>
+            <BuildNewHome />
+          </HomeownerFlowGuard>
+        }
+      />
+      <Route
+        path="/build/remodel"
+        element={
+          <HomeownerFlowGuard>
+            <RemodelHome />
+          </HomeownerFlowGuard>
+        }
+      />
+      <Route path="/pro" element={<Navigate to="/pro/dashboard" replace />} />
       <Route path="/project" element={<ProjectDashboard />} />
       <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/browse" element={<Marketplace />} />
@@ -118,6 +138,14 @@ function App() {
         /* table missing or RLS — still keep auth session */
       }
       persistHmSessionFromSupabase(session.user, profile);
+      const role = profile?.role || session.user.user_metadata?.role;
+      if (role === "pro") {
+        try {
+          await syncProPortfolioFromServer(session.user.id);
+        } catch (_) {
+          /* portfolio table may not be ready */
+        }
+      }
       try {
         await claimAnonymousProjects(session.user.id);
       } catch (_) {

@@ -13,3 +13,13 @@ export function buildSignInRedirect(returnPath) {
   const path = returnPath && returnPath.startsWith("/") ? returnPath : "/build";
   return `/sign-in?mode=signin&redirect=${encodeURIComponent(path)}`;
 }
+
+/** Navigate into a homeowner wizard — sign in first if needed. */
+export function navigateToHomeownerFlow(navigate, path, options) {
+  const target = path && path.startsWith("/") ? path : "/build";
+  if (isHomeownerSignedIn()) {
+    navigate(target, options);
+    return;
+  }
+  navigate(buildSignInRedirect(target), options);
+}

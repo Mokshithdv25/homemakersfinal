@@ -46,23 +46,32 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
             >
-              <h1 className="mb-6 font-display text-[2.6rem] font-semibold leading-[1.15] tracking-tight text-[#fcfbfa] sm:text-5xl md:text-[3.75rem]">
-                Where your vision turns into your{" "}
+              <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#e3c7a3]/35 bg-[#1f1512]/60 px-3.5 py-1.5 font-body text-[11px] font-semibold uppercase tracking-[0.14em] text-[#e3c7a3] backdrop-blur-sm">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                AI-first home platform
+              </p>
+              <h1 className="mb-6 font-display text-[2.35rem] font-semibold leading-[1.12] tracking-tight text-[#fcfbfa] sm:text-5xl md:text-[3.55rem]">
+                Bring your{" "}
                 <span className="bg-gradient-to-r from-[#e3c7a3] to-[#cfa170] bg-clip-text text-transparent">
                   dream home
-                </span>
-                {" "}with the power of{" "}
+                </span>{" "}
+                to life with the power of{" "}
                 <span className="text-[#e3c7a3]">AI</span>
               </h1>
-              
-              <div className="mb-9 max-w-lg">
-                <p className="mb-6 font-body text-[1.1rem] font-light leading-relaxed text-[#f2eee9]/90 md:text-xl">
-                  India's first complete home platform — from idea to execution, all in one place.
+
+              <div className="mb-9 max-w-xl">
+                <p className="mb-4 font-body text-[1.1rem] font-light leading-relaxed text-[#f2eee9]/92 md:text-xl">
+                  India&apos;s first complete AI home platform — from idea to execution, all in one place.
+                </p>
+                <p className="mb-6 font-body text-[15px] leading-relaxed text-[#f2eee9]/78 md:text-base">
+                  AI v0 designs and estimates when you&apos;re dreaming it up. AI agents in your project hub when
+                  you&apos;re building it — briefs, site updates, and next steps stay clear for everyone on the job.
                 </p>
                 <div className="flex items-center gap-3">
-                  <div className="h-px w-8 bg-[#cfa170]/60"></div>
-                  <p className="font-display text-[15px] font-medium tracking-[0.08em] uppercase text-[#e3c7a3]">
-                    Design. Build. Move In. <span className="text-[#fcfbfa]/70">Without the Chaos.</span>
+                  <div className="h-px w-8 bg-[#cfa170]/60" />
+                  <p className="font-display text-[14px] font-medium tracking-[0.07em] uppercase text-[#e3c7a3]">
+                    AI design · AI estimates ·{" "}
+                    <span className="text-[#fcfbfa]/75">AI project agents</span>
                   </p>
                 </div>
               </div>
@@ -78,8 +87,8 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
                     </div>
                   ))}
                 </div>
-                <p className="m-0 font-body text-[13px] font-medium text-[#f2eee9]/80 sm:max-w-[16rem]">
-                  Join 2,400+ homeowners already building on HomeMakers
+                <p className="m-0 font-body text-[13px] font-medium text-[#f2eee9]/80 sm:max-w-[18rem]">
+                  Join 2,400+ homeowners using AI on HomeMakers — from first sketch to site handover
                 </p>
               </div>
             </motion.div>
@@ -96,7 +105,7 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
                 onClick={onGetStarted}
                 className="gradient-copper h-auto rounded-lg px-7 py-3 font-body text-[15px] font-semibold text-primary-foreground shadow-md transition-opacity hover:opacity-90"
               >
-                Start Your Home Project
+                Start with AI
               </Button>
               <Button
                 type="button"
@@ -105,7 +114,7 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
                 onClick={onExploreDesigns}
                 className="h-auto rounded-lg border border-amber-200/40 bg-white/10 px-7 py-3 font-body text-[15px] font-semibold text-[#faf6f1] shadow-sm backdrop-blur-sm hover:border-amber-200/60 hover:bg-white/15"
               >
-                Explore Designs
+                See AI design examples
               </Button>
             </motion.div>
           </div>

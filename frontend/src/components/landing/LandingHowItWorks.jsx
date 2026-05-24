@@ -23,9 +23,9 @@ const steps = [
   },
   {
     icon: ClipboardList,
-    title: "Run the project with clarity",
+    title: "AI agents run the project hub",
     description:
-      "One hub for visits, site photos, documents, and threads—milestones and checklists keep roles, updates, and decisions accountable from first pour to handover.",
+      "One hub for visits, photos, documents, and threads—AI agents surface next actions, flag risks, and keep homeowners, architects, and contractors aligned from first pour to handover.",
   },
 ];
 
@@ -44,11 +44,11 @@ export default function LandingHowItWorks() {
             How it works
           </span>
           <h2 className="font-display text-4xl md:text-5xl font-semibold text-foreground mt-4 mb-4 leading-tight">
-            A clearer path from vision to handover
+            AI from first brief to final handover
           </h2>
           <p className="text-muted-foreground font-body text-lg leading-relaxed">
-            Built for how Indian homes actually get done—brief, marketplace, and project hub connected end to end, so
-            clarity replaces inbox chaos.
+            Built for how Indian homes actually get done—AI v0 at the start, real pros in the middle, AI agents in the
+            project hub so clarity replaces inbox chaos.
           </p>
         </motion.div>
 

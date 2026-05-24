@@ -22,10 +22,12 @@ export const HM_TAGLINE_REMODEL = "Reimagine your home with the power of AI";
 export const HM_TAGLINE_BUILD_CHOOSER = "New build or refresh — your vision, powered by AI";
 
 /** Project hub — /project, documents, team, marketplace, stage sidebars */
-export const HM_TAGLINE_PROJECT_HUB = "Project management made hassle-free with the power of AI";
+export const HM_TAGLINE_PROJECT_HUB =
+  "AI project agents keep visits, documents, and next steps clear — from brief to handover";
 
 /** Marketing homepage under the main lockup (`/`) */
-export const HM_TAGLINE_HOME_PLATFORM = "Design, build, and manage your home in one place — with the power of AI";
+export const HM_TAGLINE_HOME_PLATFORM =
+  "India's first complete AI home platform — design, estimates, and AI project agents in one place";
 
 /** Narrow project sidebar rail — scaled with title so ratio matches header lockup */
 export const HM_LOGO_COMPACT = 40;
@@ -64,13 +66,13 @@ export const HM_PROJECT_HUB_HEADER_CLASS = [
 export const HM_WORDMARK_TITLE_CLASS =
   "font-display text-[30px] md:text-[42px] tracking-[0.03em] font-semibold leading-none pb-1 text-[#A86A31] [text-shadow:0_1px_0_rgba(255,255,255,0.25)]";
 
-/** Orange tagline under the title */
+/** Context line under the wordmark — black body tone, not accent copper */
 export const HM_WORDMARK_TAGLINE_CLASS =
-  "text-[12px] sm:text-[13px] font-semibold text-[#C85F2B] tracking-wide mt-0.5 max-w-md whitespace-normal";
+  "text-[12px] sm:text-[13px] font-semibold text-[#1C1917] tracking-wide mt-0.5 max-w-md whitespace-normal";
 
-/** Project hub & tools — one line under the wordmark to match marketing headers */
+/** Project hub & tools — one line under the wordmark */
 export const HM_WORDMARK_TAGLINE_SINGLE_LINE =
-  "text-[10px] sm:text-[11px] md:text-xs font-semibold text-[#C85F2B] tracking-wide mt-0.5 whitespace-nowrap leading-tight min-w-0";
+  "text-[10px] sm:text-[11px] md:text-xs font-semibold text-[#1C1917] tracking-wide mt-0.5 whitespace-nowrap leading-tight min-w-0";
 
 /** Sidebar strip behind logo + wordmark (project tools) — gap matches header gap-3 */
 export const HM_SIDEBAR_BRAND_CLASS =

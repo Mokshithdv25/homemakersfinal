@@ -272,6 +272,22 @@ export default function ProjectDesignJourney() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
             <button
               type="button"
+              onClick={() => navigate(`/project${hubQuery}`)}
+              style={{
+                padding: "9px 16px",
+                borderRadius: 9,
+                border: "1.5px solid #D1C9BF",
+                background: "#fff",
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: "pointer",
+                color: "#44403C",
+              }}
+            >
+              ← Back to overview
+            </button>
+            <button
+              type="button"
               onClick={() => navigate(`/documents${hubQuery}`)}
               style={{
                 padding: "9px 16px",
@@ -285,22 +301,6 @@ export default function ProjectDesignJourney() {
               }}
             >
               Open document vault
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(`/project${hubQuery}`)}
-              style={{
-                padding: "9px 16px",
-                borderRadius: 9,
-                border: "1.5px solid #D1C9BF",
-                background: "#fff",
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: "pointer",
-                color: "#44403C",
-              }}
-            >
-              Back to overview
             </button>
           </div>
         </div>

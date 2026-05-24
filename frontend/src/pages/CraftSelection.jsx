@@ -135,7 +135,19 @@ export default function CraftSelection() {
 
       {/* Header */}
       <header className={HM_HEADER_BAR_CLASS} data-testid="hm-header">
-        <HmHeaderBrandLockup tagline={HM_TAGLINE_PORTFOLIO} />
+        <div className="flex items-center gap-3 md:gap-4 min-w-0">
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="flex items-center gap-2 text-sm font-semibold text-[#1C1917] hover:text-[#57534E] transition-colors border border-[#EFE3D2] px-3 py-2 rounded-lg bg-white shrink-0"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            Back
+          </button>
+          <HmHeaderBrandLockup tagline={HM_TAGLINE_PORTFOLIO} truncateTitle className="min-w-0 flex-1" />
+        </div>
 
         <div className="hidden md:block">
           <StepRail currentStep={1} />

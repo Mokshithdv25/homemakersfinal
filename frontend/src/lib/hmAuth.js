@@ -1,3 +1,4 @@
+import { fetchOwnedPortfolio } from "./api";
 import { getSupabase } from "./supabaseClient";
 
 /** Read cached session written by {@link persistHmSessionFromSupabase}. */
@@ -43,11 +44,52 @@ export function readProPortfolioState() {
   }
 }
 
+/** Cache server portfolio row for device-side resume paths. */
+export function persistProPortfolioCache(row) {
+  if (!row?.id) return;
+  try {
+    localStorage.setItem("hm_portfolio_id", row.id);
+    localStorage.setItem(
+      "hm_portfolio",
+      JSON.stringify({
+        id: row.id,
+        craft: row.craft,
+        step: row.step ?? 1,
+        published: Boolean(row.published),
+        slug: row.slug || null,
+        full_name: row.full_name || "",
+        business_name: row.business_name || "",
+        city: row.city || "",
+        profile_strength: row.profile_strength,
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Pull the signed-in pro's portfolio from Supabase into localStorage (new device / cleared cache). */
+export async function syncProPortfolioFromServer(ownerUserId) {
+  if (!ownerUserId) return null;
+  const row = await fetchOwnedPortfolio(ownerUserId);
+  if (row) persistProPortfolioCache(row);
+  return row;
+}
+
+export function getProPublicProfilePath() {
+  try {
+    const raw = localStorage.getItem("hm_portfolio");
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (parsed?.published && parsed?.slug) return `/profile/${parsed.slug}`;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 /** Best route for a pro after auth — dashboard if portfolio is live, else continue onboarding. */
 export function getProLandingPath() {
-  const { status } = readProPortfolioState();
-  if (status === "published") return "/pro/dashboard";
-  return "/craft";
+  return getProOnboardingResumePath();
 }
 
 /** Resume portfolio wizard at the right step. */
@@ -64,7 +106,7 @@ export function getPostLoginPath(role, redirectPath) {
   if (redirectPath && String(redirectPath).startsWith("/")) {
     return redirectPath;
   }
-  if (role === "pro") return getProLandingPath();
+  if (role === "pro") return getProOnboardingResumePath();
   return "/build";
 }
 

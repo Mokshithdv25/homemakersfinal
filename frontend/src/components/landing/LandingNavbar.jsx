@@ -55,7 +55,7 @@ export default function LandingNavbar({ tagline = null }) {
   const softwareItems = [
     { label: "AI design & v0 brief", path: "/build" },
     { label: "AI plan & flow assistant", path: "/build" },
-    { label: "Estimates & takeoffs", path: "/build/new-home" },
+    { label: "Estimates & takeoffs", path: "/build" },
     { label: "Change orders & revisions", path: null, comingSoon: true },
     { label: "3D floor plan viewer", path: null, comingSoon: true },
     { label: "Project management hub", path: "/project" },

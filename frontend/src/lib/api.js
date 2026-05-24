@@ -140,6 +140,23 @@ export async function getPortfolio(id) {
   return data;
 }
 
+/** Most recently updated portfolio owned by this user (pro onboarding resume). */
+export async function fetchOwnedPortfolio(ownerUserId) {
+  if (!supabase || !ownerUserId) return null;
+  const { data, error } = await supabase
+    .from("portfolios")
+    .select("*")
+    .eq("owner_user_id", ownerUserId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn("fetchOwnedPortfolio:", error.message);
+    return null;
+  }
+  return data;
+}
+
 export async function updatePortfolio(id, patch) {
   if (supabase) return updatePortfolioSupabase(id, patch);
   const { data } = await api.patch(`/portfolio/${id}`, patch);

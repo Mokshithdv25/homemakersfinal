@@ -23,6 +23,9 @@ import YourDetails from "../pages/YourDetails";
 import YourPortfolio from "../pages/YourPortfolio";
 import GoLive from "../pages/GoLive";
 import ProDashboard from "../pages/ProDashboard";
+import SubscriptionsPage from "../pages/SubscriptionsPage";
+import AccountPage from "../pages/AccountPage";
+import HomeownerFlowGuard from "../components/HomeownerFlowGuard";
 
 function withShell(Page) {
   return (
@@ -42,17 +45,21 @@ export default function MobileAppRoutes() {
       <Route
         path="/build/new-home"
         element={
-          <MobileWizardLayout title="New home" subtitle="Plot → AI v0 → project hub">
-            <BuildNewHome />
-          </MobileWizardLayout>
+          <HomeownerFlowGuard>
+            <MobileWizardLayout title="New home" subtitle="Plot → AI v0 → project hub">
+              <BuildNewHome />
+            </MobileWizardLayout>
+          </HomeownerFlowGuard>
         }
       />
       <Route
         path="/build/remodel"
         element={
-          <MobileWizardLayout title="Remodel" subtitle="Room vision → AI concepts">
-            <RemodelHome />
-          </MobileWizardLayout>
+          <HomeownerFlowGuard>
+            <MobileWizardLayout title="Remodel" subtitle="Room vision → AI concepts">
+              <RemodelHome />
+            </MobileWizardLayout>
+          </HomeownerFlowGuard>
         }
       />
       <Route path="/photo/:id" element={withShell(MobilePhotoPage)} />
@@ -61,6 +68,15 @@ export default function MobileAppRoutes() {
       <Route path="/project/browse" element={withShell(MobileProsPage)} />
       <Route path="/project" element={withShell(MobileProjectPage)} />
       <Route path="/account" element={withShell(MobileAccountPage)} />
+      <Route
+        path="/account/settings"
+        element={
+          <MobileShell hideTabs>
+            <AccountPage />
+          </MobileShell>
+        }
+      />
+      <Route path="/subscriptions" element={withShell(SubscriptionsPage)} />
       <Route
         path="/sign-in"
         element={

@@ -1,11 +1,40 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, LogOut, Settings, Hammer, LayoutGrid, Home, Paintbrush } from "lucide-react";
+import {
+  ChevronDown,
+  LogOut,
+  Settings,
+  Home,
+  Paintbrush,
+  LayoutGrid,
+  ExternalLink,
+  CreditCard,
+  FolderKanban,
+  Pencil,
+} from "lucide-react";
 import { useHmSession } from "../hooks/useHmSession";
-import { getProfileInitial, signOutHm } from "../lib/hmAuth";
+import {
+  getProOnboardingResumePath,
+  getProPublicProfilePath,
+  getProfileInitial,
+  signOutHm,
+} from "../lib/hmAuth";
+
+function MenuSection({ label, children }) {
+  return (
+    <div className="py-1">
+      {label ? (
+        <p className="px-3 pt-1.5 pb-1 font-body text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground m-0">
+          {label}
+        </p>
+      ) : null}
+      {children}
+    </div>
+  );
+}
 
 /**
- * Signed-in avatar (one letter) + menu: account, build flows, project hub, sign out.
+ * Signed-in avatar + role-specific menu (homeowner vs pro).
  */
 export default function HmUserMenu({ className = "" }) {
   const navigate = useNavigate();
@@ -27,6 +56,14 @@ export default function HmUserMenu({ className = "" }) {
   const initial = getProfileInitial(session);
   const displayName = session.profile?.name || "Your account";
   const isPro = session.role === "pro";
+  const publicProfilePath = isPro ? getProPublicProfilePath() : null;
+  const portfolioPath = isPro ? getProOnboardingResumePath() : null;
+  const portfolioLabel =
+    portfolioPath === "/pro/dashboard"
+      ? "Edit portfolio"
+      : portfolioPath === "/portfolio" || portfolioPath === "/live"
+        ? "Edit portfolio"
+        : "Continue portfolio setup";
 
   const go = (path) => {
     setOpen(false);
@@ -76,31 +113,66 @@ export default function HmUserMenu({ className = "" }) {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+0.5rem)] z-[60] w-[min(17rem,calc(100vw-2rem))] rounded-2xl border border-black/8 bg-[rgba(255,252,249,0.98)] p-2 shadow-[0_20px_60px_rgba(48,33,21,0.16)] backdrop-blur-xl"
+          className="absolute right-0 top-[calc(100%+0.5rem)] z-[60] w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-black/8 bg-[rgba(255,252,249,0.98)] p-2 shadow-[0_20px_60px_rgba(48,33,21,0.16)] backdrop-blur-xl"
         >
-          <div className="px-3 py-2.5 border-b border-border/60 mb-1">
+          <div className="px-3 py-2.5 border-b border-border/60 mb-0.5">
             <div className="font-body text-sm font-semibold text-foreground truncate">{displayName}</div>
             {session.profile?.email ? (
               <div className="font-body text-xs text-muted-foreground truncate mt-0.5">{session.profile.email}</div>
             ) : null}
-            {session.profile?.city ? (
-              <div className="font-body text-xs text-muted-foreground mt-0.5">{session.profile.city}</div>
-            ) : null}
+            <div className="font-body text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mt-1.5">
+              {isPro ? "Professional" : "Homeowner"}
+            </div>
           </div>
 
-          {menuItem(<Settings className="h-4 w-4 shrink-0 text-copper" />, "Account & profile", "/account")}
           {!isPro ? (
             <>
-              {menuItem(<Hammer className="h-4 w-4 shrink-0 text-copper" />, "New build or remodel", "/build")}
-              {menuItem(<Home className="h-4 w-4 shrink-0 text-copper" />, "Build a new home", "/build/new-home")}
-              {menuItem(<Paintbrush className="h-4 w-4 shrink-0 text-copper" />, "Remodel my home", "/build/remodel")}
-              {menuItem(<LayoutGrid className="h-4 w-4 shrink-0 text-copper" />, "My project hub", "/project")}
+              <MenuSection label="Projects">
+                {menuItem(
+                  <FolderKanban className="h-4 w-4 shrink-0 text-copper" />,
+                  "My projects",
+                  "/project",
+                )}
+              </MenuSection>
+              <MenuSection label="Start something new">
+                {menuItem(<Home className="h-4 w-4 shrink-0 text-copper" />, "Start a new home", "/build/new-home")}
+                {menuItem(
+                  <Paintbrush className="h-4 w-4 shrink-0 text-copper" />,
+                  "Start a remodel",
+                  "/build/remodel",
+                )}
+              </MenuSection>
             </>
           ) : (
-            menuItem(<LayoutGrid className="h-4 w-4 shrink-0 text-copper" />, "Pro dashboard", "/pro/dashboard")
+            <>
+              <MenuSection label="Work">
+                {menuItem(
+                  <LayoutGrid className="h-4 w-4 shrink-0 text-copper" />,
+                  "My projects",
+                  "/pro/dashboard",
+                )}
+                {menuItem(
+                  <Pencil className="h-4 w-4 shrink-0 text-copper" />,
+                  portfolioLabel,
+                  portfolioPath || "/portfolio",
+                )}
+                {publicProfilePath
+                  ? menuItem(
+                      <ExternalLink className="h-4 w-4 shrink-0 text-copper" />,
+                      "View live portfolio",
+                      publicProfilePath,
+                    )
+                  : null}
+              </MenuSection>
+            </>
           )}
 
-          <div className="mt-1 border-t border-border/60 pt-1">
+          <MenuSection label="Account">
+            {menuItem(<CreditCard className="h-4 w-4 shrink-0 text-copper" />, "My subscription", "/subscriptions")}
+            {menuItem(<Settings className="h-4 w-4 shrink-0 text-copper" />, "Account & settings", "/account/settings")}
+          </MenuSection>
+
+          <div className="mt-0.5 border-t border-border/60 pt-1">
             <button
               type="button"
               role="menuitem"

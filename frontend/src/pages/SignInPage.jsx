@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../lib/hmBrand";
 import { getSupabase, isSupabaseConfigured, getSupabaseInitError } from "../lib/supabaseClient";
 import { fetchUserProfile, persistHmSessionFromSupabase, upsertUserProfile } from "../lib/userProfileApi";
-import { getPostLoginPath } from "../lib/hmAuth";
+import { getPostLoginPath, syncProPortfolioFromServer } from "../lib/hmAuth";
 
 /**
  * Sign-in: Supabase Auth — email/password and Google OAuth when env vars are set.
@@ -122,6 +122,9 @@ export default function SignInPage() {
     const resolvedRole = profile?.role || user.user_metadata?.role || accountRole;
     if (profile?.full_name?.trim()) {
       persistHmSessionFromSupabase(user, profile);
+      if (resolvedRole === "pro") {
+        await syncProPortfolioFromServer(user.id);
+      }
       navigate(getPostLoginPath(resolvedRole, redirectFromQuery), { replace: true });
       return;
     }
@@ -306,6 +309,9 @@ export default function SignInPage() {
             /* ignore */
           }
           persistHmSessionFromSupabase(session.user, profile);
+          if (accountRole === "pro") {
+            await syncProPortfolioFromServer(session.user.id);
+          }
         }
       } else {
         await new Promise((r) => setTimeout(r, 800));
@@ -346,12 +352,22 @@ export default function SignInPage() {
     <div className="hm-landing-page min-h-screen bg-background flex flex-col">
       {/* Top Bar — same chrome + lockup as marketing home */}
       <div
-        className={`flex items-center justify-between gap-4 px-5 md:px-10 py-3 min-h-[4.65rem] ${HM_HEADER_BAR_CHROME_CLASS}`}
+        className={`flex items-center gap-3 md:gap-4 px-5 md:px-10 py-3 min-h-[4.65rem] ${HM_HEADER_BAR_CHROME_CLASS}`}
       >
         <button
           type="button"
+          onClick={step === "otp" ? () => setStep("entry") : goBack}
+          className={`flex shrink-0 items-center gap-1.5 text-muted-foreground font-body text-sm hover:text-foreground transition-colors bg-transparent border-none cursor-pointer ${
+            step === "details" || step === "done" ? "invisible pointer-events-none" : ""
+          }`}
+        >
+          <ArrowLeft className="w-4 h-4" />
+          {step === "otp" ? "Change number" : "Back"}
+        </button>
+        <button
+          type="button"
           onClick={() => navigate("/")}
-          className="flex items-center gap-2.5 bg-transparent border-none cursor-pointer p-0"
+          className="flex items-center gap-2.5 bg-transparent border-none cursor-pointer p-0 min-w-0"
         >
           <img
             src={hmLogoMarkSrc}
@@ -363,16 +379,7 @@ export default function SignInPage() {
           />
           <span className={HM_WORDMARK_TITLE_CLASS}>HomeMakers</span>
         </button>
-        <button
-          type="button"
-          onClick={step === "otp" ? () => setStep("entry") : goBack}
-          className={`flex items-center gap-1.5 text-muted-foreground font-body text-sm hover:text-foreground transition-colors bg-transparent border-none cursor-pointer ${
-            step === "details" || step === "done" ? "invisible" : ""
-          }`}
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {step === "otp" ? "Change number" : "Back"}
-        </button>
+        <div className="flex-1" aria-hidden />
       </div>
 
       {/* Centered Form */}

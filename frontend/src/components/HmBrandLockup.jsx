@@ -71,7 +71,7 @@ export function HmSidebarBrandMark({ className = "", size, titleClassName, tagli
       </div>
       {tagline ? (
         <p
-          className="text-[11px] font-semibold text-[#C85F2B] leading-snug mt-1.5 pr-0.5"
+          className="text-[11px] font-semibold text-[#1C1917] leading-snug mt-1.5 pr-0.5"
           style={{ wordBreak: "break-word" }}
         >
           {tagline}

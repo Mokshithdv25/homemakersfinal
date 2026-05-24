@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -110,28 +110,29 @@ export default function AccountPage() {
 
   return (
     <div className="hm-landing-page min-h-screen bg-background flex flex-col">
-      <header className={`flex items-center justify-between gap-4 px-5 md:px-10 py-3 min-h-[4.65rem] ${HM_HEADER_BAR_CHROME_CLASS}`}>
+      <header className={`flex items-center gap-3 md:gap-4 px-5 md:px-10 py-3 min-h-[4.65rem] ${HM_HEADER_BAR_CHROME_CLASS}`}>
         <button
           type="button"
-          onClick={() => navigate("/build")}
-          className="flex items-center gap-2.5 bg-transparent border-none cursor-pointer p-0"
+          onClick={() => navigate(session.role === "pro" ? "/pro/dashboard" : "/build")}
+          className="inline-flex shrink-0 items-center gap-2 text-sm text-muted-foreground hover:text-foreground bg-transparent border-none cursor-pointer font-body"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="flex items-center gap-2.5 bg-transparent border-none cursor-pointer p-0 min-w-0"
         >
           <img src={hmLogoMarkSrc} alt="HomeMakers" className="w-12 h-12 shrink-0" width={48} height={48} />
           <span className={HM_WORDMARK_TITLE_CLASS}>HomeMakers</span>
         </button>
+        <div className="flex-1" aria-hidden />
         <HmUserMenu />
       </header>
 
       <main className="flex-1 flex items-start justify-center p-6">
         <div className="w-full max-w-md space-y-6">
-          <Link
-            to="/build"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-copper no-underline font-body"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to projects
-          </Link>
-
           <div className="flex items-center gap-4">
             <span
               className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-2xl font-bold text-white"
@@ -231,13 +232,24 @@ export default function AccountPage() {
           </div>
 
           <div className="rounded-2xl border border-border/80 bg-background/80 p-4 space-y-2">
-            <p className="font-body text-sm font-semibold text-foreground m-0">Quick links</p>
-            <button type="button" onClick={() => navigate("/build")} className="block w-full text-left font-body text-sm text-copper hover:underline bg-transparent border-none cursor-pointer p-0">
-              New build or remodel →
+            <p className="font-body text-sm font-semibold text-foreground m-0">More</p>
+            <button type="button" onClick={() => navigate("/subscriptions")} className="block w-full text-left font-body text-sm text-copper hover:underline bg-transparent border-none cursor-pointer p-0">
+              My subscription →
             </button>
-            <button type="button" onClick={() => navigate("/project")} className="block w-full text-left font-body text-sm text-copper hover:underline bg-transparent border-none cursor-pointer p-0">
-              My project hub →
-            </button>
+            {session.role === "pro" ? (
+              <button type="button" onClick={() => navigate("/pro/dashboard")} className="block w-full text-left font-body text-sm text-copper hover:underline bg-transparent border-none cursor-pointer p-0">
+                Pro dashboard →
+              </button>
+            ) : (
+              <>
+                <button type="button" onClick={() => navigate("/build/new-home")} className="block w-full text-left font-body text-sm text-copper hover:underline bg-transparent border-none cursor-pointer p-0">
+                  Start a new home →
+                </button>
+                <button type="button" onClick={() => navigate("/build/remodel")} className="block w-full text-left font-body text-sm text-copper hover:underline bg-transparent border-none cursor-pointer p-0">
+                  Start a remodel →
+                </button>
+              </>
+            )}
           </div>
 
           <button

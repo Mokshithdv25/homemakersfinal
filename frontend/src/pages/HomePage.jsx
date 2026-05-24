@@ -56,7 +56,9 @@ export default function HomePage() {
         <div className="container">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="font-display text-xl font-semibold text-foreground">HomeMakers</div>
-            <p className="text-muted-foreground font-body text-sm">© 2026 HomeMakers. Build or renovate with clarity.</p>
+            <p className="text-muted-foreground font-body text-sm">
+              © 2026 HomeMakers. AI design, estimates, and project agents for Indian homes.
+            </p>
           </div>
         </div>
       </footer>

@@ -1774,7 +1774,32 @@ export default function BuildNewHome() {
                 {stepBlockError}
               </div>
             ) : null}
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setStepBlockError("");
+                  if (activeStep === 1) navigate(wizardExitPath());
+                  else setActiveStep((s) => s - 1);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 13,
+                  color: "#6A5E53",
+                  padding: 0,
+                  fontWeight: 600,
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+                Back
+              </button>
               <button
                 type="button"
                 disabled={(activeStep === 5 && !v0Generated) || projectSaving}
