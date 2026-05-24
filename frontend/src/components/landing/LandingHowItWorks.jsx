@@ -5,27 +5,27 @@ import { Sparkles, Unlock, UsersRound, ClipboardList, CheckCircle2 } from "lucid
 const steps = [
   {
     icon: Sparkles,
-    title: "Imagine your home",
+    title: "Share your vision",
     description:
-      "Capture inspiration, spaces, and must-haves in one structured brief—so AI and your future architect both read the same vision.",
+      "One brief for mood, plot, and budget. AI and your architect read the same story from day one.",
   },
   {
     icon: Unlock,
-    title: "Unlock designs & estimates",
+    title: "Get designs and estimates fast",
     description:
-      "Generate a free AI v0 pack: indicative layouts, visuals, and estimate ranges to review at home and hand to professionals—before sanction-grade drawings.",
+      "Free AI layouts, visuals, and cost ranges in days. Review at home, then share with your team.",
   },
   {
     icon: UsersRound,
-    title: "Work with real professionals",
+    title: "Bring in the right pros",
     description:
-      "Shortlist architects and contractors from the marketplace when you need them. Review the v0 together, align family, reach consensus, and lock scope and numbers before site work.",
+      "Use your own architect or pick from our marketplace. Align family and lock scope before site work.",
   },
   {
     icon: ClipboardList,
-    title: "Run the project with clarity",
+    title: "Run the build with clarity",
     description:
-      "One hub for visits, site photos, documents, and threads—milestones and checklists keep roles, updates, and decisions accountable from first pour to handover.",
+      "One hub for visits, photos, documents, and updates. Milestones keep everyone accountable to handover.",
   },
 ];
 
@@ -44,11 +44,10 @@ export default function LandingHowItWorks() {
             How it works
           </span>
           <h2 className="font-display text-4xl md:text-5xl font-semibold text-foreground mt-4 mb-4 leading-tight">
-            A clearer path from vision to handover
+            From first sketch to keys in hand
           </h2>
-          <p className="text-muted-foreground font-body text-lg leading-relaxed">
-            Built for how Indian homes actually get done—brief, marketplace, and project hub connected end to end, so
-            clarity replaces inbox chaos.
+          <p className="text-muted-foreground font-body text-lg leading-relaxed max-w-2xl">
+            Built for Indian homes. Brief, marketplace, and project hub connected so your build stays calm and clear.
           </p>
         </motion.div>
 

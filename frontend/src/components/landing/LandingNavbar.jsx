@@ -54,7 +54,7 @@ export default function LandingNavbar({ tagline = null }) {
 
   /** Platform modules — live routes where we have UI; rest tagged coming soon. */
   const softwareItems = [
-    { label: "AI design & v0 brief", path: "/build" },
+    { label: "AI design & estimates", path: "/build" },
     { label: "AI plan & flow assistant", path: "/build" },
     { label: "Estimates & takeoffs", path: "/build" },
     { label: "Change orders & revisions", path: null, comingSoon: true },

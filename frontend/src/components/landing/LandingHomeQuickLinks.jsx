@@ -9,37 +9,33 @@ const PATHS = [
   {
     id: "new",
     title: "New home",
-    description: "Plan from the ground up with AI help on scope, design, cost, and your project story.",
+    description: "AI layouts, estimates, and a clear brief before you hire.",
     homeownerPath: "/build/new-home",
     icon: Home,
   },
   {
     id: "remodel",
-    title: "Remodel or renovate",
-    description: "Reimagine your space with AI-assisted briefs and visuals — not a rigid wizard, real guidance at each step.",
+    title: "Remodel",
+    description: "Revamp your space with guided design and cost clarity.",
     homeownerPath: "/build/remodel",
     icon: Hammer,
   },
   {
     id: "hub",
-    title: "Project management",
-    description: "Cut the chaos: visits, photos, documents, and decisions in one place — with AI keeping threads and next actions legible.",
+    title: "Project hub",
+    description: "Site visits, photos, and decisions in one seamless place.",
     to: "/project",
     icon: LayoutDashboard,
   },
   {
     id: "pro",
-    title: "Professionals",
-    description:
-      "Portfolio, marketplace visibility, leads, and a workspace to run jobs — get discovered, collaborate, and close faster with AI where it saves time.",
+    title: "For professionals",
+    description: "Portfolio, marketplace leads, and a workspace to run jobs.",
     to: "/sign-in?role=pro&mode=signup",
     icon: Briefcase,
   },
 ];
 
-/**
- * Home journey cards — new/remodel sign in when picked; hub and pro use their own entry paths.
- */
 export default function LandingHomeQuickLinks() {
   const navigate = useNavigate();
 
@@ -54,12 +50,12 @@ export default function LandingHomeQuickLinks() {
   return (
     <section className="border-b border-border/50 bg-gradient-to-b from-background to-secondary/15 py-16 md:py-20">
       <div className="container max-w-6xl">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-copper">Get started</p>
-        <h2 className="mb-3 font-display text-2xl font-semibold leading-tight text-foreground md:text-3xl">
-          Pick where you are <span className="italic" style={{ color: OR }}>in your journey</span>
+        <p className="mb-2 font-body text-sm font-bold uppercase tracking-[0.16em] text-copper">Harness AI on your build</p>
+        <h2 className="mb-2 font-display text-2xl font-semibold leading-tight text-foreground md:text-3xl">
+          Start <span className="italic" style={{ color: OR }}>here</span>
         </h2>
-        <p className="mb-10 max-w-2xl font-body text-sm leading-relaxed text-muted-foreground md:text-base">
-          Jump straight in — new build, remodel, project hub, or your practice profile. Fewer clicks, one calm thread.
+        <p className="mb-10 max-w-lg font-body text-sm text-muted-foreground md:text-base">
+          Four paths. One platform. Pick what fits today.
         </p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -82,12 +78,11 @@ export default function LandingHomeQuickLinks() {
                     aria-hidden
                   />
                 </div>
-                <p className="m-0 flex-1 font-body text-sm leading-relaxed text-muted-foreground">{p.description}</p>
+                <p className="m-0 flex-1 font-body text-sm leading-snug text-muted-foreground">{p.description}</p>
               </button>
             );
           })}
         </div>
-
       </div>
     </section>
   );

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 
 const HERO_URL = `${process.env.PUBLIC_URL || ""}/landing-hero.png`;
 
-/** Letter avatars for social proof — single initial, warm palette */
+const AI_PILLARS = ["AI design", "Plans", "Estimates", "Project management", "Materials marketplace"];
+
 const PROOF_LETTERS = [
   { letter: "A", bg: "bg-[#7c4a2f]" },
   { letter: "K", bg: "bg-[#2a6496]" },
@@ -37,56 +38,56 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
 
       <div className="container relative z-10 flex justify-start py-28 md:py-32">
         <div className="relative w-full max-w-2xl px-4 sm:px-6 md:max-w-[42rem]">
-          <div className="relative">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8 }}
-            >
-              <h1 className="mb-6 font-display text-[2.6rem] font-semibold leading-[1.15] tracking-tight text-[#fcfbfa] sm:text-5xl md:text-[3.75rem]">
-                Bring your{" "}
-                <span className="bg-gradient-to-r from-[#e3c7a3] to-[#cfa170] bg-clip-text text-transparent">
-                  dream home
-                </span>{" "}
-                to life with the power of{" "}
-                <span className="text-[#e3c7a3]">AI</span>
-              </h1>
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+          >
+            <h1 className="mb-5 font-display text-[2.6rem] font-semibold leading-[1.15] tracking-tight text-[#fcfbfa] sm:text-5xl md:text-[3.75rem]">
+              Bring your{" "}
+              <span className="bg-gradient-to-r from-[#e3c7a3] to-[#cfa170] bg-clip-text text-transparent">
+                dream home
+              </span>{" "}
+              to life with the power of{" "}
+              <span className="text-[#e3c7a3]">AI</span>
+            </h1>
 
-              <div className="mb-9 max-w-lg">
-                <p className="mb-6 font-body text-[1.1rem] font-light leading-relaxed text-[#f2eee9]/90 md:text-xl">
-                  India&apos;s first complete home platform — from idea to execution, all in one place.
-                </p>
-                <div className="flex items-center gap-3">
-                  <div className="h-px w-8 bg-[#cfa170]/60" />
-                  <p className="font-display text-[15px] font-medium tracking-[0.08em] uppercase text-[#e3c7a3]">
-                    Design. Build. Move In. <span className="text-[#fcfbfa]/70">Without the Chaos.</span>
-                  </p>
-                </div>
+            <p className="mb-4 max-w-lg font-body text-[1.05rem] font-light leading-relaxed text-[#f2eee9]/90 md:text-lg">
+              India&apos;s first complete home platform. From idea to execution, one place.
+            </p>
+
+            <div className="mb-5 flex flex-wrap gap-2" aria-label="What HomeMakers covers">
+              {AI_PILLARS.map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full border border-[#e3c7a3]/35 bg-[#1f1512]/55 px-3 py-1.5 font-body text-[12px] font-semibold text-[#f2eee9] md:text-[13px]"
+                >
+                  {label}
+                </span>
+              ))}
+            </div>
+
+            <p className="mb-8 font-display text-[14px] font-medium tracking-[0.07em] uppercase text-[#e3c7a3] md:text-[15px]">
+              Faster designs. Smarter estimates. Hassle-free builds.
+            </p>
+
+            <div className="mb-10 flex max-w-xl flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
+              <div className="flex items-center -space-x-2" aria-hidden="true">
+                {PROOF_LETTERS.map((p, i) => (
+                  <div
+                    key={i}
+                    className={`flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#1f1512] font-body text-sm font-bold text-[#faf6f1] shadow-sm ${p.bg}`}
+                  >
+                    {p.letter}
+                  </div>
+                ))}
               </div>
+              <p className="m-0 font-body text-[13px] font-medium text-[#f2eee9]/80 sm:max-w-[16rem]">
+                Join 2,400+ homeowners on HomeMakers
+              </p>
+            </div>
 
-              <div className="mb-10 flex max-w-xl flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
-                <div className="flex items-center -space-x-2" aria-hidden="true">
-                  {PROOF_LETTERS.map((p, i) => (
-                    <div
-                      key={i}
-                      className={`flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#1f1512] font-body text-sm font-bold text-[#faf6f1] shadow-sm ${p.bg}`}
-                    >
-                      {p.letter}
-                    </div>
-                  ))}
-                </div>
-                <p className="m-0 font-body text-[13px] font-medium text-[#f2eee9]/80 sm:max-w-[16rem]">
-                  Join 2,400+ homeowners already building on HomeMakers
-                </p>
-              </div>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.3 }}
-              className="mt-2 flex flex-col gap-4 sm:flex-row"
-            >
+            <div className="flex flex-col gap-4 sm:flex-row">
               <Button
                 type="button"
                 size="default"
@@ -104,8 +105,8 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               >
                 Explore Designs
               </Button>
-            </motion.div>
-          </div>
+            </div>
+          </motion.div>
         </div>
       </div>
     </section>

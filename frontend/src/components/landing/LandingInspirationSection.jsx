@@ -62,7 +62,7 @@ export default function LandingInspirationSection({ onExplore }) {
             Get inspired by real Indian homes
           </h2>
           <p className="mx-auto max-w-2xl font-body text-base text-muted-foreground md:text-lg">
-            Facades and moods from our India-first style library — the same references we use when you brief AI v0.
+            Real Indian facades and moods from our style library. The same look and feel we use for your AI design brief.
           </p>
         </motion.div>
 

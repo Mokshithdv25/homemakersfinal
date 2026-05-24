@@ -5,24 +5,23 @@ import { CheckCircle2 } from "lucide-react";
 const features = [
   {
     id: 1,
-    title: "Bring your vision",
-    description: "Mood, layout, and budget come together in one place so nothing gets lost in translation.",
+    title: "Beautiful AI design, faster",
+    description: "See layouts and visuals early. Share with family before you spend on drawings.",
   },
   {
     id: 2,
-    title: "Work with professionals",
-    description: "Bring your own architect or contractor — or shortlist and compare from our marketplace when you want options.",
+    title: "Pros and marketplace",
+    description: "Bring your team or compare architects and contractors when you want options.",
   },
   {
     id: 3,
-    title: "Hassle-free project management",
-    description: "Tasks, files, and updates stay organised — fewer surprises on site and on paper.",
+    title: "Hassle-free project hub",
+    description: "Tasks, site photos, and files in one place. Fewer surprises on site.",
   },
   {
     id: 4,
-    title: "Payment protection",
-    description:
-      "Milestones and approvals for homeowners — and predictable payouts for pros — with financing and payment rails designed to stay in one place as the build advances.",
+    title: "Materials and payments",
+    description: "Shop and milestone payments designed to stay with the build as it moves.",
   },
 ];
 
@@ -38,8 +37,8 @@ export default function LandingWhyChooseUs() {
           className="mb-12 text-center"
         >
           <h2 className="mb-3 font-display text-4xl font-bold text-foreground md:text-5xl">Why choose HomeMakers</h2>
-          <p className="mx-auto max-w-2xl font-body text-base text-muted-foreground md:text-lg">
-            The calm layer between your dream and the building site — with AI where it actually helps, not as a gimmick.
+          <p className="mx-auto max-w-xl font-body text-base text-muted-foreground md:text-lg">
+            Faster, smarter, seamless. AI where it saves you time. Real pros where it matters.
           </p>
         </motion.div>
 
