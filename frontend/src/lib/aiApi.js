@@ -1,4 +1,5 @@
 import axios from "axios";
+import { publicAsset } from "./publicAsset";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 const isDev = process.env.NODE_ENV === "development";
@@ -39,6 +40,32 @@ async function fallbackDelay() {
   await new Promise((r) => setTimeout(r, 400));
 }
 
+function buildFloorPlanMocks(floors, headline) {
+  const f = String(floors || "G+1").trim();
+  const slots = [];
+  if (f === "G") {
+    slots.push({ label: "Ground floor plan v0", file: "floorplan_ground.png", hint: "Single-level layout from your brief" });
+    slots.push({ label: "Alternate ground layout v0", file: "floorplan_first.png", hint: "Second zoning option for discussion" });
+  } else if (f === "G+1") {
+    slots.push({ label: "Ground floor plan v0", file: "floorplan_ground.png", hint: "Zoning + room grid (not GFC)" });
+    slots.push({ label: "First floor plan v0", file: "floorplan_first.png", hint: "Upper level blocking + baths" });
+  } else if (f === "G+2") {
+    slots.push({ label: "Ground floor plan v0", file: "floorplan_ground.png", hint: "Ground level program" });
+    slots.push({ label: "First floor plan v0", file: "floorplan_first.png", hint: "Mid level bedrooms / living" });
+    slots.push({ label: "Second floor plan v0", file: "floorplan_first.png", hint: "Top floor / terrace level (indicative)" });
+  } else {
+    slots.push({ label: "Ground floor plan v0", file: "floorplan_ground.png", hint: "Ground level" });
+    slots.push({ label: "First floor plan v0", file: "floorplan_first.png", hint: "First floor" });
+    slots.push({ label: "Second floor plan v0", file: "floorplan_first.png", hint: "Second floor" });
+    slots.push({ label: "Third floor plan v0", file: "floorplan_ground.png", hint: "Top floor / terrace (indicative)" });
+  }
+  return slots.map((s) => ({
+    url: publicAsset(s.file),
+    label: s.label,
+    hint: `${s.hint} — ${headline}`,
+  }));
+}
+
 function mockV0ImagesClient(flow, brief) {
   const headline =
     brief?.location?.split?.(",")?.[0]?.trim?.() ||
@@ -54,7 +81,7 @@ function mockV0ImagesClient(flow, brief) {
         {
           url: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1000&q=80",
           label: `${headline} — layout v0 (plan sketch)`,
-          hint: "Furniture + circulation overlay on room footprint (indicative)",
+          hint: "Furniture + circulation overlay on room footprint",
         },
         {
           url: "https://images.unsplash.com/photo-1582268611958-ebfd161ef9ce?w=1000&q=80",
@@ -64,35 +91,22 @@ function mockV0ImagesClient(flow, brief) {
       ],
       images: [
         {
-          url: "https://images.unsplash.com/photo-1616594039964-3b6b8f9fbe16?w=640&q=75",
+          url: "https://images.unsplash.com/photo-1616594039964-ae9021a400a0?w=800&q=75",
           label: "Interior concept — main view",
           hint: "Layout, palette & key furniture",
         },
         {
-          url: "https://images.unsplash.com/photo-1616486029423-aaa4789e8c9a?w=640&q=75",
+          url: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?w=800&q=75",
           label: "Interior concept — complementary view",
           hint: "Materials, lighting & detail",
         },
       ],
-      provider_note:
-        "Demo placeholders — start backend on :8000 (XAI_API_KEY in backend/.env) and restart npm start.",
     };
   }
 
   return {
     mock: true,
-    floor_plans: [
-      {
-        url: `${process.env.PUBLIC_URL || ""}/floorplan_ground.png`,
-        label: "Ground floor plan v0",
-        hint: `Zoning + room grid for ${headline} (indicative, not GFC)`,
-      },
-      {
-        url: `${process.env.PUBLIC_URL || ""}/floorplan_first.png`,
-        label: floors === "G" ? "Alternate ground plan v0" : "First floor plan v0",
-        hint: floors === "G" ? "Second layout option from same brief" : "Upper level blocking + baths (indicative)",
-      },
-    ],
+    floor_plans: buildFloorPlanMocks(floors, headline),
     images: [
       {
         url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=75",
@@ -105,8 +119,6 @@ function mockV0ImagesClient(flow, brief) {
         hint: "Garden/rear connection & roof study",
       },
     ],
-    provider_note:
-      "Demo placeholders — start backend on :8000 (XAI_API_KEY in backend/.env) and restart npm start.",
   };
 }
 
@@ -156,7 +168,7 @@ function mockEstimateClient(flow, brief) {
         { title: "Snag & handover", timeframe: "Final week" },
       ],
       project_summary: `Indicative ${brief?.room || "room"} remodel in ${headline} scoped to ~₹${Math.round(total_indicative_inr / 100000)} L (your budget band).`,
-      provider_note: "Demo estimate aligned to remodel budget — start backend for live Grok.",
+      provider_note: "",
     };
   }
   const estimate_lines =
@@ -183,7 +195,7 @@ function mockEstimateClient(flow, brief) {
       flow === "remodel"
         ? `Remodel roadmap for ${headline}.`
         : `Build roadmap for ${headline}.`,
-    provider_note: "Demo estimate — connect backend for Grok-generated INR breakdown.",
+    provider_note: "",
   };
 }
 
@@ -201,13 +213,6 @@ export async function requestV0Images(flow, brief) {
     return mockV0ImagesClient(flow, brief);
   }
   const { data } = await aiClient.post("/ai/v0-images", { flow, brief });
-
-  if (data?.mock) {
-    const hint =
-      data.provider_note ||
-      "Server returned demo images. Add XAI_API_KEY on Render and redeploy the homemakers API.";
-    throw new Error(hint);
-  }
 
   if (!data.floor_plans || data.floor_plans.length === 0) {
     const fallbackMock = mockV0ImagesClient(flow, brief);

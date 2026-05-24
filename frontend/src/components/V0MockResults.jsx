@@ -32,14 +32,38 @@ export function V0GeneratingPanel({ phase = "images" }) {
 }
 
 export function V0AiSourceBanner({ imageBundle, planBundle }) {
-  const isLive = imageBundle && !imageBundle.mock;
-  const note = imageBundle?.provider_note || planBundle?.provider_note;
-  if (!isLive && !note) return null;
+  const isLive = imageBundle && !imageBundle.mock && planBundle && !planBundle.mock;
+  if (isLive) {
+    return (
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "10px 14px",
+          borderRadius: 10,
+          fontSize: 12,
+          background: "rgba(34,163,107,0.08)",
+          border: "1px solid rgba(34,163,107,0.35)",
+        }}
+      >
+        <strong>AI-generated</strong> — floor plans and concept images from your brief (Grok).
+      </div>
+    );
+  }
+  if (!imageBundle?.mock && !planBundle?.mock) return null;
   return (
-    <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, fontSize: 12,
-      background: isLive ? "rgba(34,163,107,0.08)" : "rgba(200,95,43,0.08)",
-      border: `1px solid ${isLive ? "rgba(34,163,107,0.35)" : "rgba(200,95,43,0.25)"}` }}>
-      <strong>{isLive ? "Generated with Grok AI" : "Demo pack"}</strong>{note ? ` — ${note}` : ""}
+    <div
+      style={{
+        marginBottom: 16,
+        padding: "10px 14px",
+        borderRadius: 10,
+        fontSize: 12,
+        background: "rgba(200,95,43,0.08)",
+        border: "1px solid rgba(200,95,43,0.25)",
+        lineHeight: 1.45,
+      }}
+    >
+      <strong>Preview pack</strong> — connect the AI backend to generate floor plans and renders from your answers.
+      Not sanction-grade drawings; share with your architect to refine.
     </div>
   );
 }
@@ -81,7 +105,7 @@ function sumEstimateLines(lines) {
 /**
  * Indicative cost breakdown from plan/estimate API (or mock).
  */
-export function V0EstimateSection({ planBundle, title = "Indicative v0 estimate" }) {
+export function V0EstimateSection({ planBundle, title = "Design plan estimate (for your architect)" }) {
   const lines = planBundle?.estimate_lines;
   if (!lines?.length) return null;
   const total =
@@ -102,15 +126,15 @@ export function V0EstimateSection({ planBundle, title = "Indicative v0 estimate"
       <div style={{ padding: "14px 16px", borderBottom: "1px solid #EDE8E0", background: "#FBF6F0" }}>
         <div style={{ fontWeight: 800, fontSize: 15, color: "#1C1917" }}>{title}</div>
         <div style={{ fontSize: 12, color: "#78716C", marginTop: 4, lineHeight: 1.45 }}>
-          Ballpark only — not a quote. Your architect validates scope and pricing.
-          {planBundle?.mock ? " Demo totals — start backend with XAI_API_KEY for live Grok estimates." : " Powered by Grok from your brief."}
+          Ballpark line items to discuss with your architect — not a final quote or contract price.
+          {planBundle?.mock ? "" : " Generated from your brief."}
         </div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead>
           <tr style={{ textAlign: "left", color: "#78716C", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>
             <th style={{ padding: "10px 16px", fontWeight: 700, borderBottom: "1px solid #EDE8E0" }}>Line item</th>
-            <th style={{ padding: "10px 16px", fontWeight: 700, borderBottom: "1px solid #EDE8E0", textAlign: "right" }}>Indicative</th>
+            <th style={{ padding: "10px 16px", fontWeight: 700, borderBottom: "1px solid #EDE8E0", textAlign: "right" }}>Estimate</th>
           </tr>
         </thead>
         <tbody>
@@ -196,7 +220,7 @@ function conceptImageCard(entry, i, variant = "elevation") {
  */
 export function V0VisualBundleSections({
   bundle,
-  floorPlanTitle = "Floor plans (v0, indicative)",
+  floorPlanTitle = "Floor plans (AI v0)",
   elevationTitle = "Elevations & massing",
   interiorRenders = false,
 }) {
@@ -222,7 +246,9 @@ export function V0VisualBundleSections({
         <div style={{ marginBottom: 36 }}>
           <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8, color: "#1C1917" }}>{floorPlanTitle}</div>
           <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 20px", lineHeight: 1.5 }}>
-            {bundle?.mock ? "Indicative layouts for briefing — not sanction drawings." : "Reference floor plans — AI concepts are in the section below."}
+            {bundle?.mock
+              ? "Layout directions for briefing — not sanction drawings."
+              : "One plan per floor from your brief; elevations and interiors below."}
           </p>
           <div
             style={{

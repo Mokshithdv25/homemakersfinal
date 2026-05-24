@@ -12,6 +12,22 @@ npm start
 
 See `frontend/.env.example` for Supabase and backend URL.
 
+## Production (Vercel + Render)
+
+What you see on the **live site** is whatever was last deployed — not your local `npm start` unless you redeploy.
+
+**Vercel (frontend)** — Project → Settings → Environment Variables:
+
+| Variable | Example |
+|----------|---------|
+| `REACT_APP_BACKEND_URL` | `https://homemakers-6o3h.onrender.com` (no trailing `/api`) |
+| `REACT_APP_SUPABASE_URL` | your Supabase project URL |
+| `REACT_APP_SUPABASE_ANON_KEY` | your anon key |
+
+After changing env vars, trigger a **new deployment** (Deployments → Redeploy).
+
+**Render (backend)** — ensure `XAI_API_KEY` is set so v0 returns **AI-generated** floor plans and images (not preview placeholders).
+
 ## Mobile apps (iOS & Android)
 
 The same React app ships as native apps via Capacitor. Native projects: `frontend/ios/` and `frontend/android/`.

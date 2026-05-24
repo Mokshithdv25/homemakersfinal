@@ -21,6 +21,8 @@ import {
 } from "../components/HmColourPickers";
 import LandingNavbar from "../components/landing/LandingNavbar";
 import { HM_FIXED_NAV_OFFSET_TAGLINE_CLASS, HM_TAGLINE_NEW_HOME } from "../lib/hmBrand";
+import { publicAsset } from "../lib/publicAsset";
+import { canVisitWizardStep, nextMaxStepReached, wizardExitPath } from "../lib/wizardSteps";
 import VisionCaptureStep from "../components/VisionCaptureStep";
 
 const STEPS = [
@@ -284,15 +286,15 @@ function Segmented({ value, onChange, options }) {
 
 /** Step 4 — primary style row; Traditional expands to regional variants */
 const ARCH_PRIMARY_OPTIONS = [
-  { label: "Modern & Contemporary", tagline: "Glass, open plans, neutral palette", img: `${process.env.PUBLIC_URL || ""}/arch_modern.png` },
-  { label: "Indo-Modern (Fusion)", tagline: "Courtyards, jaali, Vastu-aware layout", img: `${process.env.PUBLIC_URL || ""}/arch_fusion.png` },
-  { label: "Traditional", tagline: "Kerala, Chettinad, Rajasthani…", img: `${process.env.PUBLIC_URL || ""}/arch_traditional.png` },
-  { label: "Colonial Revival", tagline: "Verandas, symmetry, tall windows", img: `${process.env.PUBLIC_URL || ""}/arch_colonial.png` },
+  { label: "Modern & Contemporary", tagline: "Glass, open plans, neutral palette", img: publicAsset("arch_modern.png") },
+  { label: "Indo-Modern (Fusion)", tagline: "Courtyards, jaali, Vastu-aware layout", img: publicAsset("arch_fusion.png") },
+  { label: "Traditional", tagline: "Kerala, Chettinad, Rajasthani…", img: publicAsset("arch_traditional.png") },
+  { label: "Colonial Revival", tagline: "Verandas, symmetry, tall windows", img: publicAsset("arch_colonial.png") },
 ];
 
 const ARCH_TRADITIONAL_VARIANTS = [
-  { label: "Kerala Vernacular", tagline: "Sloping roofs, wood, monsoon-ready", img: `${process.env.PUBLIC_URL || ""}/arch_kerala.png` },
-  { label: "Chettinad Heritage", tagline: "Courtyards, pillars, ornate detail", img: `${process.env.PUBLIC_URL || ""}/arch_traditional.png` },
+  { label: "Kerala Vernacular", tagline: "Sloping roofs, wood, monsoon-ready", img: publicAsset("arch_kerala.png") },
+  { label: "Chettinad Heritage", tagline: "Courtyards, pillars, ornate detail", img: publicAsset("arch_traditional.png") },
   { label: "Rajasthani (Haveli-inspired)", tagline: "Jaalis, cool courtyards, craft", img: "https://images.unsplash.com/photo-1524492412937-b28074a18679?w=240&q=72" },
 ];
 
@@ -314,14 +316,14 @@ function archCardByLabel(label) {
 }
 
 const EXTERIOR_OPTION_TILES = [
-  { label: "Wall paint", img: `${process.env.PUBLIC_URL || ""}/ext_wall_paint_1777777542006.png` },
-  { label: "Stone cladding", img: `${process.env.PUBLIC_URL || ""}/ext_stone_cladding_1777777555080.png` },
-  { label: "Exposed brickwork", img: `${process.env.PUBLIC_URL || ""}/ext_brickwork_1777777568811.png` },
-  { label: "Wooden panels", img: `${process.env.PUBLIC_URL || ""}/ext_wood_panels_1777777585476.png` },
-  { label: "Jali & lattice patterns", img: `${process.env.PUBLIC_URL || ""}/ext_jali_1777777599024.png` },
-  { label: "Tile / terracotta", img: `${process.env.PUBLIC_URL || ""}/ext_tile_terracotta_1777777611685.png` },
-  { label: "Flat / terrace roof", img: `${process.env.PUBLIC_URL || ""}/ext_flat_roof_1777777624695.png` },
-  { label: "Sloping roof", img: `${process.env.PUBLIC_URL || ""}/ext_sloping_roof_1777777637758.png` },
+  { label: "Wall paint", img: publicAsset("ext_wall_paint_1777777542006.png") },
+  { label: "Stone cladding", img: publicAsset("ext_stone_cladding_1777777555080.png") },
+  { label: "Exposed brickwork", img: publicAsset("ext_brickwork_1777777568811.png") },
+  { label: "Wooden panels", img: publicAsset("ext_wood_panels_1777777585476.png") },
+  { label: "Jali & lattice patterns", img: publicAsset("ext_jali_1777777599024.png") },
+  { label: "Tile / terracotta", img: publicAsset("ext_tile_terracotta_1777777611685.png") },
+  { label: "Flat / terrace roof", img: publicAsset("ext_flat_roof_1777777624695.png") },
+  { label: "Sloping roof", img: publicAsset("ext_sloping_roof_1777777637758.png") },
 ];
 
 export default function BuildNewHome() {
@@ -330,6 +332,7 @@ export default function BuildNewHome() {
   const flowMainRef = useRef(null);
   const [searchParams] = useSearchParams();
   const [activeStep, setActiveStep] = useState(1);
+  const [maxStepReached, setMaxStepReached] = useState(1);
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
   const [v0GenPhase, setV0GenPhase] = useState("");
@@ -407,6 +410,11 @@ export default function BuildNewHome() {
     if (typeof f.hasArchitect === "boolean") setHasArchitect(f.hasArchitect);
     else if (source === "portfolio") setHasArchitect(true);
     if (f.architectComment) setArchitectHandoffNote(String(f.architectComment));
+    const savedStep = Number(f.activeStep || f.step);
+    if (savedStep >= 1 && savedStep <= 6) {
+      setActiveStep(savedStep);
+      setMaxStepReached(savedStep);
+    }
   }, [searchParams]);
 
   useEffect(() => {
@@ -486,6 +494,7 @@ export default function BuildNewHome() {
       }
       setStepBlockError("");
       setActiveStep(5);
+      setMaxStepReached((m) => Math.max(m, 5));
       return;
     }
     if (activeStep === 5) {
@@ -496,6 +505,7 @@ export default function BuildNewHome() {
       setStepBlockError("");
       setBuildFlow({ formSnapshot: form, v0: true, hasArchitect });
       setActiveStep(6);
+      setMaxStepReached((m) => Math.max(m, 6));
       return;
     }
     if (activeStep === 6) {
@@ -537,7 +547,9 @@ export default function BuildNewHome() {
         return;
       }
       setStepBlockError("");
-      setActiveStep((s) => s + 1);
+      const next = activeStep + 1;
+      setActiveStep(next);
+      setMaxStepReached((m) => nextMaxStepReached(m, activeStep));
       return;
     }
     if (activeStep === 3) {
@@ -548,6 +560,7 @@ export default function BuildNewHome() {
       }
       setStepBlockError("");
       setActiveStep(4);
+      setMaxStepReached((m) => Math.max(m, 4));
     }
   };
 
@@ -689,11 +702,15 @@ export default function BuildNewHome() {
             padding: "24px 0",
           }}
         >
-          {STEPS.map((s) => (
+          {STEPS.map((s) => {
+            const visitable = canVisitWizardStep(s.n, maxStepReached);
+            return (
             <button
               key={s.n}
               type="button"
+              disabled={!visitable}
               onClick={() => {
+                if (!visitable) return;
                 setStepBlockError("");
                 setActiveStep(s.n);
               }}
@@ -704,7 +721,8 @@ export default function BuildNewHome() {
                 background: activeStep === s.n ? "#FBF6F0" : "none",
                 border: "none",
                 borderLeft: activeStep === s.n ? "3px solid #C85F2B" : "3px solid transparent",
-                cursor: "pointer",
+                cursor: visitable ? "pointer" : "not-allowed",
+                opacity: visitable ? 1 : 0.45,
                 display: "flex",
                 gap: 12,
                 alignItems: "flex-start",
@@ -742,7 +760,8 @@ export default function BuildNewHome() {
                 <div style={{ fontSize: 11, color: "#7A6E62", marginTop: 2, lineHeight: 1.4 }}>{s.sub}</div>
               </div>
             </button>
-          ))}
+          );
+          })}
         </aside>
 
         <main
@@ -762,7 +781,7 @@ export default function BuildNewHome() {
           {/* Back */}
           <button onClick={() => {
             setStepBlockError("");
-            if (activeStep === 1) navigate("/build");
+            if (activeStep === 1) navigate(wizardExitPath());
             else setActiveStep((s) => s - 1);
           }}
             style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6A5E53", marginBottom: 20, padding: 0 }}>
@@ -1615,7 +1634,7 @@ export default function BuildNewHome() {
               AI concepts (v0)
             </h1>
             <p style={{ fontSize: 13, color: "#5C5147", marginBottom: 18, lineHeight: 1.55, maxWidth: 640 }}>
-              Indicative estimate and directions from your brief — free here. No architect assigned; share with your pro before working drawings.
+              Design plan estimate and concept directions from your brief — free here. Share with your architect before working drawings.
             </p>
             <div
               style={{
@@ -1689,7 +1708,7 @@ export default function BuildNewHome() {
             {v0Generated && (
               <>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>Your v0 pack (indicative)</div>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>Your v0 pack</div>
                   <button
                     type="button"
                     onClick={runV0Generation}
@@ -1700,8 +1719,7 @@ export default function BuildNewHome() {
                   </button>
                 </div>
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 14px" }}>
-                  Floor plans, elevations, and a line-item estimate you can send to an architect — still not sanction-grade
-                  drawings.
+                  AI floor plans (by storey), complementary design images, and a line-item estimate you can send to your architect — not sanction-grade drawings.
                 </p>
                 <V0AiSourceBanner imageBundle={v0ImageBundle} planBundle={v0PlanBundle} />
                 <V0VisualBundleSections bundle={v0ImageBundle} />

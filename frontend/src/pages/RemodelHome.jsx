@@ -27,10 +27,11 @@ import {
 } from "../components/HmColourPickers";
 import LandingNavbar from "../components/landing/LandingNavbar";
 import { HM_FIXED_NAV_OFFSET_TAGLINE_CLASS, HM_TAGLINE_REMODEL } from "../lib/hmBrand";
+import { canVisitWizardStep, nextMaxStepReached, wizardExitPath } from "../lib/wizardSteps";
 import VisionCaptureStep from "../components/VisionCaptureStep";
 
 const REMODEL_STEPS = [
-  { n: 1, title: "Room and vision", sub: "Photos, property, size" },
+  { n: 1, title: "Your space", sub: "Photos, then vision" },
   { n: 2, title: "Goals", sub: "Budget and constraints" },
   { n: 3, title: "Style", sub: "Materials and colour" },
   { n: 4, title: "Review", sub: "Confirm brief" },
@@ -65,10 +66,6 @@ const DEMO_PHOTOS = [
   { label:"Left View",  url:"https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=200&q=70" },
   { label:"Right View", url:"https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=200&q=70" },
   { label:"Back View",  url:"https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=200&q=70" },
-];
-const REF_IMGS = [
-  "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=140&q=70",
-  "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=140&q=70",
 ];
 const PAIN_OPTS = ["Cramped / Small","Poor Lighting","Not Enough Storage","Outdated Design","Poor Ventilation","Other"];
 const GOAL_OPTS = [
@@ -260,6 +257,7 @@ export default function RemodelHome() {
   const photoUploadRef = useRef(null);
   const styleUploadRef = useRef(null);
   const [step, setStep] = useState(1);
+  const [maxStepReached, setMaxStepReached] = useState(1);
   const [dreamVision, setDreamVision] = useState(
     "Brighter living room with Scandinavian calm — warm oak accents, hidden storage for toys, and soft daylight. Keep the sofa; rethink the TV wall and ceiling."
   );
@@ -275,7 +273,6 @@ export default function RemodelHome() {
   const [mainGoal, setMainGoal] = useState("Improve Layout");
   const [painPoints, setPainPoints] = useState(["Cramped / Small","Poor Lighting","Not Enough Storage"]);
   const [changeLevel, setChangeLevel] = useState("Moderate Remodel");
-  const [refImgs, setRefImgs] = useState(REF_IMGS);
   // Step 4 — same budget logic as new home (lakhs / crores · 0–99)
   const [budgetUnit, setBudgetUnit] = useState("Lakhs");
   const [budgetAmount, setBudgetAmount] = useState("25");
@@ -470,11 +467,18 @@ export default function RemodelHome() {
             padding: "24px 0",
           }}
         >
-          {REMODEL_STEPS.map((s) => (
+          {REMODEL_STEPS.map((s) => {
+            const visitable = canVisitWizardStep(s.n, maxStepReached);
+            return (
             <button
               key={s.n}
               type="button"
-              onClick={() => { setStepBlockError(""); setStep(s.n); }}
+              disabled={!visitable}
+              onClick={() => {
+                if (!visitable) return;
+                setStepBlockError("");
+                setStep(s.n);
+              }}
               style={{
                 width: "100%",
                 textAlign: "left",
@@ -482,7 +486,8 @@ export default function RemodelHome() {
                 background: step === s.n ? "#FBF6F0" : "none",
                 border: "none",
                 borderLeft: step === s.n ? "3px solid #C85F2B" : "3px solid transparent",
-                cursor: "pointer",
+                cursor: visitable ? "pointer" : "not-allowed",
+                opacity: visitable ? 1 : 0.45,
                 display: "flex",
                 gap: 12,
                 alignItems: "flex-start",
@@ -511,7 +516,8 @@ export default function RemodelHome() {
                 <div style={{ fontSize: 11, color: "#7A6E62", marginTop: 2, lineHeight: 1.4 }}>{s.sub}</div>
               </div>
             </button>
-          ))}
+          );
+          })}
         </aside>
 
         <main
@@ -529,7 +535,7 @@ export default function RemodelHome() {
         >
           <button
             type="button"
-            onClick={() => (step === 1 ? navigate("/build") : setStep((s) => s - 1))}
+            onClick={() => (step === 1 ? navigate(wizardExitPath()) : setStep((s) => s - 1))}
             style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6A5E53", marginBottom: 20, padding: 0 }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -538,39 +544,22 @@ export default function RemodelHome() {
             Back
           </button>
 
-          {/* ═══ STEP 1 — Room and vision ═══ */}
+          {/* ═══ STEP 1 — Existing space, then vision ═══ */}
           {step===1 && <>
             <div style={{ marginBottom: 8 }}>
               <h1 style={{ ...flowH1Style, marginBottom: 10 }}>
-                Room and vision
+                Your space
               </h1>
               <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 18px", lineHeight: 1.55, maxWidth: 640 }}>
-                Your words, then photos and rough size.
+                Start with photos of the room as it is today, then describe what you want it to become.
               </p>
             </div>
-            <VisionCaptureStep
-              embedded
-              value={dreamVision}
-              onChange={setDreamVision}
-              placeholder="Describe your dream space in any language…"
-              inspirationItems={visionInspirationItems}
-              onInspirationItemsChange={setVisionInspirationItems}
-              inspirationLabel="Inspiration inputs"
-            />
-            <div style={{ marginTop: 28, paddingTop: 22, borderTop: "1px solid #EDE8E0" }}>
-            <div className="craft-type-label mt-1 mb-4">
-              <span style={{ color: "#C85F2B" }}>●</span>
-              <span>Photos and room</span>
-            </div>
-            <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 18px", lineHeight: 1.55, maxWidth: 640 }}>
-              One room per pass, then space and size.
-            </p>
 
             <div style={{ ...flowSection, background: "#FDFBF8", borderRadius: 16, padding: "22px 22px 8px", border: "1px solid #EFE3D2", marginBottom: 24 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <span style={{ fontSize: 18 }}>📷</span>
-                <span style={{ fontWeight: 700, fontSize: 16 }}>Photos</span>
-                <span style={{ fontSize: 12, color: "#78716C" }}>one room per pass</span>
+                <span style={{ fontWeight: 700, fontSize: 16 }}>Existing space — photos</span>
+                <span style={{ fontSize: 12, color: "#78716C" }}>required</span>
               </div>
               <div style={{ fontSize: 13, color: "#5C5147", marginBottom: 16, lineHeight: 1.55 }}>Clear angles help AI and your professional read the room.</div>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
@@ -641,6 +630,24 @@ export default function RemodelHome() {
               </div>
               <div style={{ fontSize:12, color:"#7A6E62" }}>Rough numbers are fine — you can refine later with a site visit.</div>
             </div>
+
+            <div style={{ marginTop: 28, paddingTop: 22, borderTop: "1px solid #EDE8E0" }}>
+              <div className="craft-type-label mt-1 mb-4">
+                <span style={{ color: "#C85F2B" }}>●</span>
+                <span>Vision &amp; inspiration</span>
+              </div>
+              <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 14px", lineHeight: 1.55, maxWidth: 640 }}>
+                Describe the remodel in your own words, then add mood photos, Pinterest-style images, or links.
+              </p>
+              <VisionCaptureStep
+                embedded
+                value={dreamVision}
+                onChange={setDreamVision}
+                placeholder="What should this room feel like when we’re done?"
+                inspirationItems={visionInspirationItems}
+                onInspirationItemsChange={setVisionInspirationItems}
+                inspirationLabel="Inspiration (photos or links)"
+              />
             </div>
           </>}
 
@@ -717,24 +724,14 @@ export default function RemodelHome() {
             <div style={{ marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                 <span style={{ fontSize: 18 }}>✏️</span>
-                <span style={{ fontWeight: 700, fontSize: 16 }}>Notes and references</span>
+                <span style={{ fontWeight: 700, fontSize: 16 }}>Extra notes</span>
                 <span style={{ fontSize: 12, color: "#A8A29E" }}>(optional)</span>
               </div>
-              <p style={{ fontSize: 13, color: "#5C5147", margin: "0 0 14px", lineHeight: 1.55, maxWidth: 640 }}>Anything you didn&apos;t already capture — mood, brands you like, or what must not change.</p>
+              <p style={{ fontSize: 13, color: "#5C5147", margin: "0 0 14px", lineHeight: 1.55, maxWidth: 640 }}>
+                Must-keeps, brands you like, or phasing — inspiration photos belong on step 1.
+              </p>
               <textarea value={spaceNotes} onChange={e=>setSpaceNotes(e.target.value.slice(0,500))} placeholder="E.g. Keep the hall sofa; mainly new wall colour and TV wall. Prefer warm oak, not glossy white." rows={4} style={{ ...inputStyle, width:"100%", maxWidth:640, resize:"vertical", boxSizing:"border-box", fontFamily:"'DM Sans',sans-serif", marginBottom:10 }}/>
               <div style={{ fontSize:11, color:"#9A8F87", marginBottom:16 }}>{spaceNotes.length}/500</div>
-              <div style={{ fontSize:12, color:"#5C5147", fontWeight:600, marginBottom:8 }}>Reference images</div>
-              <div style={{ display:"flex", gap:10, flexWrap:"wrap", alignItems:"center" }}>
-                <div style={{ width:72, height:72, borderRadius:12, border:"1.5px dashed #C8B89E", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"#7A6E62", flexDirection:"column", gap:2, background:"#FDFBF8" }}>
-                  <span style={{ fontSize:22 }}>+</span><span style={{ fontSize:10, fontWeight:600 }}>Add</span>
-                </div>
-                {refImgs.map((img,i)=>(
-                  <div key={i} style={{ position:"relative", borderRadius:12, overflow:"hidden", boxShadow:"0 2px 8px rgba(28,25,23,0.08)" }}>
-                    <img src={img} alt="" style={{ width:96, height:72, objectFit:"cover", display:"block" }}/>
-                    <button type="button" onClick={()=>setRefImgs(prev=>prev.filter((_,j)=>j!==i))} style={{ position:"absolute", top:4, right:4, width:22, height:22, borderRadius:"50%", background:"rgba(255,255,255,0.92)", border:"none", cursor:"pointer", fontSize:12, lineHeight:1 }}>×</button>
-                  </div>
-                ))}
-              </div>
             </div>
 
             <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid #EDE8E0" }}>
@@ -1144,8 +1141,8 @@ export default function RemodelHome() {
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Plans, renders &amp; estimate</div>
               <p style={{ fontSize: 13, color: "#5C5147", margin: "0 0 14px", lineHeight: 1.55, maxWidth: 640 }}>
-                Your <strong>free AI v0</strong> includes indicative <strong>layout plans</strong>, <strong>interior directions</strong>, and a
-                rough <strong>cost breakdown</strong> — same idea as new build, scoped to this room.
+                Your <strong>free AI v0</strong> includes <strong>layout plans</strong>, complementary <strong>interior concepts</strong>, and a
+                <strong>design plan estimate</strong> you can send to your architect — scoped to this room.
               </p>
               <V0AiSourceBanner imageBundle={v0ImageBundle} planBundle={v0PlanBundle} />
               <V0VisualBundleSections
@@ -1154,7 +1151,7 @@ export default function RemodelHome() {
                 elevationTitle="Interior concept renders"
                 interiorRenders
               />
-              <V0EstimateSection planBundle={v0PlanBundle} title="Indicative remodel estimate (v0)" />
+              <V0EstimateSection planBundle={v0PlanBundle} title="Design plan estimate (for your architect)" />
               <V0MilestonesSection planBundle={v0PlanBundle} />
             </div>
 
@@ -1222,6 +1219,7 @@ export default function RemodelHome() {
                       return;
                     }
                     setStep(6);
+                    setMaxStepReached((m) => Math.max(m, 6));
                   }}
                   style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"16px", borderRadius:14, cursor:"pointer", border:"1px solid #E8E4DE", background:"#fff", textAlign:"left", boxShadow:"0 2px 10px rgba(28,25,23,0.04)" }}
                 >
@@ -1343,6 +1341,7 @@ export default function RemodelHome() {
                   }
                   if (step === 4) {
                     setStep(5);
+                    setMaxStepReached((m) => Math.max(m, 5));
                     return;
                   }
                   if (step === 5) {
@@ -1354,6 +1353,7 @@ export default function RemodelHome() {
                       v0: true,
                     });
                     setStep(6);
+                    setMaxStepReached((m) => Math.max(m, 6));
                     return;
                   }
                   if (step === 6) {
@@ -1386,13 +1386,21 @@ export default function RemodelHome() {
                     return;
                   }
                   if (step === 1) {
+                    if (!photos.length) {
+                      setStepBlockError("Add at least one photo of your existing space.");
+                      return;
+                    }
                     const vision = String(dreamVision ?? "").trim();
                     if (vision.length < 30) {
                       setStepBlockError("Please describe your vision in a few sentences (30+ characters). Use voice or type — any language is fine.");
                       return;
                     }
                   }
-                  if (step < 4) setStep((s) => s + 1);
+                  if (step < 4) {
+                    const next = step + 1;
+                    setStep(next);
+                    setMaxStepReached((m) => nextMaxStepReached(m, step));
+                  }
                 }}
               >
                 {step === 4 && "Continue to free AI v0"}
