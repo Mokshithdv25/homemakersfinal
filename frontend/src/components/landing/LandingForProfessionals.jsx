@@ -8,28 +8,28 @@ const forProfessionals = [
     title: "Close Deals Faster",
     benefit: "2× faster sign-off",
     description:
-      "AI helps clients articulate what they want before your first meeting. Version tracking, family comments, and structured approvals mean consensus in days, not months of back-and-forth.",
+      "Clients arrive with clear briefs and visuals. Family comments and approvals live in one place so you sign off in days, not months.",
   },
   {
     icon: IndianRupee,
     title: "Get Paid On Time",
     benefit: "Zero payment chasing",
     description:
-      "Upfront milestone-based payments built into the platform. Clients pay before each phase begins. No more delivering work and then chasing invoices.",
+      "Milestone payments built into the platform. Clients fund each phase before work starts. Less chasing invoices.",
   },
   {
     icon: Globe,
     title: "Get Discovered Locally",
     benefit: "Your portfolio, zero effort",
     description:
-      "Homeowners in your city find you through the marketplace. Showcase past work with a branded profile page. No website build needed. Share one link, get leads.",
+      "Get found in your city through the marketplace. One portfolio link, no website build required.",
   },
   {
     icon: Handshake,
     title: "Collaborate Seamlessly",
     benefit: "One shared workspace",
     description:
-      "Work with contractors, material vendors, and fellow designers on the same project. Shared timelines, documents, and communication. No more WhatsApp chaos.",
+      "Contractors, suppliers, and designers on one timeline with shared docs. Less WhatsApp chaos.",
   },
 ];
 
@@ -54,8 +54,8 @@ export default function LandingForProfessionals() {
               Built for architects, designers, engineers, and contractors
             </h3>
             <p className="text-muted-foreground font-body text-base max-w-xl leading-relaxed">
-              One serious portfolio and client link, marketplace discovery for new leads, and a project workspace that
-              keeps jobs moving. Get discovered, collaborate, and close faster, with AI where it actually saves you time.
+              Portfolio, marketplace leads, and a project workspace in one place. AI helps clients show up prepared so
+              you close faster.
             </p>
           </div>
           <div className="lg:col-span-5 flex justify-start lg:justify-end">

@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 
 const HERO_URL = `${process.env.PUBLIC_URL || ""}/landing-hero.png`;
 
-const AI_PILLARS = ["AI design", "Plans", "Estimates", "Project management", "Materials marketplace"];
-
 const PROOF_LETTERS = [
   { letter: "A", bg: "bg-[#7c4a2f]" },
   { letter: "K", bg: "bg-[#2a6496]" },
@@ -43,7 +41,7 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h1 className="mb-5 font-display text-[2.6rem] font-semibold leading-[1.15] tracking-tight text-[#fcfbfa] sm:text-5xl md:text-[3.75rem]">
+            <h1 className="mb-6 font-display text-[2.6rem] font-semibold leading-[1.15] tracking-tight text-[#fcfbfa] sm:text-5xl md:text-[3.75rem]">
               Bring your{" "}
               <span className="bg-gradient-to-r from-[#e3c7a3] to-[#cfa170] bg-clip-text text-transparent">
                 dream home
@@ -52,26 +50,16 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               <span className="text-[#e3c7a3]">AI</span>
             </h1>
 
-            <p className="mb-4 max-w-lg font-body text-[1.05rem] font-light leading-relaxed text-[#f2eee9]/90 md:text-lg">
-              India&apos;s first complete home platform. From idea to execution, one place.
-            </p>
-
-            <div className="mb-5 flex flex-wrap gap-2" aria-label="What HomeMakers covers">
-              {AI_PILLARS.map((label) => (
-                <span
-                  key={label}
-                  className="rounded-full border border-[#e3c7a3]/35 bg-[#1f1512]/55 px-3 py-1.5 font-body text-[12px] font-semibold text-[#f2eee9] md:text-[13px]"
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-
-            <div className="mb-8 flex items-center gap-3">
-              <div className="h-px w-8 bg-[#cfa170]/60" aria-hidden />
-              <p className="font-display text-[15px] font-medium tracking-[0.08em] uppercase text-[#e3c7a3] m-0">
-                Design. Build. Move In. <span className="text-[#fcfbfa]/70">Without the Chaos.</span>
+            <div className="mb-9 max-w-lg">
+              <p className="mb-6 font-body text-[1.1rem] font-light leading-relaxed text-[#f2eee9]/90 md:text-xl">
+                India&apos;s first complete home platform. From idea to execution, all in one place.
               </p>
+              <div className="flex items-center gap-3">
+                <div className="h-px w-8 bg-[#cfa170]/60" aria-hidden />
+                <p className="font-display text-[15px] font-medium tracking-[0.08em] uppercase text-[#e3c7a3] m-0">
+                  Design. Build. Move In. <span className="text-[#fcfbfa]/70">Without the Chaos.</span>
+                </p>
+              </div>
             </div>
 
             <div className="mb-10 flex max-w-xl flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
@@ -86,7 +74,7 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
                 ))}
               </div>
               <p className="m-0 font-body text-[13px] font-medium text-[#f2eee9]/80 sm:max-w-[16rem]">
-                Join 2,400+ homeowners on HomeMakers
+                Join 2,400+ homeowners already building on HomeMakers
               </p>
             </div>
 
