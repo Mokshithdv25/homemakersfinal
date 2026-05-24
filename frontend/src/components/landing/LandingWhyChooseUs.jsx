@@ -5,24 +5,32 @@ import { CheckCircle2 } from "lucide-react";
 const features = [
   {
     id: 1,
-    title: "Beautiful AI design, faster",
-    description: "See layouts and visuals early. Share with family before you spend on drawings.",
+    title: "AI design, plans & estimates",
+    description:
+      "Turn your brief into layouts, floor plans, visuals, and cost ranges in days. Easy to share before you hire.",
   },
   {
     id: 2,
-    title: "Pros and marketplace",
-    description: "Bring your team or compare architects and contractors when you want options.",
+    title: "AI contractor matching",
+    description:
+      "Surface the right architects and contractors for your city and scope. You choose who to invite. AI suggests, you decide.",
   },
   {
     id: 3,
-    title: "Smart project hub",
+    title: "AI project agents",
     description:
-      "Site visits, documents, checklists, and team updates in one place. AI agents surface what needs attention next.",
+      "Site visits, documents, checklists, and team chat in one hub. Agents flag what needs attention. Nothing moves without your go-ahead.",
   },
   {
     id: 4,
-    title: "Materials and payments",
-    description: "Shop materials with guided picks you can edit. Milestone payments stay with the build.",
+    title: "Agentic materials shopping",
+    description:
+      "AI proposes raw material options from your project. Review, edit, and approve every line before you order.",
+  },
+  {
+    id: 5,
+    title: "Marketplace & payments",
+    description: "Compare pros when you want options. Milestone payments designed to stay with the build.",
   },
 ];
 
@@ -37,9 +45,12 @@ export default function LandingWhyChooseUs() {
           viewport={{ once: true }}
           className="mb-12 text-center"
         >
-          <h2 className="mb-3 font-display text-4xl font-bold text-foreground md:text-5xl">Why choose HomeMakers</h2>
+          <p className="mb-3 font-display text-[1.65rem] font-semibold leading-tight text-foreground md:text-4xl">
+            Why choose <span className="text-copper">HomeMakers</span>
+          </p>
           <p className="mx-auto max-w-xl font-body text-base text-muted-foreground md:text-lg">
-            Faster, smarter, seamless. AI where it saves you time. Real pros where it matters.
+            <span className="font-semibold text-foreground">AI is the engine.</span> You approve hires, orders, and
+            major steps. Real pros and payments when the build needs humans.
           </p>
         </motion.div>
 
@@ -48,16 +59,18 @@ export default function LandingWhyChooseUs() {
           whileInView={{ opacity: 1 }}
           transition={{ duration: 0.8 }}
           viewport={{ once: true }}
-          className="grid grid-cols-1 gap-8 md:grid-cols-2"
+          className="grid grid-cols-1 gap-6 md:grid-cols-2"
         >
           {features.map((feature, idx) => (
             <motion.div
               key={feature.id}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: idx * 0.08 }}
+              transition={{ duration: 0.6, delay: idx * 0.06 }}
               viewport={{ once: true }}
-              className="flex gap-4 rounded-2xl border border-border/50 bg-card/50 p-5 pr-6 shadow-sm"
+              className={`flex gap-4 rounded-2xl border border-border/50 bg-card/50 p-5 pr-6 shadow-sm ${
+                feature.id === 5 ? "md:col-span-2 md:max-w-xl md:mx-auto md:w-full" : ""
+              }`}
             >
               <CheckCircle2 className="h-8 w-8 shrink-0 text-green-600" />
               <div>
