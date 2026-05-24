@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Unlock, UsersRound, ClipboardList, ShoppingBag, CheckCircle2 } from "lucide-react";
+import { Sparkles, Unlock, UsersRound, ClipboardList, CheckCircle2 } from "lucide-react";
 
 const steps = [
   {
@@ -11,27 +11,21 @@ const steps = [
   },
   {
     icon: Unlock,
-    title: "AI design, plans & estimates",
+    title: "Get designs and estimates fast",
     description:
-      "Layouts, visuals, and cost ranges in days. Review at home, align family, then hand off to your team.",
+      "Free AI layouts, visuals, and cost ranges in days. Review at home, then share with your team.",
   },
   {
     icon: UsersRound,
-    title: "AI contractor matching",
+    title: "Bring in the right pros",
     description:
-      "AI surfaces architects and contractors that fit your city and scope. You pick who gets invited. No auto-hires.",
+      "Use your own architect or pick from our marketplace. We help surface strong matches. You choose who to hire.",
   },
   {
     icon: ClipboardList,
-    title: "AI project agents",
+    title: "Run the build with clarity",
     description:
-      "Visits, photos, documents, and checklists in one hub. Agents highlight next steps. You approve what ships.",
-  },
-  {
-    icon: ShoppingBag,
-    title: "Agentic materials shopping",
-    description:
-      "AI drafts raw material options from your project. Edit the list and sign off before anything is ordered.",
+      "One hub for visits, photos, documents, and checklists. Shop materials with picks you can review. Smart assistance keeps everyone aligned to handover.",
   },
 ];
 
@@ -50,11 +44,10 @@ export default function LandingHowItWorks() {
             How it works
           </span>
           <h2 className="font-display text-4xl md:text-5xl font-semibold text-foreground mt-4 mb-4 leading-tight">
-            <span className="text-copper">AI</span>-powered from sketch to handover
+            From first sketch to keys in hand
           </h2>
           <p className="text-muted-foreground font-body text-lg leading-relaxed max-w-2xl">
-            Design, estimates, matching, project agents, and materials shopping on one platform. AI proposes. You
-            approve. Built for Indian homes.
+            Built for Indian homes. Brief, marketplace, and project hub connected so your build stays calm and clear.
           </p>
         </motion.div>
 
@@ -67,7 +60,7 @@ export default function LandingHowItWorks() {
                 initial={{ opacity: 0, x: -12 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.06 }}
+                transition={{ delay: i * 0.08 }}
                 className="relative md:pl-14"
               >
                 <div className="hidden md:flex absolute left-0 top-8 h-10 w-10 items-center justify-center rounded-full border-2 border-background bg-card shadow-sm z-[1]">

@@ -1,8 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowUpRight, Home, Hammer, LayoutDashboard, Briefcase, ShoppingBag } from "lucide-react";
+import { ArrowUpRight, Home, Hammer, LayoutDashboard, Briefcase } from "lucide-react";
 import { navigateToHomeownerFlow } from "../../lib/requireHomeownerAuth";
-import { LandingAiLead } from "./LandingAiLead";
 
 const OR = "#C85F2B";
 
@@ -10,35 +9,28 @@ const PATHS = [
   {
     id: "new",
     title: "New home",
-    description: "AI layouts, plans, and estimates plus a brief your architect can read.",
+    description: "AI layouts, estimates, and a clear brief before you hire.",
     homeownerPath: "/build/new-home",
     icon: Home,
   },
   {
     id: "remodel",
     title: "Remodel",
-    description: "AI-guided design, photos, and cost clarity at each step.",
+    description: "Revamp your space with guided design and cost clarity.",
     homeownerPath: "/build/remodel",
     icon: Hammer,
   },
   {
     id: "hub",
     title: "Project hub",
-    description: "AI agents on visits, docs, and checklists. You approve what happens next.",
+    description: "Visits, photos, documents, and checklists. AI keeps next steps clear.",
     to: "/project",
     icon: LayoutDashboard,
   },
   {
-    id: "shop",
-    title: "Materials shop",
-    description: "AI proposes raw material picks. Edit and sign off before you buy.",
-    to: "/shop",
-    icon: ShoppingBag,
-  },
-  {
     id: "pro",
     title: "For professionals",
-    description: "AI-ready clients, portfolio, leads, and a workspace to run jobs.",
+    description: "Portfolio, marketplace leads, and a workspace to run jobs.",
     to: "/sign-in?role=pro&mode=signup",
     icon: Briefcase,
   },
@@ -58,15 +50,18 @@ export default function LandingHomeQuickLinks() {
   return (
     <section className="border-b border-border/50 bg-gradient-to-b from-background to-secondary/15 py-16 md:py-20">
       <div className="container max-w-6xl">
-        <LandingAiLead
-          suffix="-powered flows"
-          sub="Design, estimates, contractor matching, project agents, and materials shopping. AI proposes. You give the final yes."
-        />
-        <p className="-mt-6 mb-8 font-display text-xl font-semibold text-foreground md:text-2xl">
-          Start <span className="italic text-copper">here</span>
+        <p className="mb-3 font-display text-lg font-semibold leading-tight text-foreground md:text-xl">
+          <span className="text-copper text-[1.35em] font-bold">AI</span>
+          <span className="text-foreground">-powered flows</span>
+        </p>
+        <h2 className="mb-3 font-display text-[2.35rem] font-semibold leading-tight text-foreground sm:text-4xl md:text-[2.85rem]">
+          Start <span className="italic" style={{ color: OR }}>here</span>
+        </h2>
+        <p className="mb-10 max-w-lg font-body text-sm text-muted-foreground md:text-base">
+          Four paths. One platform. Pick what fits today.
         </p>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {PATHS.map((p) => {
             const Icon = p.icon;
             return (

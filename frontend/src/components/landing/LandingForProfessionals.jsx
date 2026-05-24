@@ -8,7 +8,7 @@ const forProfessionals = [
     title: "Close Deals Faster",
     benefit: "2× faster sign-off",
     description:
-      "Clients arrive with AI-built briefs, layouts, and estimates. Family sign-off in one place. Consensus in days, not months.",
+      "Clients arrive with clear briefs and visuals. Family comments and approvals live in one place so you sign off in days, not months.",
   },
   {
     icon: IndianRupee,
@@ -54,9 +54,8 @@ export default function LandingForProfessionals() {
               Built for architects, designers, engineers, and contractors
             </h3>
             <p className="text-muted-foreground font-body text-base max-w-xl leading-relaxed">
-              <span className="font-semibold text-foreground">AI prepares your clients</span> with briefs, designs, and
-              estimates before the first meeting. One portfolio, marketplace leads, and a shared workspace to close
-              faster.
+              Portfolio, marketplace leads, and a project workspace in one place. AI helps clients show up prepared so
+              you close faster.
             </p>
           </div>
           <div className="lg:col-span-5 flex justify-start lg:justify-end">
