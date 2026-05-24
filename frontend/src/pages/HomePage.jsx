@@ -8,6 +8,7 @@ import LandingWhyChooseUs from "../components/landing/LandingWhyChooseUs";
 import LandingForProfessionals from "../components/landing/LandingForProfessionals";
 import LandingTestimonials from "../components/landing/LandingTestimonials";
 import LandingHomeQuickLinks from "../components/landing/LandingHomeQuickLinks";
+import HmMarketingWordmark from "../components/HmMarketingWordmark";
 
 /**
  * Marketing home — routed to this app’s /build, /shop, /project, /craft.
@@ -55,10 +56,8 @@ export default function HomePage() {
       <footer className="py-12 border-t border-border bg-secondary">
         <div className="container">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="font-display text-xl font-semibold text-foreground">HomeMakers</div>
-            <p className="text-muted-foreground font-body text-sm">
-              © 2026 HomeMakers. AI design, estimates, and project agents for Indian homes.
-            </p>
+            <HmMarketingWordmark className="!text-xl !pb-0" />
+            <p className="text-muted-foreground font-body text-sm">© 2026 HomeMakers. Build or renovate with clarity.</p>
           </div>
         </div>
       </footer>

@@ -5,27 +5,24 @@ import { CheckCircle2 } from "lucide-react";
 const features = [
   {
     id: 1,
-    title: "AI v0 before you hire anyone",
-    description:
-      "Free AI layouts, visuals, and estimate ranges from your brief—so family and pros align on scope before sanction-grade drawings.",
+    title: "Bring your vision",
+    description: "Mood, layout, and budget come together in one place so nothing gets lost in translation.",
   },
   {
     id: 2,
-    title: "AI-native briefs & designs",
-    description:
-      "Mood, plot, budget, and constraints in one structured brief—AI reads the same story your architect will, with nothing lost in translation.",
+    title: "Work with professionals",
+    description: "Bring your own architect or contractor — or shortlist and compare from our marketplace when you want options.",
   },
   {
     id: 3,
-    title: "AI agents in project management",
-    description:
-      "Tasks, site photos, documents, and threads in one hub—AI agents highlight next steps, overdue items, and decisions so the build keeps moving.",
+    title: "Hassle-free project management",
+    description: "Tasks, files, and updates stay organised — fewer surprises on site and on paper.",
   },
   {
     id: 4,
-    title: "Pros when you need humans",
+    title: "Payment protection",
     description:
-      "Bring your own team or shortlist from our marketplace—AI handles the busywork; architects and contractors handle sign-off and site.",
+      "Milestones and approvals for homeowners — and predictable payouts for pros — with financing and payment rails designed to stay in one place as the build advances.",
   },
 ];
 
@@ -42,8 +39,7 @@ export default function LandingWhyChooseUs() {
         >
           <h2 className="mb-3 font-display text-4xl font-bold text-foreground md:text-5xl">Why choose HomeMakers</h2>
           <p className="mx-auto max-w-2xl font-body text-base text-muted-foreground md:text-lg">
-            India&apos;s AI-first home platform—design, estimates, marketplace, and project agents built for real builds,
-            not slide decks.
+            The calm layer between your dream and the building site — with AI where it actually helps, not as a gimmick.
           </p>
         </motion.div>
 

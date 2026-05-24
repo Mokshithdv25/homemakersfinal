@@ -2,9 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, X, User, ChevronDown, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, HM_WORDMARK_TAGLINE_CLASS, hmLogoMarkSrc } from "../../lib/hmBrand";
+import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TAGLINE_CLASS, hmLogoMarkSrc } from "../../lib/hmBrand";
 import { useHmSession } from "../../hooks/useHmSession";
 import HmUserMenu from "../HmUserMenu";
+import HmMarketingWordmark from "../HmMarketingWordmark";
 
 /** Browse-only specialties → standalone shop (demo filter via query string). */
 const FIND_PROS_GROUPS = [
@@ -91,7 +92,7 @@ export default function LandingNavbar({ tagline = null }) {
             decoding="async"
           />
           <div className="leading-tight min-w-0 text-left">
-            <div className={HM_WORDMARK_TITLE_CLASS}>HomeMakers</div>
+            <HmMarketingWordmark className="!pb-0" />
             {tagline ? <p className={HM_WORDMARK_TAGLINE_CLASS}>{tagline}</p> : null}
           </div>
         </button>

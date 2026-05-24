@@ -54,13 +54,12 @@ export default function LandingHomeQuickLinks() {
   return (
     <section className="border-b border-border/50 bg-gradient-to-b from-background to-secondary/15 py-16 md:py-20">
       <div className="container max-w-6xl">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-copper">AI-powered flows</p>
+        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-copper">Get started</p>
         <h2 className="mb-3 font-display text-2xl font-semibold leading-tight text-foreground md:text-3xl">
-          Pick your <span className="italic" style={{ color: OR }}>AI entry point</span>
+          Pick where you are <span className="italic" style={{ color: OR }}>in your journey</span>
         </h2>
         <p className="mb-10 max-w-2xl font-body text-sm leading-relaxed text-muted-foreground md:text-base">
-          AI v0 for new builds and remodels, AI agents in project management, and a pro workspace—pick your entry and
-          sign in so your briefs and projects stay on your account.
+          Jump straight in — new build, remodel, project hub, or your practice profile. Fewer clicks, one calm thread.
         </p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

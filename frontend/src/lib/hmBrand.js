@@ -22,12 +22,10 @@ export const HM_TAGLINE_REMODEL = "Reimagine your home with the power of AI";
 export const HM_TAGLINE_BUILD_CHOOSER = "New build or refresh — your vision, powered by AI";
 
 /** Project hub — /project, documents, team, marketplace, stage sidebars */
-export const HM_TAGLINE_PROJECT_HUB =
-  "AI project agents keep visits, documents, and next steps clear — from brief to handover";
+export const HM_TAGLINE_PROJECT_HUB = "Project management made hassle-free with the power of AI";
 
 /** Marketing homepage under the main lockup (`/`) */
-export const HM_TAGLINE_HOME_PLATFORM =
-  "India's first complete AI home platform — design, estimates, and AI project agents in one place";
+export const HM_TAGLINE_HOME_PLATFORM = "Design, build, and manage your home in one place — with the power of AI";
 
 /** Narrow project sidebar rail — scaled with title so ratio matches header lockup */
 export const HM_LOGO_COMPACT = 40;
