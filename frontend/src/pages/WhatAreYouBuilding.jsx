@@ -1,19 +1,7 @@
 import React from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
-import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
-import HmUserMenu from "../components/HmUserMenu";
-import { useHmSession } from "../hooks/useHmSession";
-import { HM_HEADER_BAR_CLASS, HM_TAGLINE_BUILD_CHOOSER } from "../lib/hmBrand";
-
-/** Nav routes aligned with landing + project demo hub */
-function buildNavLinks(session) {
-  return [
-    { label: "Software", path: "/build" },
-    { label: "Find Pros", path: session ? "/browse" : "/sign-in" },
-    { label: "My Project", path: session ? "/project" : "/sign-in" },
-    { label: "Shop", path: "/shop" },
-  ];
-}
+import { Link, useSearchParams } from "react-router-dom";
+import LandingNavbar from "../components/landing/LandingNavbar";
+import { HM_FIXED_NAV_OFFSET_TAGLINE_CLASS, HM_TAGLINE_BUILD_CHOOSER } from "../lib/hmBrand";
 
 const NEW_HOME_STEPS = [
   { icon: "📍", label: "Define Plot" },
@@ -82,16 +70,13 @@ function FeatureRow({ text }) {
 }
 
 export default function WhatAreYouBuilding() {
-  const navigate = useNavigate();
-  const session = useHmSession();
   const [searchParams] = useSearchParams();
   const fromPortfolio = (searchParams.get("source") || "").toLowerCase() === "portfolio";
   const flowQuery = fromPortfolio ? "?source=portfolio" : "";
-  const NAV_LINKS = buildNavLinks(session);
 
   return (
     <div
-      className="relative isolate min-h-screen overflow-x-hidden bg-[#FBF7F2]"
+      className={`relative isolate min-h-screen overflow-x-hidden bg-[#FBF7F2] ${HM_FIXED_NAV_OFFSET_TAGLINE_CLASS}`}
       style={{ fontFamily: "'DM Sans',Inter,system-ui,sans-serif", color: "#1C1917" }}
     >
       {/* Must not capture clicks — was blocking Back / card CTAs under some stacks */}
@@ -100,62 +85,7 @@ export default function WhatAreYouBuilding() {
         aria-hidden
       />
 
-      <header className={HM_HEADER_BAR_CLASS}>
-        <HmHeaderBrandLockup tagline={HM_TAGLINE_BUILD_CHOOSER} />
-        <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-auto">
-          <nav className="hidden lg:flex items-center gap-5 mr-1">
-            {NAV_LINKS.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => navigate(item.path)}
-                className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1 hover:text-[#C85F2B] transition-colors"
-              >
-                {item.label}
-                {item.label === "Software" && (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                )}
-              </button>
-            ))}
-          </nav>
-          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-md border border-[#E7E5E4] px-2.5 py-1.5 text-xs text-[#57534E] cursor-default select-none">
-            🇮🇳 IN
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </span>
-          {session ? (
-            <HmUserMenu />
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => navigate("/sign-in")}
-                className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1.5 hover:text-[#C85F2B] transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                </svg>
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/craft")}
-                className="bg-white border border-[#E7D4C4] rounded-lg px-3 py-1.5 text-xs font-semibold text-[#1C1917] cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <path d="M3 9h18M9 21V9" />
-                </svg>
-                Join as a Pro
-              </button>
-            </>
-          )}
-        </div>
-      </header>
+      <LandingNavbar tagline={HM_TAGLINE_BUILD_CHOOSER} />
 
       {/* ── MAIN ── */}
       <main className="relative z-10 mx-auto max-w-[920px] px-5 pb-20 pt-8 md:px-8 md:pb-24 md:pt-10">

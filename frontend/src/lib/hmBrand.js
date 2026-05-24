@@ -33,6 +33,12 @@ export const HM_LOGO_COMPACT = 40;
 /** Project hub (e.g. /project) — larger mark + wordmark; pass to {@link HmSidebarBrandMark} as `size` */
 export const HM_LOGO_PROJECT_SIDEBAR = 56;
 
+/** Content offset below fixed marketing nav (no tagline). */
+export const HM_FIXED_NAV_OFFSET_CLASS = "pt-[4.65rem]";
+
+/** Content offset when nav shows a contextual tagline under the wordmark. */
+export const HM_FIXED_NAV_OFFSET_TAGLINE_CLASS = "pt-[5.75rem]";
+
 /** Border + cream wash + blur — shared by fixed landing nav and sticky app headers */
 export const HM_HEADER_BAR_CHROME_CLASS =
   "border-b border-black/5 bg-[rgba(251,247,242,0.92)] backdrop-blur-2xl backdrop-saturate-150";
@@ -105,8 +111,8 @@ export const hmProjectSidebarAsideStyle = {
   position: "sticky",
   top: 0,
   alignSelf: "flex-start",
-  /** Below sticky hub header (one bar, allow wrapped tagline) */
-  height: "calc(100dvh - 4.65rem)",
+  /** Below fixed marketing nav with contextual tagline */
+  height: "calc(100dvh - 5.75rem)",
   minHeight: 0,
   overflowY: "auto",
 };

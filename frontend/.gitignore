@@ -11,6 +11,17 @@
 # production
 /build
 
+# Capacitor — keep ios/ and android/ in git for CI; ignore local Xcode/Android noise
+ios/App/Pods/
+ios/App/App/public/
+ios/DerivedData/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
 # misc
 .DS_Store
 .env.local

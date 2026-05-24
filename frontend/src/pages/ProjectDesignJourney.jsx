@@ -1,6 +1,7 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import ProjectHubShell from "../components/ProjectHubShell";
+import { formatInrShort, loadProjectBoard } from "../lib/projectFlowApi";
 
 const OR = "#C85F2B";
 const AI_BADGE = "#7A4FC0";
@@ -43,8 +44,8 @@ function StepHeader({ step, title, subtitle, accent }) {
   );
 }
 
-/** Demo narrative — replace with API / projectFlowStorage when wired. */
-const STEPS = {
+/** Demo narrative when no projectId in URL. */
+const DEMO_STEPS = {
   client: {
     step: 1,
     title: "What you gave us (client input)",
@@ -59,100 +60,190 @@ const STEPS = {
         label: "Style & programme",
         text: "Calm modern Indian — wood, stone, lots of natural light; not a glossy “hotel” look. 3 bedrooms, study, open kitchen–dining, utility, staff room, terrace sit-out.",
       },
-      {
-        label: "Family & Vastu",
-        text: "Elders on the ground floor; kids’ study away from noisy zones; entertaining ~12 people. Kitchen SE, master SW, puja northeast — called out as non-negotiables.",
-      },
-      {
-        label: "Money & time",
-        text: "All-in target band ₹1.15–1.25 Cr and a target move-in window so the architect could size structure and finishes realistically.",
-      },
     ],
   },
   ai: {
     step: 2,
     title: "What AI generated",
-    subtitle: "First-pass artefacts from your answers — narrative, massing ideas, and a rough cost shape. Not sanction-grade; meant to align the room before ink.",
+    subtitle: "First-pass artefacts from your answers — narrative, massing ideas, and a rough cost shape.",
     rows: [
-      {
-        when: "12 Mar 2024",
-        body: (
-          <>
-            <strong>v0 narrative brief</strong> — scope story, main risks, and suggested phasing (structure → services → finishes) in plain language for the family.
-          </>
-        ),
-      },
-      {
-        when: "18 Mar 2024",
-        body: (
-          <>
-            <strong>Concept massing</strong> — two block options for the corner lot with notes on light, ventilation, and where Vastu locks sat.
-          </>
-        ),
-      },
-      {
-        when: "22 Mar 2024",
-        body: (
-          <>
-            <strong>Estimate skeleton</strong> — broad BOQ buckets (civil, MEP, kitchen, exterior) tied to the brief so budget talk wasn’t arbitrary.
-          </>
-        ),
-      },
+      { when: "12 Mar 2024", body: <><strong>v0 narrative brief</strong> — scope story and suggested phasing.</> },
+      { when: "22 Mar 2024", body: <><strong>Estimate skeleton</strong> — broad BOQ buckets tied to the brief.</> },
     ],
   },
   architect: {
     step: 3,
     title: "What the architect refined",
-    subtitle: "Neha Verma translated AI + intake into workable drawings — resolving clashes, code, and how you actually live in the house.",
-    rows: [
-      {
-        when: "28 Mar 2024",
-        body: (
-          <>
-            Rejected Scheme A: store-room door swing fought the passage. <strong>Scheme B</strong> adopted with cleaner circulation and the same programme.
-          </>
-        ),
-      },
-      {
-        when: "8 Apr 2024",
-        body: (
-          <>
-            Softened the living–dining divide per family feedback; opened the stair volume for <strong>more daylight</strong> into the core of the house.
-          </>
-        ),
-      },
-      {
-        when: "Apr–May 2024",
-        body: (
-          <>
-            Structural grid and slab edges coordinated with elevations; drawings packaged for sanction with BBMP checklist items cross-checked.
-          </>
-        ),
-      },
-    ],
+    subtitle: "Professional drawings — resolving clashes, code, and how you actually live in the house.",
+    rows: [{ when: "28 Mar 2024", body: <>Scheme revisions and circulation improvements.</> }],
   },
   agreed: {
     step: 4,
     title: "What was finally agreed",
-    subtitle: "The line in the sand after reviews — what site and contracts treat as “approved”. Earlier versions stay above for context only.",
-    when: "18 May 2024 onward",
-    bullets: [
-      <>
-        <strong>Sanction submission set v4</strong> is the authority-facing baseline; <strong>frozen BBMP copy</strong> on file in Documents.
-      </>,
-      <>
-        Living area <strong>column grid</strong> and slab edges <strong>signed off</strong> in the project thread — changes after that need a formal revision note.
-      </>,
-      <>
-        Budget conversations on site roll up to the <strong>skeleton + architect adjustments</strong>; major scope adds require homeowner + architect acknowledgement.
-      </>,
-      <>Execution has since moved faster than the original design calendar; this agreement block is still the design “source of truth” for disputes and RFIs.</>,
-    ],
+    subtitle: "The line in the sand after reviews — what site and contracts treat as approved.",
+    when: "Pending handoff",
+    bullets: [<>Share your v0 pack with an architect to lock the next revision cycle.</>],
   },
 };
 
+function clientBlocksFromBrief(brief, flowType) {
+  const blocks = [];
+  if (brief?.location || brief?.city) {
+    blocks.push({ label: "Location", text: [brief.location, brief.city].filter(Boolean).join(" · ") });
+  }
+  if (brief?.room || brief?.homeType) {
+    blocks.push({
+      label: flowType === "remodel" ? "Space" : "Home type",
+      text: brief.room || brief.homeType,
+    });
+  }
+  if (brief?.dreamVision || brief?.homeVision) {
+    blocks.push({ label: "Vision", text: String(brief.dreamVision || brief.homeVision).slice(0, 400) });
+  }
+  if (brief?.mainGoal) {
+    blocks.push({ label: "Goals", text: brief.mainGoal });
+  }
+  if (brief?.budgetLabel || brief?.budgetInr) {
+    blocks.push({
+      label: "Budget band",
+      text: brief.budgetLabel || formatInrShort(brief.budgetInr),
+    });
+  }
+  if (brief?.completionTime || brief?.timeline) {
+    blocks.push({ label: "Timeline", text: brief.completionTime || brief.timeline });
+  }
+  return blocks.length ? blocks : [{ label: "Brief", text: "Your wizard answers are saved on this project." }];
+}
+
+function stepsFromBoard(board) {
+  const brief = board?.brief || {};
+  const v0 = board?.v0Pack;
+  const estimate = v0?.estimate;
+  const flowType = board?.project?.flow_type || "new_home";
+  const generated = v0?.generatedAt
+    ? new Date(v0.generatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+    : "Saved with your project";
+
+  const aiRows = [];
+  if (estimate?.project_summary) {
+    aiRows.push({
+      when: generated,
+      body: <><strong>v0 summary</strong> — {estimate.project_summary}</>,
+    });
+  }
+  const imgCount = (v0?.images?.images || []).length;
+  if (imgCount > 0) {
+    aiRows.push({
+      when: generated,
+      body: (
+        <>
+          <strong>{imgCount} concept image{imgCount > 1 ? "s" : ""}</strong> — stored on your project board (Site feed &amp; Documents).
+        </>
+      ),
+    });
+  }
+  if (estimate?.estimate_lines?.length) {
+    aiRows.push({
+      when: generated,
+      body: (
+        <>
+          <strong>Indicative estimate</strong> — {estimate.estimate_lines.length} line items
+          {estimate.total_indicative_inr != null ? ` totalling ${formatInrShort(estimate.total_indicative_inr)}` : ""} (ballpark).
+        </>
+      ),
+    });
+  }
+  if (!aiRows.length) {
+    aiRows.push({
+      when: "—",
+      body: <>Generate v0 in the build or remodel flow to populate this section.</>,
+    });
+  }
+
+  const handoff = brief?.architectHandoffNote || brief?.architectComment;
+  const agreedBullets = [
+    ...(estimate?.milestones || []).slice(0, 3).map((m) => (
+      <span key={m.title}>
+        <strong>{m.title}</strong>
+        {m.timeframe ? ` — ${m.timeframe}` : ""}
+      </span>
+    )),
+    handoff ? <>Handoff note: {String(handoff).slice(0, 200)}</> : null,
+  ].filter(Boolean);
+
+  return {
+    client: {
+      step: 1,
+      title: "What you gave us (client input)",
+      subtitle: "Your wizard brief — saved per project for you and your architect.",
+      captured: `Saved: ${generated}`,
+      blocks: clientBlocksFromBrief(brief, flowType),
+    },
+    ai: {
+      step: 2,
+      title: "What AI generated",
+      subtitle: "v0 design images and indicative estimate from your brief (not a final quote).",
+      rows: aiRows,
+      images: (v0?.images?.images || []).slice(0, 4),
+    },
+    architect: {
+      step: 3,
+      title: "What the architect refines next",
+      subtitle: "After you share the v0 pack — drawings, BOQ, and approvals land here.",
+      rows: handoff
+        ? [{ when: "Handoff", body: <>{handoff}</> }]
+        : [{ when: "—", body: <>Invite an architect from Find Pros or paste notes at handoff.</> }],
+    },
+    agreed: {
+      step: 4,
+      title: "Planning checklist (from v0)",
+      subtitle: "Milestones and tasks seeded from your estimate — track them on the project board.",
+      when: generated,
+      bullets:
+        agreedBullets.length > 0
+          ? agreedBullets
+          : [<>Open Overview to see tasks created from your v0 milestones.</>],
+    },
+  };
+}
+
 export default function ProjectDesignJourney() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get("projectId") || "";
+  const source = searchParams.get("source") || "";
+  const [loading, setLoading] = useState(Boolean(projectId));
+  const [steps, setSteps] = useState(DEMO_STEPS);
+
+  const hubQuery = useMemo(() => {
+    if (!projectId) return "";
+    return `?projectId=${encodeURIComponent(projectId)}${source ? `&source=${encodeURIComponent(source)}` : ""}`;
+  }, [projectId, source]);
+
+  useEffect(() => {
+    if (!projectId) {
+      setSteps(DEMO_STEPS);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const board = await loadProjectBoard({ projectId, source });
+        if (!cancelled && board) setSteps(stepsFromBoard(board));
+      } catch (err) {
+        console.error("Design journey load failed:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, source]);
+
+  const STEPS = steps;
 
   return (
     <ProjectHubShell>
@@ -172,13 +263,16 @@ export default function ProjectDesignJourney() {
           <p style={{ fontSize: 11, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.1em", margin: "0 0 8px" }}>PROJECT ORIGIN</p>
           <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Design journey</h1>
           <p style={{ fontSize: 14, color: "#7A6E62", marginTop: 10, lineHeight: 1.55, maxWidth: 680 }}>
-            Four beats: <strong>your input</strong>, <strong>what AI drafted</strong>, <strong>what the architect refined</strong>, and <strong>what everyone locked</strong>. Handy when you need the story,
-            not only the latest drawing set.
+            Four beats: <strong>your input</strong>, <strong>what AI drafted</strong>, <strong>what the architect refined</strong>, and <strong>what everyone locked</strong>.
+            {projectId ? " Showing your saved project." : " Demo narrative — complete a flow with v0 to populate yours."}
           </p>
+          {loading ? (
+            <p style={{ fontSize: 13, color: "#9A8F87", marginTop: 8 }}>Loading saved design &amp; estimate…</p>
+          ) : null}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
             <button
               type="button"
-              onClick={() => navigate("/documents")}
+              onClick={() => navigate(`/documents${hubQuery}`)}
               style={{
                 padding: "9px 16px",
                 borderRadius: 9,
@@ -194,7 +288,7 @@ export default function ProjectDesignJourney() {
             </button>
             <button
               type="button"
-              onClick={() => navigate("/project")}
+              onClick={() => navigate(`/project${hubQuery}`)}
               style={{
                 padding: "9px 16px",
                 borderRadius: 9,
@@ -211,7 +305,6 @@ export default function ProjectDesignJourney() {
           </div>
         </div>
 
-        {/* 1 — Client */}
         <section style={{ ...panel, padding: "22px 24px", marginBottom: 16 }}>
           <StepHeader step={STEPS.client.step} title={STEPS.client.title} subtitle={STEPS.client.subtitle} accent={OR} />
           <p style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87", margin: "0 0 14px", letterSpacing: "0.04em" }}>{STEPS.client.captured}</p>
@@ -225,7 +318,6 @@ export default function ProjectDesignJourney() {
           </div>
         </section>
 
-        {/* 2 — AI */}
         <section style={{ ...panel, padding: "22px 24px", marginBottom: 16, borderLeft: `4px solid ${AI_BADGE}` }}>
           <StepHeader step={STEPS.ai.step} title={STEPS.ai.title} subtitle={STEPS.ai.subtitle} accent={AI_BADGE} />
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -234,48 +326,11 @@ export default function ProjectDesignJourney() {
                 key={i}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "104px 1fr auto",
-                  gap: 12,
-                  alignItems: "start",
-                  padding: "12px 0",
-                  borderTop: i === 0 ? "none" : "1px solid #F0EBE3",
-                }}
-              >
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87" }}>{r.when}</div>
-                <div style={{ fontSize: 14, color: "#44403C", lineHeight: 1.5 }}>{r.body}</div>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 800,
-                    letterSpacing: "0.06em",
-                    color: "#fff",
-                    background: AI_BADGE,
-                    borderRadius: 6,
-                    padding: "4px 8px",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  AI
-                </span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 3 — Architect */}
-        <section style={{ ...panel, padding: "22px 24px", marginBottom: 16, borderLeft: `4px solid ${ARCH_BADGE}` }}>
-          <StepHeader step={STEPS.architect.step} title={STEPS.architect.title} subtitle={STEPS.architect.subtitle} accent={ARCH_BADGE} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            {STEPS.architect.rows.map((r, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "grid",
                   gridTemplateColumns: "104px 1fr",
                   gap: 12,
                   alignItems: "start",
                   padding: "14px 0",
-                  borderTop: i === 0 ? "none" : "1px solid #F0EBE3",
+                  borderBottom: i < STEPS.ai.rows.length - 1 ? "1px solid #F0EBE3" : "none",
                 }}
               >
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87" }}>{r.when}</div>
@@ -283,16 +338,39 @@ export default function ProjectDesignJourney() {
               </div>
             ))}
           </div>
+          {STEPS.ai.images?.length ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginTop: 16 }}>
+              {STEPS.ai.images.map((img, i) => (
+                <img
+                  key={img.url || i}
+                  src={img.url}
+                  alt={img.label || `Concept ${i + 1}`}
+                  style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 10, border: "1px solid #EDE8E0" }}
+                />
+              ))}
+            </div>
+          ) : null}
         </section>
 
-        {/* 4 — Agreed */}
-        <section style={{ ...panel, padding: "22px 24px", border: `1px solid ${OR}40`, background: "linear-gradient(180deg, #FDF8F3 0%, #FAF9F7 100%)" }}>
-          <StepHeader step={STEPS.agreed.step} title={STEPS.agreed.title} subtitle={STEPS.agreed.subtitle} accent="#22A36B" />
-          <p style={{ fontSize: 12, fontWeight: 800, color: OR, margin: "0 0 14px" }}>{STEPS.agreed.when}</p>
-          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14, color: "#44403C", lineHeight: 1.6 }}>
-            {STEPS.agreed.bullets.map((item, i) => (
+        <section style={{ ...panel, padding: "22px 24px", marginBottom: 16, borderLeft: `4px solid ${ARCH_BADGE}` }}>
+          <StepHeader step={STEPS.architect.step} title={STEPS.architect.title} subtitle={STEPS.architect.subtitle} accent={ARCH_BADGE} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {STEPS.architect.rows.map((r, i) => (
+              <div key={i} style={{ padding: "12px 0", borderBottom: i < STEPS.architect.rows.length - 1 ? "1px solid #F0EBE3" : "none" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87", marginBottom: 6 }}>{r.when}</div>
+                <div style={{ fontSize: 14, color: "#44403C", lineHeight: 1.55 }}>{r.body}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={{ ...panel, padding: "22px 24px", marginBottom: 16 }}>
+          <StepHeader step={STEPS.agreed.step} title={STEPS.agreed.title} subtitle={STEPS.agreed.subtitle} accent="#57534E" />
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87", margin: "0 0 12px" }}>{STEPS.agreed.when}</p>
+          <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, color: "#44403C", lineHeight: 1.6 }}>
+            {STEPS.agreed.bullets.map((b, i) => (
               <li key={i} style={{ marginBottom: 10 }}>
-                {item}
+                {b}
               </li>
             ))}
           </ul>

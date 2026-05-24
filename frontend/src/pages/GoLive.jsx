@@ -89,6 +89,20 @@ export default function GoLive() {
 
     (async () => {
       try {
+        let mediaForDb = media;
+        try {
+          const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
+          mediaForDb = await syncPortfolioMediaForSave(pid, media);
+          setPortfolioMedia(pid, mediaForDb);
+          const { updatePortfolio } = await import("../lib/api");
+          await updatePortfolio(pid, {
+            photos: mediaForDb.photos,
+            cover_photo: mediaForDb.cover_photo,
+            profile_photo: mediaForDb.profile_photo,
+          });
+        } catch (uploadErr) {
+          console.warn("Go live storage sync:", uploadErr);
+        }
         const published = await publishPortfolio(pid);
         setPortfolioBase({
           ...saved,

@@ -1,7 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { ProjectHubAppHeader } from "../components/HmBrandLockup";
+import LandingNavbar from "../components/landing/LandingNavbar";
 import HmUserMenu from "../components/HmUserMenu";
+import { HM_FIXED_NAV_OFFSET_TAGLINE_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import { useHmSession } from "../hooks/useHmSession";
 import { getProOnboardingResumePath, readProPortfolioState } from "../lib/hmAuth";
 
@@ -88,38 +89,8 @@ export default function ProDashboard() {
   })();
 
   return (
-    <div style={{ minHeight: "100vh", background: "#FBF7F2", color: "#1C1917", fontFamily: "'DM Sans', Inter, system-ui, sans-serif" }}>
-      <ProjectHubAppHeader
-        center={
-          <div style={{ textAlign: "center" }}>
-            <h1 className="m-0 font-serif-display text-lg md:text-xl font-semibold text-[#1C1917]">
-              Platform Operations Workspace
-            </h1>
-            <p className="m-0 mt-0.5 text-[11px] md:text-xs text-[#9A8F87]">
-              Shared homeowner + pro operations: briefs, collaboration, estimates, and delivery
-            </p>
-          </div>
-        }
-        trailing={
-          <>
-            <button
-              type="button"
-              onClick={() => navigate("/browse")}
-              className="rounded-lg border border-[#E7D4C4] bg-white px-3 py-1.5 text-xs font-semibold text-[#1C1917] hover:bg-[#FDF8F3] cursor-pointer"
-            >
-              Browse professionals
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(getProOnboardingResumePath())}
-              className="rounded-lg border border-[#E7D4C4] bg-white px-3 py-1.5 text-xs font-semibold text-[#1C1917] hover:bg-[#FDF8F3] cursor-pointer"
-            >
-              {portfolioState.status === "published" ? "Edit portfolio" : "Finish portfolio"}
-            </button>
-            <HmUserMenu />
-          </>
-        }
-      />
+    <div className={HM_FIXED_NAV_OFFSET_TAGLINE_CLASS} style={{ minHeight: "100vh", background: "#FBF7F2", color: "#1C1917", fontFamily: "'DM Sans', Inter, system-ui, sans-serif" }}>
+      <LandingNavbar tagline={HM_TAGLINE_PORTFOLIO} />
 
       <main className="mx-auto max-w-6xl px-5 md:px-8 py-8 md:py-10">
         <div

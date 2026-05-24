@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ProjectHubAppHeader, ProjectHubProjectCenter } from "./HmBrandLockup";
+import LandingNavbar from "./landing/LandingNavbar";
 import {
+  HM_FIXED_NAV_OFFSET_TAGLINE_CLASS,
+  HM_TAGLINE_PROJECT_HUB,
   hmProjectHubPageBackground,
   hmProjectSidebarAsideStyle,
   hmProjectSidebarFooterStyle,
@@ -13,60 +15,30 @@ import { PROJECT_HUB_NAV, hubNavActive } from "../lib/projectHubNav";
 
 const OR = "#C85F2B";
 
-function HubAvatar({ name, size = 30 }) {
-  const colors = ["#C85F2B", "#2A6496", "#22A36B", "#7A4FC0", "#D97706"];
-  const idx = name.charCodeAt(0) % colors.length;
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: colors[idx],
-        color: "#fff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.36,
-        fontWeight: 700,
-        flexShrink: 0,
-      }}
-    >
-      {name
-        .split(" ")
-        .map((w) => w[0])
-        .join("")
-        .slice(0, 2)}
-    </div>
-  );
-}
-
-export default function ProjectHubShell({ children }) {
+export default function ProjectHubShell({ children, hubQuery: hubQueryProp }) {
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const shellFont = { fontFamily: "'DM Sans','Inter',sans-serif", color: "#1C1917" };
 
+  const hubQuery = useMemo(() => {
+    if (hubQueryProp != null && hubQueryProp !== "") return hubQueryProp.startsWith("?") ? hubQueryProp : `?${hubQueryProp}`;
+    const pid = new URLSearchParams(search).get("projectId");
+    if (!pid) return "";
+    const src = new URLSearchParams(search).get("source");
+    return `?projectId=${encodeURIComponent(pid)}${src ? `&source=${encodeURIComponent(src)}` : ""}`;
+  }, [hubQueryProp, search]);
+
   const goNav = (path) => {
-    if (path && path !== "#") navigate(path);
+    if (path && path !== "#") navigate(`${path}${hubQuery}`);
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: hmProjectHubPageBackground, ...shellFont }}>
-      <ProjectHubAppHeader
-        center={<ProjectHubProjectCenter />}
-        trailing={
-          <>
-            <button type="button" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#7A6E62" }} aria-label="Notifications">
-              🔔
-            </button>
-            <span style={{ fontSize: 13, fontWeight: 600 }}>🇮🇳 IN</span>
-            <HubAvatar name="Ankit" size={30} />
-            <span style={{ fontSize: 13, fontWeight: 600 }}>Hi, Ankit ∨</span>
-          </>
-        }
-      />
+    <div className={HM_FIXED_NAV_OFFSET_TAGLINE_CLASS} style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: hmProjectHubPageBackground, ...shellFont }}>
+      <div className="hm-desktop-only">
+        <LandingNavbar tagline={HM_TAGLINE_PROJECT_HUB} />
+      </div>
       <div style={{ display: "flex", flex: 1, minWidth: 0, minHeight: 0 }}>
-        <aside style={hmProjectSidebarAsideStyle}>
+        <aside style={hmProjectSidebarAsideStyle} className="hm-project-sidebar hm-desktop-only">
           <div style={{ padding: "14px 20px 8px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>PROJECTS</div>
           <div style={{ padding: "0 10px 8px" }}>
             <div style={hmProjectSidebarProjectCardStyle} onClick={() => navigate("/project")}>

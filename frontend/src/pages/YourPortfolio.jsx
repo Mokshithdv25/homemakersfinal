@@ -112,12 +112,22 @@ export default function YourPortfolio() {
       const saved = getPortfolioBase();
       const media = getPortfolioMedia(portfolioId);
       
-      setPortfolioMedia(portfolioId, { ...media, photos: form.photos || [] });
+      const mediaPayload = { ...media, photos: form.photos || [] };
+      let mediaForDb = mediaPayload;
+      try {
+        const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
+        mediaForDb = await syncPortfolioMediaForSave(portfolioId, mediaPayload);
+      } catch (uploadErr) {
+        console.warn("Portfolio storage upload:", uploadErr);
+      }
+      setPortfolioMedia(portfolioId, mediaForDb);
       const updated = { ...saved, step: 3, profile_strength: 75 };
       setPortfolioBase(updated);
       try {
         await updatePortfolio(portfolioId, {
-          photos: form.photos || [],
+          photos: mediaForDb.photos || [],
+          cover_photo: mediaForDb.cover_photo,
+          profile_photo: mediaForDb.profile_photo,
           step: 3,
           profile_strength: 75,
         });

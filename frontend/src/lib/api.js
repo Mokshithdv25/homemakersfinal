@@ -37,11 +37,19 @@ function slugify(text = "") {
   );
 }
 
+async function getAuthUserId() {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.user?.id || null;
+}
+
 async function createPortfolioSupabase(craft) {
   const id = makeId();
+  const ownerUserId = await getAuthUserId();
   const row = {
     id,
     craft,
+    owner_user_id: ownerUserId,
     profile_strength: 25,
     step: 1,
     published: false,
@@ -148,4 +156,25 @@ export async function getPublicProfile(slug) {
   if (supabase) return getPublicProfileSupabase(slug);
   const { data } = await api.get(`/profile/${slug}`);
   return data;
+}
+
+/** Published pros for marketplace / browse (Supabase). */
+export async function listPublishedPortfolios({ craft, city, limit = 24 } = {}) {
+  if (!supabase) return [];
+  let q = supabase
+    .from("portfolios")
+    .select(
+      "id, craft, full_name, business_name, city, years_experience, specialties, photos, cover_photo, profile_photo, slug, profile_strength, updated_at"
+    )
+    .eq("published", true)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (craft) q = q.eq("craft", craft);
+  if (city) q = q.ilike("city", `%${city}%`);
+  const { data, error } = await q;
+  if (error) {
+    console.warn("listPublishedPortfolios:", error.message);
+    return [];
+  }
+  return data || [];
 }

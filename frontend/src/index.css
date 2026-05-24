@@ -11,6 +11,21 @@ body {
     color: #1C1917;
 }
 
+/* Capacitor iOS / Android — notch + home indicator safe areas */
+.hm-native nav.fixed {
+    padding-top: env(safe-area-inset-top, 0px);
+}
+
+.hm-native .hm-landing-page main,
+.hm-native .hm-fixed-nav-offset {
+    scroll-padding-top: calc(4.65rem + env(safe-area-inset-top, 0px));
+}
+
+.hm-native body,
+html.hm-native body {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 code {
     font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
 }

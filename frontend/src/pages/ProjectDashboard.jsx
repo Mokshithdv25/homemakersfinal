@@ -1,14 +1,22 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ProjectHubAppHeader, ProjectHubProjectCenter } from "../components/HmBrandLockup";
+import LandingNavbar from "../components/landing/LandingNavbar";
 import {
+  HM_FIXED_NAV_OFFSET_TAGLINE_CLASS,
+  HM_TAGLINE_PROJECT_HUB,
   hmProjectHubPageBackground,
   hmProjectSidebarAsideStyle,
   hmProjectSidebarFooterStyle,
   hmProjectSidebarNavItemStyle,
   hmProjectSidebarNavScrollStyle,
 } from "../lib/hmBrand";
-import { loadProjectBoard } from "../lib/projectFlowApi";
+import { useHmSession } from "../hooks/useHmSession";
+import {
+  formatInrShort,
+  getRememberedProject,
+  listUserProjects,
+  loadProjectBoard,
+} from "../lib/projectFlowApi";
 
 const OR = "#C85F2B";
 
@@ -347,9 +355,18 @@ function trafficDot(traffic) {
   return "#22A36B";
 }
 
+function flowSourceLabel(flowType, source) {
+  if (source === "remodel" || flowType === "remodel") return "Remodel";
+  if (source === "build-new" || flowType === "new_home") return "New build";
+  return "Project";
+}
+
 export default function ProjectDashboard() {
   const navigate = useNavigate();
+  const hmSession = useHmSession();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [userProjects, setUserProjects] = useState([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
   const [dismissHandoff, setDismissHandoff] = useState(false);
   const showHandoffBanner =
     !dismissHandoff &&
@@ -359,6 +376,7 @@ export default function ProjectDashboard() {
   const [selectedPhase, setSelectedPhase] = useState("Structure");
   const [phaseRows, setPhaseRows] = useState(phases);
   const [briefData, setBriefData] = useState(null);
+  const [v0Pack, setV0Pack] = useState(null);
   const [msg, setMsg] = useState("");
   const [msgs, setMsgs] = useState(INITIAL_MESSAGES);
   const [tasks, setTasks] = useState(INITIAL_TASKS);
@@ -371,29 +389,100 @@ export default function ProjectDashboard() {
     Object.fromEntries(Object.entries(MILESTONE_SEED).map(([phase, rows]) => [phase, rows.map((m) => ({ ...m }))]))
   );
 
-  const isLiveProject = Boolean(searchParams.get("projectId"));
-  const stageDetail = isLiveProject
-    ? {
-        siteImage: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=640&q=75",
-        siteCaption:
-          `Initial planning for ${selectedPhase}.` +
-          (briefData?.location ? ` Brief location: ${briefData.location}.` : ""),
-        siteTime: "Recently updated",
-        budgetTotal:
-          briefData?.budgetUnit && briefData?.budgetAmount
-            ? `₹${briefData.budgetAmount} ${briefData.budgetUnit === "Crores" ? "Cr" : "L"}`
-            : "TBD",
-        budgetSpent: "Early planning",
-        spentPct: 0,
-        barPct: 0,
-        budgetRemaining: "TBD",
-        expectedCost: "To be finalized",
-        traffic: "green",
-        docs: [{ name: "Project brief snapshot", ext: "JSON" }],
-        miniGallery: [],
-        budgetLines: [["Planning baseline", "TBD"]],
+  const isLiveProject = Boolean(activeProjectId);
+  const activeProjectId = searchParams.get("projectId") || "";
+
+  const hubQuery = useMemo(() => {
+    const pid = activeProjectId;
+    const src = searchParams.get("source");
+    if (!pid) return "";
+    return `?projectId=${encodeURIComponent(pid)}${src ? `&source=${encodeURIComponent(src)}` : ""}`;
+  }, [searchParams, activeProjectId]);
+
+  const openProject = (project) => {
+    const src =
+      project.source === "remodel" || project.flow_type === "remodel"
+        ? "remodel"
+        : project.source === "build-new" || project.flow_type === "new_home"
+          ? "build-new"
+          : project.source || "";
+    const q = new URLSearchParams();
+    q.set("projectId", project.id);
+    if (src) q.set("source", src);
+    navigate(`/project?${q.toString()}`);
+  };
+
+  useEffect(() => {
+    const userId = hmSession?.supabaseUserId;
+    if (!userId) {
+      setUserProjects([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setProjectsLoading(true);
+      try {
+        const rows = await listUserProjects();
+        if (cancelled) return;
+        setUserProjects(rows);
+        if (!activeProjectId && rows.length > 0) {
+          const remembered = getRememberedProject(userId);
+          const pick =
+            rows.find((p) => p.id === remembered?.projectId) ||
+            rows[0];
+          if (pick) openProject(pick);
+        }
+      } catch (err) {
+        console.error("Failed to list user projects:", err);
+      } finally {
+        if (!cancelled) setProjectsLoading(false);
       }
-    : STAGE_DETAILS[selectedPhase];
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openProject stable enough; only run when auth/projectId gate changes
+  }, [hmSession?.supabaseUserId, activeProjectId]);
+  const liveStageDetail = useMemo(() => {
+    if (!isLiveProject) return null;
+    const v0Images = (v0Pack?.images?.images || []).map((img) => img?.url).filter(Boolean);
+    const estimate = v0Pack?.estimate;
+    const budgetTotal =
+      briefData?.budgetLabel ||
+      (briefData?.budgetInr ? formatInrShort(briefData.budgetInr) : null) ||
+      (briefData?.budgetUnit && briefData?.budgetAmount
+        ? `₹${briefData.budgetAmount} ${briefData.budgetUnit === "Crores" ? "Cr" : "L"}`
+        : "TBD");
+    const indicative =
+      estimate?.total_indicative_inr != null ? formatInrShort(estimate.total_indicative_inr) : null;
+    const budgetLines = (estimate?.estimate_lines || []).map((line) => [
+      line?.label || "Line item",
+      line?.amount_inr != null ? formatInrShort(line.amount_inr) : "TBD",
+    ]);
+    return {
+      siteImage: v0Images[0] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=640&q=75",
+      siteCaption:
+        (estimate?.project_summary ? String(estimate.project_summary).slice(0, 120) : null) ||
+        `AI v0 saved for ${selectedPhase}.` +
+          (briefData?.location ? ` Location: ${briefData.location}.` : ""),
+      siteTime: v0Pack?.generatedAt ? "From saved v0 pack" : "Recently updated",
+      budgetTotal,
+      budgetSpent: indicative ? `Indicative v0: ${indicative}` : "Early planning",
+      spentPct: 0,
+      barPct: 0,
+      budgetRemaining: budgetTotal,
+      expectedCost: indicative || "To be finalized",
+      traffic: "green",
+      docs: [
+        { name: "AI v0 concept images", ext: "IMG" },
+        { name: "Indicative estimate (v0)", ext: "EST" },
+        { name: "Project brief snapshot", ext: "JSON" },
+      ],
+      miniGallery: v0Images.slice(0, 4),
+      budgetLines: budgetLines.length ? budgetLines : [["Planning baseline", budgetTotal]],
+    };
+  }, [isLiveProject, v0Pack, briefData, selectedPhase]);
+  const stageDetail = isLiveProject && liveStageDetail ? liveStageDetail : STAGE_DETAILS[selectedPhase];
   useEffect(() => {
     const run = async () => {
       try {
@@ -415,6 +504,21 @@ export default function ProjectDashboard() {
         }
         if (board.brief) {
           setBriefData(board.brief);
+        }
+        if (board.v0Pack) {
+          setV0Pack(board.v0Pack);
+          const ms = board.v0Pack?.estimate?.milestones;
+          if (Array.isArray(ms) && ms.length) {
+            setMilestonesByPhase((prev) => ({
+              ...prev,
+              "Design & Approval": ms.map((m, i) => ({
+                id: `v0-ms-${i}`,
+                icon: "📐",
+                name: String(m?.title || `Milestone ${i + 1}`),
+                date: String(m?.timeframe || "Planned"),
+              })),
+            }));
+          }
         }
       } catch (err) {
         console.error("Failed to load project board from Supabase:", err);
@@ -466,6 +570,13 @@ export default function ProjectDashboard() {
   );
 
   const allBudgetLines = useMemo(() => {
+    if (isLiveProject && v0Pack?.estimate?.estimate_lines?.length) {
+      return v0Pack.estimate.estimate_lines.map((line) => ({
+        phase: "Design & Approval",
+        label: line?.label || "Line item",
+        amt: line?.amount_inr != null ? formatInrShort(line.amount_inr) : "TBD",
+      }));
+    }
     const rows = [];
     for (const name of phaseOrder) {
       const d = STAGE_DETAILS[name];
@@ -474,7 +585,7 @@ export default function ProjectDashboard() {
       }
     }
     return rows;
-  }, [phaseOrder]);
+  }, [phaseOrder, isLiveProject, v0Pack]);
 
   const sendMsg = () => {
     if (!msg.trim()) return;
@@ -557,6 +668,7 @@ export default function ProjectDashboard() {
 
   return (
     <div
+      className={HM_FIXED_NAV_OFFSET_TAGLINE_CLASS}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -566,57 +678,7 @@ export default function ProjectDashboard() {
         color: "#1C1917",
       }}
     >
-      <ProjectHubAppHeader
-        center={<ProjectHubProjectCenter />}
-        trailing={
-          <>
-            <div className="hidden text-[10px] font-bold uppercase tracking-[0.08em] text-[#9A8F87] sm:block">PROJECT HEALTH</div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                background: "#E8F5E9",
-                border: "1px solid #C3DEB8",
-                borderRadius: 20,
-                padding: "5px 12px",
-                cursor: "pointer",
-              }}
-            >
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#22A36B" }} />
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#22A36B" }}>On Track</span>
-              <span style={{ fontSize: 11, color: "#22A36B" }}>∨</span>
-            </div>
-            <button type="button" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 17, color: "#7A6E62" }} aria-label="Notifications">
-              🔔
-            </button>
-            <button
-              type="button"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                border: "1px solid #E7E5E4",
-                borderRadius: 6,
-                padding: "6px 10px",
-                fontSize: 12,
-                color: "#57534E",
-                cursor: "pointer",
-                background: "rgba(255,255,255,0.85)",
-              }}
-            >
-              🇮🇳 IN
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Avatar name="Ankit" size={30} />
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Hi, Ankit ∨</span>
-            </div>
-          </>
-        }
-      />
+      <LandingNavbar tagline={HM_TAGLINE_PROJECT_HUB} />
       <div
         style={{
           display: "flex",
@@ -627,7 +689,72 @@ export default function ProjectDashboard() {
       >
       <aside style={hmProjectSidebarAsideStyle}>
         <div style={{ padding: "14px 20px 6px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>
-          PROJECTS
+          YOUR PROJECTS
+        </div>
+        {hmSession?.supabaseUserId ? (
+          <div style={{ padding: "0 12px 10px", maxHeight: 140, overflowY: "auto" }}>
+            {projectsLoading ? (
+              <div style={{ fontSize: 11, color: "#9A8F87", padding: "4px 8px" }}>Loading saved projects…</div>
+            ) : userProjects.length === 0 ? (
+              <div style={{ fontSize: 11, color: "#9A8F87", padding: "4px 8px", lineHeight: 1.45 }}>
+                No saved projects yet. Finish a build or remodel flow with v0 — it will appear here when you sign in.
+              </div>
+            ) : (
+              userProjects.map((p) => {
+                const active = p.id === activeProjectId;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => openProject(p)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      marginBottom: 6,
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: active ? `1.5px solid ${OR}` : "1px solid #E8E6E3",
+                      background: active ? "#FDF4EF" : "#fff",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#1C1917", lineHeight: 1.3 }}>
+                      {p.title || "Untitled project"}
+                    </div>
+                    <div style={{ fontSize: 10, color: "#9A8F87", marginTop: 3 }}>
+                      {flowSourceLabel(p.flow_type, p.source)}
+                      {p.budget_max ? ` · ${formatInrShort(p.budget_max)}` : ""}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <div style={{ padding: "0 12px 12px", fontSize: 11, color: "#9A8F87", lineHeight: 1.45 }}>
+            <button
+              type="button"
+              onClick={() => navigate("/sign-in?mode=signin")}
+              style={{
+                background: "none",
+                border: "none",
+                color: OR,
+                fontWeight: 700,
+                cursor: "pointer",
+                padding: 0,
+                fontSize: 11,
+                fontFamily: "inherit",
+              }}
+            >
+              Sign in
+            </button>{" "}
+            to load projects saved in Supabase across devices.
+          </div>
+        )}
+        <div style={{ padding: "8px 20px 6px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>
+          HUB
         </div>
         <nav style={hmProjectSidebarNavScrollStyle}>
           {NAV.map((n) => {
@@ -637,11 +764,11 @@ export default function ProjectDashboard() {
                 key={n.label}
                 role="button"
                 tabIndex={0}
-                onClick={() => (n.path ? navigate(n.path) : setActiveNav(n.label))}
+                onClick={() => (n.path ? navigate(`${n.path}${hubQuery}`) : setActiveNav(n.label))}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    if (n.path) navigate(n.path);
+                    if (n.path) navigate(`${n.path}${hubQuery}`);
                     else setActiveNav(n.label);
                   }
                 }}

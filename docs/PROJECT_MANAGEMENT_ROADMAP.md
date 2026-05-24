@@ -15,6 +15,7 @@ This document captures **what still needs to be designed, specified, and impleme
 
 | Area | What to build | Notes |
 |------|----------------|-------|
+| **v0 → PM bridge** | ✅ Initial: `project_v0_packs` + `persistFlowAfterV0` on generate; handoff upserts same `projectId` | Run `db/project_pm_v0.sql` in Supabase; signed-in user gets `owner_user_id` when column exists |
 | **Tasks** | Real task model: assignee, due date, phase link, comments, completion audit | Replace demo array with API + optimistic UI |
 | **Timeline / phases** | Persist phase % and status; drill-down per phase | Today’s gauges are static |
 | **Discussion** | Threaded messages, attachments, @mentions, read receipts | Wire to realtime or polling |

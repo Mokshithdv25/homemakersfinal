@@ -200,7 +200,15 @@ export default function YourDetails() {
         profile_photo: form.profile_photo || "",
         photos: getPortfolioMedia(portfolioId).photos || [],
       };
-      setPortfolioMedia(portfolioId, mediaPayload);
+      let mediaForDb = mediaPayload;
+      try {
+        const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
+        mediaForDb = await syncPortfolioMediaForSave(portfolioId, mediaPayload);
+        setPortfolioMedia(portfolioId, mediaForDb);
+      } catch (uploadErr) {
+        console.warn("Portfolio storage upload:", uploadErr);
+        setPortfolioMedia(portfolioId, mediaPayload);
+      }
 
       const { cover_photo, profile_photo, photos, ...nonMediaForm } = form;
       const { photos: _p, cover_photo: _c, profile_photo: _pp, ...savedNoMedia } = saved;
@@ -210,7 +218,7 @@ export default function YourDetails() {
       try {
         await updatePortfolio(portfolioId, {
           ...nonMediaForm,
-          ...mediaPayload,
+          ...mediaForDb,
           step: 2,
           profile_strength: 50,
         });

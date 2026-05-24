@@ -1,8 +1,8 @@
 const K_BUILD = "hm_build_new_flow";
 const K_REMODEL = "hm_remodel_flow";
 
-const defaultBuild = { preV0: false, postV0: false, v0: false, architectComment: "" };
-const defaultRemodel = { preV0: false, postV0: false, v0: false, architectComment: "" };
+const defaultBuild = { preV0: false, postV0: false, v0: false, architectComment: "", projectId: null };
+const defaultRemodel = { preV0: false, postV0: false, v0: false, architectComment: "", projectId: null };
 
 function safeParse(raw, d) {
   try {

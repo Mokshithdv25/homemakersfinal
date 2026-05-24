@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
+import { useLocation, useNavigate } from "react-router-dom";
 import { RemodelSpecView } from "../components/ArchitectBriefSpec";
 import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout";
 import {
@@ -18,14 +17,16 @@ import {
   isAiBackendConfigured,
   getAiBackendHost,
 } from "../lib/aiApi";
-import { createFlowProjectRecord } from "../lib/projectFlowApi";
+import { createFlowProjectRecord, persistFlowAfterV0 } from "../lib/projectFlowApi";
+import { buildSignInRedirect, isHomeownerSignedIn } from "../lib/requireHomeownerAuth";
 import {
   ColourHexSwatch,
   ColourOctagonCustom,
   normalizeHexColor,
   PALETTE_PRESET_HEX,
 } from "../components/HmColourPickers";
-import { HM_HEADER_BAR_CLASS, HM_TAGLINE_REMODEL } from "../lib/hmBrand";
+import LandingNavbar from "../components/landing/LandingNavbar";
+import { HM_FIXED_NAV_OFFSET_TAGLINE_CLASS, HM_TAGLINE_REMODEL } from "../lib/hmBrand";
 import VisionCaptureStep from "../components/VisionCaptureStep";
 
 const REMODEL_STEPS = [
@@ -254,6 +255,7 @@ function RightPanel({
 
 export default function RemodelHome() {
   const navigate = useNavigate();
+  const location = useLocation();
   const flowMainRef = useRef(null);
   const photoUploadRef = useRef(null);
   const styleUploadRef = useRef(null);
@@ -296,6 +298,7 @@ export default function RemodelHome() {
   const [projectSaving, setProjectSaving] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
   const [v0PlanBundle, setV0PlanBundle] = useState(null);
+  const [flowProjectId, setFlowProjectId] = useState(null);
   const [architectHandoffNote, setArchitectHandoffNote] = useState("");
   const [stepBlockError, setStepBlockError] = useState("");
   const [inspirationImgs, setInspirationImgs] = useState([
@@ -351,6 +354,7 @@ export default function RemodelHome() {
     setV0Generated(!!f.v0);
     if (f.v0Images) setV0ImageBundle(f.v0Images);
     if (f.v0Plan) setV0PlanBundle(f.v0Plan);
+    if (f.projectId) setFlowProjectId(f.projectId);
     if (f.architectComment) setArchitectHandoffNote(String(f.architectComment));
     if (f.v0Images?.mock && isAiBackendConfigured()) {
       setV0Generated(false);
@@ -410,6 +414,11 @@ export default function RemodelHome() {
   };
 
   const runRemodelV0 = async () => {
+    if (!isHomeownerSignedIn()) {
+      setStepBlockError("Sign in to generate and save your v0 design and estimate to your account.");
+      navigate(buildSignInRedirect(`${location.pathname}${location.search}`));
+      return;
+    }
     setV0Generating(true);
     setStepBlockError("");
     setV0ImageBundle(null);
@@ -424,7 +433,18 @@ export default function RemodelHome() {
       setV0ImageBundle(imagesPayload);
       setV0PlanBundle(planPayload);
       setV0Generated(true);
-      setRemodelFlow({ v0: true, v0Images: imagesPayload, v0Plan: planPayload });
+      const briefForSave = { ...brief, step: 5, v0Generated: true };
+      const saved = await persistFlowAfterV0({
+        projectId: flowProjectId || getRemodelFlow().projectId,
+        flowType: "remodel",
+        brief: briefForSave,
+        source: "remodel",
+        v0Images: imagesPayload,
+        v0Plan: planPayload,
+      });
+      const pid = saved?.projectId || null;
+      if (pid) setFlowProjectId(pid);
+      setRemodelFlow({ v0: true, v0Images: imagesPayload, v0Plan: planPayload, projectId: pid });
     } catch (e) {
       setStepBlockError(formatAiApiError(e));
     } finally {
@@ -434,58 +454,13 @@ export default function RemodelHome() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#FBF7F2] overflow-x-hidden" style={{ fontFamily: "'DM Sans',Inter,system-ui,sans-serif", color: "#1C1917" }}>
+    <div className={`hm-wizard-page-root relative min-h-screen bg-[#FBF7F2] overflow-x-hidden ${HM_FIXED_NAV_OFFSET_TAGLINE_CLASS}`} style={{ fontFamily: "'DM Sans',Inter,system-ui,sans-serif", color: "#1C1917" }}>
       {/* Background accents matching the homepage */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(193,132,78,0.08),transparent_50%)]" aria-hidden />
 
-      <header className={HM_HEADER_BAR_CLASS}>
-        <HmHeaderBrandLockup tagline={HM_TAGLINE_REMODEL} />
-        <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-auto">
-          <nav className="hidden lg:flex items-center gap-5 mr-1">
-            {["Software", "Find Pros", "My Project", "Shop"].map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => { if (l === "My Project") navigate("/project"); }}
-                className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1"
-              >
-                {l}
-                {l === "Software" && (
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <path d="m6 9 6 6 6-6" />
-                  </svg>
-                )}
-              </button>
-            ))}
-          </nav>
-          <button type="button" className="hidden sm:inline-flex items-center gap-1.5 bg-transparent border border-[#E7E5E4] rounded-md px-2.5 py-1.5 text-xs text-[#57534E] cursor-pointer">
-            🇮🇳 IN
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </button>
-          <button type="button" className="bg-transparent border-none text-sm text-[#44403C] cursor-pointer font-medium inline-flex items-center gap-1.5">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-            </svg>
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/craft")}
-            className="bg-white border border-[#E7D4C4] rounded-lg px-3 py-1.5 text-xs font-semibold text-[#1C1917] cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M3 9h18M9 21V9" />
-            </svg>
-            Join as a Pro
-          </button>
-        </div>
-      </header>
+      <div className="hm-desktop-only"><LandingNavbar tagline={HM_TAGLINE_REMODEL} /></div>
 
-      <div style={{ display: "flex", minHeight: "calc(100vh - 76px)", position: "relative", zIndex: 10 }}>
+      <div className="hm-wizard-layout" style={{ display: "flex", minHeight: "calc(100vh - 5.75rem)", position: "relative", zIndex: 10 }}>
         <aside
           style={{
             width: 228,
@@ -540,6 +515,7 @@ export default function RemodelHome() {
         </aside>
 
         <main
+          className="hm-wizard-main"
           ref={flowMainRef}
           style={{
             flex: 1,
@@ -1123,8 +1099,14 @@ export default function RemodelHome() {
             {!v0Generated && !v0Generating && (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Generate v0 for {room}</div>
-                <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 12px" }}>Indicative visuals and layout direction only — your pro turns this into buildable work.</p>
-                <button type="button" onClick={runRemodelV0} className="btn-continue !rounded-xl !px-6 !py-3.5 text-sm">Generate v0</button>
+                <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 12px" }}>Indicative visuals and estimate — saved to Supabase after sign-in.</p>
+                {!isHomeownerSignedIn() ? (
+                  <div style={{ padding: "12px 14px", borderRadius: 10, background: "#FDF4EF", border: "1px solid #EEDCCB", marginBottom: 12, fontSize: 13, color: "#57534E", lineHeight: 1.5 }}>
+                    <strong style={{ color: "#1C1917" }}>Sign in required</strong> before Generate v0.
+                    <button type="button" onClick={() => navigate(buildSignInRedirect(`${location.pathname}${location.search}`))} className="btn-continue !rounded-xl !px-6 !py-3 block mt-3 text-sm">Sign in to continue</button>
+                  </div>
+                ) : null}
+                <button type="button" onClick={runRemodelV0} disabled={!isHomeownerSignedIn()} className="btn-continue !rounded-xl !px-6 !py-3.5 text-sm disabled:opacity-50">Generate v0</button>
               </div>
             )}
             {v0Generating && <V0GeneratingPanel phase={v0GenPhase || "images"} />}
@@ -1385,10 +1367,13 @@ export default function RemodelHome() {
                         v0Generated,
                       };
                       const created = await createFlowProjectRecord({
+                        projectId: flowProjectId || getRemodelFlow().projectId,
                         flowType: "remodel",
                         brief: briefPayload,
                         source: "remodel",
                         aiPlan: v0PlanBundle,
+                        v0Images: v0ImageBundle,
+                        v0Plan: v0PlanBundle,
                       });
                       const pid = created?.projectId ? `&projectId=${encodeURIComponent(created.projectId)}` : "";
                       navigate(`/project?source=remodel&phase=handoff${pid}`);

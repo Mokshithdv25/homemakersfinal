@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Menu, X, User, ChevronDown, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../../lib/hmBrand";
+import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, HM_WORDMARK_TAGLINE_CLASS, hmLogoMarkSrc } from "../../lib/hmBrand";
 import { useHmSession } from "../../hooks/useHmSession";
 import HmUserMenu from "../HmUserMenu";
 
@@ -29,7 +29,7 @@ const FIND_PROS_GROUPS = [
 /**
  * Landing nav: Software mega-menu; Find Pros label → /browse, chevron → specialties; Shop → /shop; My Project → sign-in.
  */
-export default function LandingNavbar() {
+export default function LandingNavbar({ tagline = null }) {
   const navigate = useNavigate();
   const session = useHmSession();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -76,7 +76,7 @@ export default function LandingNavbar() {
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 ${HM_HEADER_BAR_CHROME_CLASS}`}>
-      <div className="container flex h-[4.65rem] items-center justify-between gap-4">
+      <div className={`container flex items-center justify-between gap-4 ${tagline ? "min-h-[4.65rem] py-2" : "h-[4.65rem]"}`}>
         <button
           type="button"
           onClick={() => go("/")}
@@ -90,7 +90,10 @@ export default function LandingNavbar() {
             height={60}
             decoding="async"
           />
-          <span className={HM_WORDMARK_TITLE_CLASS}>HomeMakers</span>
+          <div className="leading-tight min-w-0 text-left">
+            <div className={HM_WORDMARK_TITLE_CLASS}>HomeMakers</div>
+            {tagline ? <p className={HM_WORDMARK_TAGLINE_CLASS}>{tagline}</p> : null}
+          </div>
         </button>
 
         <div className="hidden md:flex min-w-0 items-center gap-7">
