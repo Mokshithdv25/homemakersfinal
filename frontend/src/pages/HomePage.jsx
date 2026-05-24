@@ -8,6 +8,7 @@ import LandingWhyChooseUs from "../components/landing/LandingWhyChooseUs";
 import LandingForProfessionals from "../components/landing/LandingForProfessionals";
 import LandingTestimonials from "../components/landing/LandingTestimonials";
 import LandingHomeQuickLinks from "../components/landing/LandingHomeQuickLinks";
+import LandingPlatformStrip from "../components/landing/LandingPlatformStrip";
 import HmMarketingWordmark from "../components/HmMarketingWordmark";
 
 /**
@@ -27,6 +28,8 @@ export default function HomePage() {
       <LandingHero onGetStarted={() => navigate("/build")} onExploreDesigns={scrollToInspiration} />
 
       <LandingHomeQuickLinks />
+
+      <LandingPlatformStrip />
 
       <LandingInspirationSection onExplore={() => navigate("/build")} />
       <LandingHowItWorks />

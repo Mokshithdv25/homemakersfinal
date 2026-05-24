@@ -67,9 +67,12 @@ export default function LandingHero({ onGetStarted, onExploreDesigns }) {
               ))}
             </div>
 
-            <p className="mb-8 font-display text-[14px] font-medium tracking-[0.07em] uppercase text-[#e3c7a3] md:text-[15px]">
-              Faster designs. Smarter estimates. Hassle-free builds.
-            </p>
+            <div className="mb-8 flex items-center gap-3">
+              <div className="h-px w-8 bg-[#cfa170]/60" aria-hidden />
+              <p className="font-display text-[15px] font-medium tracking-[0.08em] uppercase text-[#e3c7a3] m-0">
+                Design. Build. Move In. <span className="text-[#fcfbfa]/70">Without the Chaos.</span>
+              </p>
+            </div>
 
             <div className="mb-10 flex max-w-xl flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
               <div className="flex items-center -space-x-2" aria-hidden="true">
