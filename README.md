@@ -2,6 +2,8 @@
 
 Design, build, and manage your home — web app plus **iOS & Android** native shells (Capacitor).
 
+**Product vision vs. shipped:** [docs/PLATFORM_VISION.md](docs/PLATFORM_VISION.md) — two-sided marketplace, AI design/estimates, project hub, agentic shop, milestone payment protection. **Later (not now):** lending and **AI financier matching** (project + credit score). Homepage unchanged until those ship.
+
 ## Quick start (web)
 
 ```bash
