@@ -128,7 +128,9 @@ function DesktopRoutes() {
         path="/project"
         element={
           <SignInErrorBoundary>
-            <ProjectDashboard />
+            <HomeownerFlowGuard>
+              <ProjectDashboard />
+            </HomeownerFlowGuard>
           </SignInErrorBoundary>
         }
       />
@@ -137,10 +139,31 @@ function DesktopRoutes() {
       <Route path="/project/browse" element={<Marketplace />} />
       <Route path="/shop" element={<ShopPage />} />
       <Route path="/project/shop" element={<ShopPage />} />
-      <Route path="/documents" element={<DocumentVault />} />
-      <Route path="/project/journey" element={<ProjectDesignJourney />} />
+      <Route
+        path="/documents"
+        element={
+          <HomeownerFlowGuard>
+            <DocumentVault />
+          </HomeownerFlowGuard>
+        }
+      />
+      <Route
+        path="/project/journey"
+        element={
+          <HomeownerFlowGuard>
+            <ProjectDesignJourney />
+          </HomeownerFlowGuard>
+        }
+      />
       <Route path="/team" element={<TeamPage />} />
-      <Route path="/stage" element={<StageDashboard />} />
+      <Route
+        path="/stage"
+        element={
+          <HomeownerFlowGuard>
+            <StageDashboard />
+          </HomeownerFlowGuard>
+        }
+      />
       <Route
         path="/pro/dashboard"
         element={

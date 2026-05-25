@@ -332,6 +332,12 @@ export default function BuildNewHome() {
   const flowMainRef = useRef(null);
   const [searchParams] = useSearchParams();
   const [activeStep, setActiveStep] = useState(1);
+
+  useEffect(() => {
+    if (!isHomeownerSignedIn()) {
+      navigate(buildSignInRedirect(`${location.pathname}${location.search}`), { replace: true });
+    }
+  }, [navigate, location.pathname, location.search]);
   const [maxStepReached, setMaxStepReached] = useState(1);
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);

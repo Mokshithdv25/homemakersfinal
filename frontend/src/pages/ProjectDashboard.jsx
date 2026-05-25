@@ -17,6 +17,7 @@ import {
   listUserProjects,
   loadProjectBoard,
 } from "../lib/projectFlowApi";
+import HmFormDialog from "../components/HmFormDialog";
 
 const OR = "#C85F2B";
 
@@ -374,12 +375,12 @@ export default function ProjectDashboard() {
     searchParams.get("phase") === "handoff";
   const [activeNav, setActiveNav] = useState("Overview");
   const [selectedPhase, setSelectedPhase] = useState("Structure");
-  const [phaseRows, setPhaseRows] = useState(phases);
+  const [phaseRows, setPhaseRows] = useState([]);
   const [briefData, setBriefData] = useState(null);
   const [v0Pack, setV0Pack] = useState(null);
   const [msg, setMsg] = useState("");
-  const [msgs, setMsgs] = useState(INITIAL_MESSAGES);
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [msgs, setMsgs] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [budgetDetailOpen, setBudgetDetailOpen] = useState(false);
   const [budgetDetailScope, setBudgetDetailScope] = useState("stage");
   const [taskAddOpen, setTaskAddOpen] = useState(false);
@@ -388,6 +389,14 @@ export default function ProjectDashboard() {
   const [milestonesByPhase, setMilestonesByPhase] = useState(() =>
     Object.fromEntries(Object.entries(MILESTONE_SEED).map(([phase, rows]) => [phase, rows.map((m) => ({ ...m }))]))
   );
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [milestoneDialog, setMilestoneDialog] = useState({
+    open: false,
+    mode: "add",
+    phase: "",
+    id: null,
+    initial: { name: "", date: "" },
+  });
 
   const activeProjectId = searchParams.get("projectId") || "";
   const isLiveProject = Boolean(activeProjectId);
@@ -556,7 +565,9 @@ export default function ProjectDashboard() {
     };
   }, [isLiveProject, briefData, v0Pack]);
 
-  const needsProjectPick = Boolean(hmSession?.supabaseUserId) && !activeProjectId;
+  const isSignedIn = Boolean(hmSession?.supabaseUserId);
+  const needsSignIn = !isSignedIn;
+  const needsProjectPick = isSignedIn && !activeProjectId;
   const handoffMissingProject =
     searchParams.get("phase") === "handoff" && !activeProjectId && !projectsLoading;
 
@@ -603,10 +614,14 @@ export default function ProjectDashboard() {
   };
 
   const addTask = () => {
-    const name = window.prompt(`New task for "${selectedPhase}":`);
-    if (!name?.trim()) return;
+    setTaskDialogOpen(true);
+  };
+
+  const submitNewTask = ({ value: name }) => {
+    if (!name) return;
     const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-    setTasks((prev) => [...prev, { done: false, name: name.trim(), phase: selectedPhase, date: today, assignee: "You" }]);
+    setTasks((prev) => [...prev, { done: false, name, phase: selectedPhase, date: today, assignee: "You" }]);
+    setTaskDialogOpen(false);
   };
 
   const commitNewTaskForTab = () => {
@@ -622,27 +637,44 @@ export default function ProjectDashboard() {
   };
 
   const addMilestone = () => {
-    const name = window.prompt("Reminder or milestone name:");
-    if (!name?.trim()) return;
-    const date = window.prompt("Target date (e.g. 5 Jul 2024), or leave blank:", "") || "TBD";
-    const id = `m-${Date.now()}`;
-    setMilestonesByPhase((prev) => ({
-      ...prev,
-      [selectedPhase]: [...(prev[selectedPhase] || []), { id, icon: "📌", name: name.trim(), date }],
-    }));
+    setMilestoneDialog({
+      open: true,
+      mode: "add",
+      phase: selectedPhase,
+      id: null,
+      initial: { name: "", date: "" },
+    });
   };
 
   const editMilestoneFromPhase = (phase, id) => {
     const row = (milestonesByPhase[phase] || []).find((x) => x.id === id);
     if (!row) return;
-    const name = window.prompt("Name:", row.name);
-    if (name == null || !name.trim()) return;
-    const date = window.prompt("Date:", row.date);
-    if (date == null) return;
-    setMilestonesByPhase((prev) => ({
-      ...prev,
-      [phase]: (prev[phase] || []).map((x) => (x.id === id ? { ...x, name: name.trim(), date } : x)),
-    }));
+    setMilestoneDialog({
+      open: true,
+      mode: "edit",
+      phase,
+      id,
+      initial: { name: row.name, date: row.date },
+    });
+  };
+
+  const submitMilestoneDialog = ({ name, date }) => {
+    if (!name) return;
+    const targetDate = date || "TBD";
+    const { mode, phase, id } = milestoneDialog;
+    if (mode === "add") {
+      const newId = `m-${Date.now()}`;
+      setMilestonesByPhase((prev) => ({
+        ...prev,
+        [phase]: [...(prev[phase] || []), { id: newId, icon: "📌", name, date: targetDate }],
+      }));
+    } else if (id) {
+      setMilestonesByPhase((prev) => ({
+        ...prev,
+        [phase]: (prev[phase] || []).map((x) => (x.id === id ? { ...x, name, date: targetDate } : x)),
+      }));
+    }
+    setMilestoneDialog((s) => ({ ...s, open: false }));
   };
 
   const removeMilestoneFromPhase = (phase, id) => {
@@ -880,7 +912,49 @@ export default function ProjectDashboard() {
         )}
 
         <div className="px-5 md:px-10" style={{ flex: 1, paddingTop: 20, paddingBottom: 32, overflowY: "auto" }}>
-          {needsProjectPick ? (
+          {needsSignIn ? (
+            <div style={{ ...panel, padding: 32, maxWidth: 480, margin: "48px auto", textAlign: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 10 }}>Sign in to open your project hub</div>
+              <p style={{ fontSize: 14, color: "#57534E", lineHeight: 1.6, margin: "0 0 20px" }}>
+                Saved builds, v0 designs, and estimates live in your account. Sign in to see your projects — we don’t
+                show sample data here.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/sign-in?mode=signin&role=homeowner&redirect=/project")}
+                style={{
+                  background: OR,
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "11px 22px",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  marginRight: 10,
+                }}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/build")}
+                style={{
+                  background: "#fff",
+                  color: OR,
+                  border: `1.5px solid ${OR}`,
+                  borderRadius: 8,
+                  padding: "11px 18px",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Start a build
+              </button>
+            </div>
+          ) : null}
+          {!needsSignIn && needsProjectPick ? (
             <div style={{ ...panel, padding: 28, maxWidth: 520, margin: "24px auto", textAlign: "center" }}>
               <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Select a project</div>
               <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55, margin: "0 0 16px" }}>
@@ -904,7 +978,7 @@ export default function ProjectDashboard() {
               </button>
             </div>
           ) : null}
-          {!needsProjectPick && activeNav === "Overview" && (
+          {!needsSignIn && !needsProjectPick && activeNav === "Overview" && (
           <>
           {/* Phase progress — clickable stages */}
           <div style={{ ...panel, padding: "18px 20px 14px", marginBottom: 14 }}>
@@ -1194,7 +1268,7 @@ export default function ProjectDashboard() {
           </>
           )}
 
-          {!needsProjectPick && activeNav === "Timeline" && (
+          {!needsSignIn && !needsProjectPick && activeNav === "Timeline" && (
             <div style={{ maxWidth: 800 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Timeline</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
@@ -1245,7 +1319,7 @@ export default function ProjectDashboard() {
             </div>
           )}
 
-          {!needsProjectPick && activeNav === "Tasks" && (
+          {!needsSignIn && !needsProjectPick && activeNav === "Tasks" && (
             <div style={{ maxWidth: 900 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>All tasks</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 18px", lineHeight: 1.55 }}>
@@ -1356,7 +1430,7 @@ export default function ProjectDashboard() {
             </div>
           )}
 
-          {!needsProjectPick && activeNav === "Budget" && (
+          {!needsSignIn && !needsProjectPick && activeNav === "Budget" && (
             <div style={{ maxWidth: 820 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Budget</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
@@ -1429,7 +1503,7 @@ export default function ProjectDashboard() {
             </div>
           )}
 
-          {!needsProjectPick && activeNav === "Site Feed" && (
+          {!needsSignIn && !needsProjectPick && activeNav === "Site Feed" && (
             <div style={{ maxWidth: 900 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Site feed</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
@@ -1455,7 +1529,7 @@ export default function ProjectDashboard() {
             </div>
           )}
 
-          {!needsProjectPick && activeNav === "Settings" && (
+          {!needsSignIn && !needsProjectPick && activeNav === "Settings" && (
             <div style={{ maxWidth: 720 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Settings</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
@@ -1512,6 +1586,28 @@ export default function ProjectDashboard() {
         </div>
       </div>
     </div>
+
+      <HmFormDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        title={`Add task — ${selectedPhase}`}
+        fields={[{ name: "value", label: "Task title", placeholder: "e.g. Review slab drawings" }]}
+        submitLabel="Add task"
+        onSubmit={submitNewTask}
+      />
+      <HmFormDialog
+        open={milestoneDialog.open}
+        onOpenChange={(open) => setMilestoneDialog((s) => ({ ...s, open }))}
+        title={milestoneDialog.mode === "add" ? "Add reminder / milestone" : "Edit milestone"}
+        description={milestoneDialog.phase ? `Stage: ${milestoneDialog.phase}` : undefined}
+        fields={[
+          { name: "name", label: "Name", placeholder: "e.g. Footing inspection" },
+          { name: "date", label: "Target date", placeholder: "e.g. 5 Jul 2024 (optional)" },
+        ]}
+        initialValues={milestoneDialog.initial}
+        submitLabel={milestoneDialog.mode === "add" ? "Add" : "Save"}
+        onSubmit={submitMilestoneDialog}
+      />
 
       <style>{`
         @media (max-width: 1100px) {

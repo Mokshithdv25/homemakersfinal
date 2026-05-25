@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ProjectHubShell from "../components/ProjectHubShell";
+import HmFormDialog from "../components/HmFormDialog";
 
 const OR = "#C85F2B";
 
@@ -167,6 +168,7 @@ export default function DocumentVault() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [sortBy, setSortBy] = useState("modified_desc");
   const [toast, setToast] = useState("");
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const stageFromUrl = searchParams.get("stage") || "";
   const [uploadStage, setUploadStage] = useState(stageFromUrl);
 
@@ -237,16 +239,17 @@ export default function DocumentVault() {
     showToast(`${added.length} file(s) added${stageMsg}`);
   };
 
-  const newFolder = () => {
-    const name = window.prompt("New folder name (e.g. 08. Consultant reports):");
-    if (!name || !name.trim()) return;
+  const newFolder = () => setFolderDialogOpen(true);
+
+  const submitNewFolder = ({ value: name }) => {
+    if (!name) return;
     setFolders((prev) => [
       ...prev,
       {
         id: `fd-${Date.now()}`,
         icon: "📁",
-        name: name.trim(),
-        sub: "Custom folder — add a description in settings",
+        name,
+        sub: "Custom folder",
         files: 0,
         date: "Just now",
         who: "You",
@@ -254,6 +257,7 @@ export default function DocumentVault() {
         category: "Uncategorized",
       },
     ]);
+    setFolderDialogOpen(false);
     showToast("Folder created");
   };
 
@@ -554,6 +558,16 @@ export default function DocumentVault() {
           </div>
         </div>
       </div>
+
+      <HmFormDialog
+        open={folderDialogOpen}
+        onOpenChange={setFolderDialogOpen}
+        title="New folder"
+        description="Organize uploads by consultant, stage, or trade."
+        fields={[{ name: "value", label: "Folder name", placeholder: "e.g. 08. Consultant reports" }]}
+        submitLabel="Create folder"
+        onSubmit={submitNewFolder}
+      />
 
       <style>{`
         @media (max-width: 900px) {

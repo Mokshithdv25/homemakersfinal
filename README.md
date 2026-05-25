@@ -43,14 +43,14 @@ Source control: GitHub
 - New-home and remodel wizards with **AI layouts, visuals, and estimates**
 - Sign-in–gated flows; project pack can persist to Supabase
 - Marketing site and inspiration content
-- Project hub UI (**demo** — not full live PM yet)
-- Browse marketplace / shop UI (**partial**)
+- Project hub for saved v0 packs, briefs, and seeded phases/tasks after handoff
+- Browse marketplace and shop (catalog UI; checkout not live)
 
 **Professionals**
 
 - Onboarding: craft → details → portfolio → go live
 - Public portfolio (`/profile/:slug`)
-- Pro dashboard (**mostly demo**)
+- Pro dashboard and leads UI (sample metrics labeled in-app where applicable)
 
 **Mobile**
 

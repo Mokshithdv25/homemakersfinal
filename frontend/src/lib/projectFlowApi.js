@@ -358,6 +358,9 @@ export async function upsertFlowProject({
   if (!supabase) return null;
 
   const ownerUserId = await getCurrentUserId();
+  if (!ownerUserId) {
+    throw new Error("Sign in to save your project.");
+  }
   const budget = budgetFieldsFromBrief(brief);
   const title =
     brief?.title ||
@@ -380,7 +383,7 @@ export async function upsertFlowProject({
     budget_min: budget.budget_min,
     budget_max: budget.budget_max,
   };
-  if (ownerUserId) projectRow.owner_user_id = ownerUserId;
+  projectRow.owner_user_id = ownerUserId;
 
   let projectId = existingProjectId || null;
   let project = null;
@@ -522,9 +525,11 @@ async function loadV0Pack(projectId) {
 export async function loadProjectBoard({ projectId, source }) {
   if (!supabase) return null;
 
+  const ownerUserId = await getCurrentUserId();
+  if (!ownerUserId) return null;
+
   let resolvedProjectId = projectId || "";
   let project = null;
-  const ownerUserId = await getCurrentUserId();
 
   if (!resolvedProjectId) {
     const flowType = mapFlowType(source);
@@ -545,12 +550,16 @@ export async function loadProjectBoard({ projectId, source }) {
   if (!resolvedProjectId) return null;
 
   if (!project) {
-    const { data } = await supabase.from("projects").select("*").eq("id", resolvedProjectId).limit(1);
+    const { data } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", resolvedProjectId)
+      .eq("owner_user_id", ownerUserId)
+      .limit(1);
     project = data?.[0] || null;
   }
 
-  if (ownerUserId && project?.owner_user_id && project.owner_user_id !== ownerUserId) {
-    console.warn("loadProjectBoard: project not owned by current user");
+  if (!project || project.owner_user_id !== ownerUserId) {
     return null;
   }
 

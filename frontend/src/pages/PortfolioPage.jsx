@@ -7,6 +7,7 @@ import {
   migrateLegacyPortfolioMedia,
 } from "../lib/portfolioStorage";
 import { getPublicProfile } from "../lib/api";
+import { formatLocationLabel } from "../lib/formatLocation";
 
 /* ── Specialty SVG icons ── */
 const SPEC_SVG = {
@@ -53,8 +54,18 @@ export default function PortfolioPage() {
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',sans-serif", background: "#faf9f7" }}>
       <div style={{ fontSize: 52, marginBottom: 12 }}>🏠</div>
       <h1 style={{ fontWeight: 800, fontSize: 22, marginBottom: 8 }}>Profile not found</h1>
-      <p style={{ color: "#888", marginBottom: 24 }}>This portfolio hasn't been published yet.</p>
-      <Link to="/craft" style={{ background: "#E05A20", color: "#fff", fontWeight: 700, padding: "12px 32px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 15, textDecoration: "none", display: "inline-block" }}>Create Your Portfolio</Link>
+      <p style={{ color: "#888", marginBottom: 8, maxWidth: 360, textAlign: "center", lineHeight: 1.5 }}>
+        No published profile matches <strong>{slug}</strong>. Check the link or browse live pros.
+      </p>
+      <p style={{ color: "#aaa", fontSize: 13, marginBottom: 24 }}>Draft portfolios are only visible to their owner until Go Live.</p>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+        <Link to="/browse" style={{ background: "#fff", color: "#E05A20", fontWeight: 700, padding: "12px 24px", borderRadius: 10, border: "2px solid #E05A20", fontSize: 15, textDecoration: "none" }}>
+          Browse pros
+        </Link>
+        <Link to="/craft" style={{ background: "#E05A20", color: "#fff", fontWeight: 700, padding: "12px 32px", borderRadius: 10, fontSize: 15, textDecoration: "none" }}>
+          Create your portfolio
+        </Link>
+      </div>
     </div>
   );
 
@@ -74,7 +85,7 @@ export default function PortfolioPage() {
   const email = data.email || "";
 
   const metaItems = [
-    city && { icon: "📍", text: city + ", Karnataka" },
+    formatLocationLabel(city) && { icon: "📍", text: formatLocationLabel(city) },
     exp && { icon: "🗓", text: exp },
     business && { icon: "🏢", text: business },
     email && { icon: "✉️", text: email },

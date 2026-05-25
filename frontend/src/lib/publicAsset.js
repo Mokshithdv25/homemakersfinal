@@ -1,5 +1,5 @@
 /**
- * Root-absolute public URLs — works on nested routes (/build/new-home) and Vercel (homepage ".").
+ * Root-absolute public URLs for web (PUBLIC_URL empty). Capacitor builds use PUBLIC_URL=. via npm run build:mobile.
  */
 export function publicAsset(filename) {
   const name = String(filename || "").replace(/^\//, "");

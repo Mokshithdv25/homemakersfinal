@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Search, Package, ArrowRight } from "lucide-react";
 import LandingNavbar from "../components/landing/LandingNavbar";
@@ -22,74 +22,90 @@ const DEPT_CATEGORIES = [
 ];
 
 const ROOM_THEMES = [
-  { title: "Living Room", img: "theme_living_room.png", tag: "Modern Indian" },
-  { title: "Puja Room", img: "theme_puja_room.png", tag: "Traditional" },
-  { title: "Modular Kitchen", img: "theme_kitchen.png", tag: "Premium" },
-  { title: "Master Bedroom", img: "theme_bedroom.png", tag: "Contemporary" },
+  { title: "Living Room", img: "theme_living_room.png", tag: "Modern Indian", deptIds: ["finishes", "joinery"] },
+  { title: "Puja Room", img: "theme_puja_room.png", tag: "Traditional", deptIds: ["finishes"] },
+  { title: "Modular Kitchen", img: "theme_kitchen.png", tag: "Premium", deptIds: ["kitchen", "finishes"] },
+  { title: "Master Bedroom", img: "theme_bedroom.png", tag: "Contemporary", deptIds: ["finishes", "joinery"] },
 ];
 
 const DEPARTMENTS = [
   {
     title: "Cement & concrete",
     tag: "Raw materials",
+    deptId: "structural",
     img: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=600&q=75",
     blurb: "OPC, PPC, ready-mix, and admixtures for your slab and structural pours.",
   },
   {
     title: "Steel & reinforcement",
     tag: "Raw materials",
+    deptId: "structural",
     img: `${process.env.PUBLIC_URL || ""}/shop_steel.png`,
     blurb: "TMT bars, mesh, and structural steel — spec-linked to your estimate where possible.",
   },
   {
     title: "Bricks & blocks",
     tag: "Masonry",
+    deptId: "structural",
     img: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=600&q=75",
     blurb: "Fly ash, AAC, and clay masonry for walls and partitions.",
   },
   {
     title: "Electrical & lighting",
     tag: "MEP",
+    deptId: "mep",
     img: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=600&q=75",
     blurb: "Cables, switchgear, fixtures, and smart-home-ready accessories.",
   },
   {
     title: "Plumbing & bath",
     tag: "MEP",
+    deptId: "mep",
     img: "https://images.unsplash.com/photo-1552321554-5fefe8c9ef14?w=600&q=75",
     blurb: "CPVC, sanitaryware, showers, and kitchen sinks.",
   },
   {
     title: "Flooring & cladding",
     tag: "Finishes",
+    deptId: "finishes",
     img: `${process.env.PUBLIC_URL || ""}/shop_flooring.png`,
     blurb: "Tiles, stone, laminate, and exterior cladding panels.",
   },
   {
     title: "Paint & waterproofing",
     tag: "Finishes",
+    deptId: "finishes",
     img: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=600&q=75",
     blurb: "Interior/exterior coats, sealants, and terrace waterproofing systems.",
   },
   {
     title: "Doors, windows & hardware",
     tag: "Joinery",
+    deptId: "joinery",
     img: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600&q=75",
     blurb: "FRP, UPVC, aluminium systems, and ironmongery.",
   },
   {
     title: "Modular kitchen & wardrobes",
     tag: "Finished",
+    deptId: "kitchen",
     img: "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=600&q=75",
     blurb: "Factory-finished carcasses, shutters, and soft-close hardware.",
   },
   {
     title: "Landscaping & outdoor",
     tag: "Site",
+    deptId: "site",
     img: "https://images.unsplash.com/photo-1598902108854-10e335adac99?w=600&q=75",
     blurb: "Pavers, turf, lighting, and exterior furniture.",
   },
 ];
+
+function matchesQuery(item, q) {
+  if (!q) return true;
+  const hay = `${item.title} ${item.tag} ${item.blurb}`.toLowerCase();
+  return hay.includes(q);
+}
 
 export default function ShopPage() {
   const navigate = useNavigate();
@@ -97,6 +113,46 @@ export default function ShopPage() {
   const inProjectHub = pathname === "/project/shop";
   const findProsTarget = inProjectHub ? "/project/browse" : "/browse";
   const [q, setQ] = useState("");
+  const [activeDeptId, setActiveDeptId] = useState(null);
+  const [activeTheme, setActiveTheme] = useState(null);
+  const departmentsRef = useRef(null);
+
+  const normalizedQ = q.trim().toLowerCase();
+
+  const filteredDepartments = useMemo(() => {
+    const themeDeptIds = activeTheme?.deptIds;
+    return DEPARTMENTS.filter((d) => {
+      if (activeDeptId && d.deptId !== activeDeptId) return false;
+      if (themeDeptIds?.length && !themeDeptIds.includes(d.deptId)) return false;
+      return matchesQuery(d, normalizedQ);
+    });
+  }, [activeDeptId, activeTheme, normalizedQ]);
+
+  const scrollToDepartments = () => {
+    departmentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const runSearch = () => {
+    scrollToDepartments();
+  };
+
+  const selectDept = (id) => {
+    setActiveDeptId((prev) => (prev === id ? null : id));
+    setActiveTheme(null);
+    scrollToDepartments();
+  };
+
+  const selectTheme = (theme) => {
+    setActiveTheme((prev) => (prev?.title === theme.title ? null : theme));
+    setActiveDeptId(null);
+    scrollToDepartments();
+  };
+
+  const clearFilters = () => {
+    setQ("");
+    setActiveDeptId(null);
+    setActiveTheme(null);
+  };
 
   const main = (
     <main className={inProjectHub ? "min-h-0" : "pt-[4.65rem]"}>
@@ -136,6 +192,9 @@ export default function ShopPage() {
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") runSearch();
+                  }}
                   placeholder="Search cement, tiles, switches, sanitaryware…"
                   className="w-full bg-transparent font-body text-sm text-[#fcfbfa] placeholder:text-[#d4c4b8]/80 outline-none"
                   aria-label="Search materials"
@@ -144,7 +203,7 @@ export default function ShopPage() {
               <Button
                 type="button"
                 className="gradient-copper h-auto rounded-xl px-6 py-3 font-body text-sm font-semibold text-primary-foreground shadow-md"
-                onClick={() => {}}
+                onClick={runSearch}
               >
                 Search
               </Button>
@@ -156,16 +215,34 @@ export default function ShopPage() {
         <section className="border-b border-border/40 bg-card/40 py-4">
           <div className="container max-w-6xl">
             <div className="flex flex-wrap justify-center gap-2 md:gap-3">
-              {DEPT_CATEGORIES.map((c) => (
+              {DEPT_CATEGORIES.map((c) => {
+                const active = activeDeptId === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => selectDept(c.id)}
+                    aria-pressed={active}
+                    className={`rounded-full border px-4 py-2 font-body text-xs font-medium transition-colors ${
+                      active
+                        ? "border-copper bg-copper/10 text-copper"
+                        : "border-border/70 bg-background/90 text-foreground hover:border-copper/40 hover:bg-secondary/50"
+                    }`}
+                  >
+                    <span className="font-semibold">{c.label}</span>
+                    <span className="text-muted-foreground"> · {c.sub}</span>
+                  </button>
+                );
+              })}
+              {(activeDeptId || activeTheme || normalizedQ) && (
                 <button
-                  key={c.id}
                   type="button"
-                  className="rounded-full border border-border/70 bg-background/90 px-4 py-2 font-body text-xs font-medium text-foreground transition-colors hover:border-copper/40 hover:bg-secondary/50"
+                  onClick={clearFilters}
+                  className="rounded-full border border-dashed border-border px-4 py-2 font-body text-xs font-semibold text-muted-foreground hover:text-foreground"
                 >
-                  <span className="font-semibold">{c.label}</span>
-                  <span className="text-muted-foreground"> · {c.sub}</span>
+                  Clear filters
                 </button>
-              ))}
+              )}
             </div>
           </div>
         </section>
@@ -185,13 +262,18 @@ export default function ShopPage() {
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {ROOM_THEMES.map((theme) => (
-                <button
-                  key={theme.title}
-                  type="button"
-                  className="group relative flex flex-col overflow-hidden rounded-2xl p-0 text-left transition-all hover:-translate-y-1 hover:shadow-xl border-none bg-black"
-                  onClick={() => {}}
-                >
+              {ROOM_THEMES.map((theme) => {
+                const active = activeTheme?.title === theme.title;
+                return (
+                  <button
+                    key={theme.title}
+                    type="button"
+                    aria-pressed={active}
+                    className={`group relative flex flex-col overflow-hidden rounded-2xl p-0 text-left transition-all hover:-translate-y-1 hover:shadow-xl border-none bg-black ${
+                      active ? "ring-2 ring-copper ring-offset-2" : ""
+                    }`}
+                    onClick={() => selectTheme(theme)}
+                  >
                   <div className="relative aspect-[4/5] w-full overflow-hidden">
                     <img
                       src={`${process.env.PUBLIC_URL || ""}/${theme.img}`}
@@ -206,19 +288,20 @@ export default function ShopPage() {
                       </div>
                       <h3 className="font-display text-xl font-medium text-white">{theme.title}</h3>
                       <div className="mt-2 flex items-center gap-1.5 font-body text-xs font-semibold text-[#e3c7a3] opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
-                        Shop the look
+                        {active ? "Showing related departments" : "Shop the look"}
                         <ArrowRight className="h-3.5 w-3.5" />
                       </div>
                     </div>
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>
 
         {/* Shop by department */}
-        <section className="py-14 md:py-20">
+        <section ref={departmentsRef} className="py-14 md:py-20 scroll-mt-24">
           <div className="container max-w-6xl">
             <div className="mb-10 text-center">
               <span className="section-kicker mb-3">Shop by department</span>
@@ -226,22 +309,34 @@ export default function ShopPage() {
                 From foundation pour to final fit-off
               </h2>
               <p className="mx-auto mt-3 max-w-2xl font-body text-sm text-muted-foreground md:text-base">
-                Curated for residential projects in India — quantities can later tie to your BOQ and site delivery slots.
+                {filteredDepartments.length === DEPARTMENTS.length
+                  ? "Curated for residential projects in India — quantities can later tie to your BOQ and site delivery slots."
+                  : `${filteredDepartments.length} department${filteredDepartments.length === 1 ? "" : "s"} match your filters.`}
               </p>
             </div>
 
+            {filteredDepartments.length === 0 ? (
+              <div className="mx-auto max-w-md rounded-2xl border border-dashed border-border bg-secondary/30 px-6 py-10 text-center">
+                <p className="font-body text-sm text-muted-foreground">
+                  No departments match that search. Try another keyword or clear filters.
+                </p>
+                <Button type="button" variant="outline" className="mt-4 rounded-xl" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              </div>
+            ) : (
             <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              {DEPARTMENTS.map((d) => (
+              {filteredDepartments.map((d) => (
                 <button
                   key={d.title}
                   type="button"
                   className="group surface-panel flex flex-col overflow-hidden rounded-2xl p-0 text-left transition-all hover:-translate-y-0.5 hover:border-copper/25 hover:shadow-lg"
-                  onClick={() => {}}
+                  onClick={() => selectDept(d.deptId)}
                 >
                   <div className="relative aspect-[4/3] w-full overflow-hidden">
                     <img
                       src={d.img}
-                      alt=""
+                      alt={d.title}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                     />
                     <div className="absolute left-2 top-2 rounded-full bg-black/50 px-2 py-0.5 font-body text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm">
@@ -252,13 +347,14 @@ export default function ShopPage() {
                     <h3 className="font-display text-base font-semibold text-foreground">{d.title}</h3>
                     <p className="mt-1.5 flex-1 font-body text-xs leading-relaxed text-muted-foreground">{d.blurb}</p>
                     <span className="mt-3 inline-flex items-center gap-1 font-body text-xs font-semibold text-copper">
-                      View SKUs
+                      Filter by {DEPT_CATEGORIES.find((c) => c.id === d.deptId)?.label || "category"}
                       <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   </div>
                 </button>
               ))}
             </div>
+            )}
 
             <div className="mx-auto mt-12 flex max-w-2xl flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-secondary/30 px-6 py-8 text-center">
               <Package className="h-10 w-10 text-copper/80" aria-hidden />

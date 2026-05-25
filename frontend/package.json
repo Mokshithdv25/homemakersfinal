@@ -2,7 +2,6 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
-  "homepage": ".",
   "proxy": "http://localhost:8000",
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -70,8 +69,9 @@
   "scripts": {
     "start": "craco start",
     "build": "craco build",
+    "build:mobile": "PUBLIC_URL=. craco build",
     "test": "craco test",
-    "cap:sync": "npm run build && npx cap sync",
+    "cap:sync": "npm run build:mobile && npx cap sync",
     "cap:open:ios": "npx cap open ios",
     "cap:open:android": "npx cap open android",
     "cap:run:ios": "npm run cap:sync && npx cap run ios",

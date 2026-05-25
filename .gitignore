@@ -45,6 +45,10 @@ dump.rdb
 
 # System files
 .DS_Store
+.gitconfig
+
+# Internal / agent artifacts
+test_result.md
 *.pem
 
 # Python

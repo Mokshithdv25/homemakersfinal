@@ -1,5 +1,15 @@
 import { getSupabase } from "./supabaseClient";
 
+/** Persistent session row: email + role + profile (requires homemakers_single_setup.sql). */
+export async function fetchMySession() {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const { data, error } = await sb.rpc("get_my_session");
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || null;
+}
+
 export async function fetchUserProfile(userId) {
   const sb = getSupabase();
   if (!sb || !userId) return null;
@@ -20,6 +30,7 @@ export async function upsertUserProfile({ fullName, phone, city, role }) {
 
   const row = {
     id: user.id,
+    email: user.email || null,
     role: role === "pro" ? "pro" : "homeowner",
     full_name: fullName,
     phone: phone || null,
@@ -39,7 +50,7 @@ export function persistHmSessionFromSupabase(user, profile, { activeRole } = {})
       ? activeRole
       : profile?.role || user.user_metadata?.role || "homeowner";
   const name = profile?.full_name || "";
-  const emailStr = user.email || "";
+  const emailStr = profile?.email || user.email || "";
   try {
     localStorage.setItem(
       "hmUser",

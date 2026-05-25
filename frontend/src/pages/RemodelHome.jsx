@@ -258,6 +258,12 @@ export default function RemodelHome() {
   const styleUploadRef = useRef(null);
   const [step, setStep] = useState(1);
   const [maxStepReached, setMaxStepReached] = useState(1);
+
+  useEffect(() => {
+    if (!isHomeownerSignedIn()) {
+      navigate(buildSignInRedirect(`${location.pathname}${location.search}`), { replace: true });
+    }
+  }, [navigate, location.pathname, location.search]);
   const [dreamVision, setDreamVision] = useState(
     "Brighter living room with Scandinavian calm — warm oak accents, hidden storage for toys, and soft daylight. Keep the sofa; rethink the TV wall and ceiling."
   );

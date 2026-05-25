@@ -46,6 +46,7 @@ export default function SignInPage() {
   const [loading, setLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [authError, setAuthError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
 
   const isSignUp = mode === "signup";
   const showPhoneOtp = process.env.NODE_ENV === "development";
@@ -200,6 +201,34 @@ export default function SignInPage() {
     return () => subscription.unsubscribe();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- OAuth return only
   }, []);
+
+  const handleForgotPassword = async () => {
+    const email = authEmail.trim();
+    if (!email) {
+      setAuthError("Enter your email address first.");
+      setAuthNotice("");
+      return;
+    }
+    const sb = getSupabase();
+    if (!sb) {
+      setAuthError("Sign-in is not available on this deployment.");
+      return;
+    }
+    setAuthError("");
+    setAuthNotice("");
+    setLoading(true);
+    try {
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/sign-in?mode=signin`,
+      });
+      if (error) throw error;
+      setAuthNotice("If that email is registered, we sent a reset link. Check your inbox.");
+    } catch (err) {
+      setAuthError(err?.message || "Could not send reset email. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEmailSignIn = async () => {
     if (!authEmail || !authPassword) return;
@@ -454,6 +483,12 @@ export default function SignInPage() {
                     </p>
                   ) : null}
 
+                  {authNotice && step === "entry" ? (
+                    <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 font-body text-sm text-emerald-900">
+                      {authNotice}
+                    </p>
+                  ) : null}
+
                   {loading && step === "entry" ? (
                     <div className="flex items-center justify-center gap-2 py-2 text-copper font-body text-sm">
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -593,7 +628,7 @@ export default function SignInPage() {
                         </p>
                       ) : (
                         <p className="text-[11px] leading-relaxed text-amber-800/90 font-body text-center rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2">
-                          Demo mode: Supabase env vars are missing, so this device only stores a local session after you finish the profile step.
+                          This build is not connected to Supabase. Projects and portfolios will not save to the cloud until env vars are set on Vercel.
                         </p>
                       )}
                       <div className="space-y-4">
@@ -625,7 +660,12 @@ export default function SignInPage() {
                           />
                           {!isSignUp && (
                             <div className="flex justify-end mt-1">
-                              <button type="button" className="text-copper font-body text-xs font-medium hover:underline">
+                              <button
+                                type="button"
+                                onClick={handleForgotPassword}
+                                disabled={loading}
+                                className="text-copper font-body text-xs font-medium hover:underline disabled:opacity-50"
+                              >
                                 Forgot password?
                               </button>
                             </div>
