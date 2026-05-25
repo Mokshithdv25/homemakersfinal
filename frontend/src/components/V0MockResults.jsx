@@ -32,8 +32,27 @@ export function V0GeneratingPanel({ phase = "images" }) {
 }
 
 export function V0AiSourceBanner({ imageBundle, planBundle }) {
-  const isLive = imageBundle && !imageBundle.mock && planBundle && !planBundle.mock;
+  const imagesLive = imageBundle && !imageBundle.mock;
+  const planLive = planBundle && !planBundle.mock;
+  const isLive = imagesLive && planLive;
   const mockNote = imageBundle?.provider_note || planBundle?.provider_note;
+  if (imagesLive && !planLive) {
+    return (
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "10px 14px",
+          borderRadius: 10,
+          fontSize: 12,
+          background: "rgba(34,163,107,0.08)",
+          border: "1px solid rgba(34,163,107,0.35)",
+          lineHeight: 1.45,
+        }}
+      >
+        <strong>Estimate: AI-generated</strong> from your brief. Concept images from Grok; floor plans may still be indicative cards.
+      </div>
+    );
+  }
   if (isLive) {
     return (
       <div

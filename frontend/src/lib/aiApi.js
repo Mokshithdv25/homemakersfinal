@@ -26,6 +26,24 @@ export function isAiBackendConfigured() {
   return Boolean(aiClient);
 }
 
+/** Quick check: is Render AI up and is Grok configured? */
+export async function fetchAiBackendStatus() {
+  if (!aiClient) {
+    return { ok: false, grok_configured: false, host: null, error: "REACT_APP_BACKEND_URL not set on Vercel" };
+  }
+  try {
+    const { data } = await aiClient.get("/ai/status", { timeout: 12000 });
+    return { ok: true, host: getAiBackendHost(), ...data };
+  } catch (err) {
+    return {
+      ok: false,
+      grok_configured: false,
+      host: getAiBackendHost(),
+      error: formatAiApiError(err),
+    };
+  }
+}
+
 /** Hostname only — safe to show in UI (no secrets). */
 export function getAiBackendHost() {
   if (!normalizedBackendUrl) return null;
@@ -203,6 +221,7 @@ function mockEstimateClient(flow, brief) {
  * Design images from wizard brief → backend → Grok Imagine.
  */
 export async function requestV0Images(flow, brief) {
+  const safeBrief = brief && typeof brief === "object" ? brief : {};
   if (!aiClient) {
     if (process.env.NODE_ENV === "production") {
       throw new Error(
@@ -210,20 +229,39 @@ export async function requestV0Images(flow, brief) {
       );
     }
     await fallbackDelay();
-    return mockV0ImagesClient(flow, brief);
+    return mockV0ImagesClient(flow, safeBrief);
   }
-  const { data } = await aiClient.post("/ai/v0-images", { flow, brief });
+  try {
+    const { data } = await aiClient.post("/ai/v0-images", { flow, brief: safeBrief });
 
-  if (!data.floor_plans || data.floor_plans.length === 0) {
-    const fallbackMock = mockV0ImagesClient(flow, brief);
-    data.floor_plans = fallbackMock.floor_plans;
+    if (!data.floor_plans || data.floor_plans.length === 0) {
+      const fallbackMock = mockV0ImagesClient(flow, safeBrief);
+      data.floor_plans = fallbackMock.floor_plans;
+    }
+
+    if (!data.images || data.images.length === 0) {
+      const fallbackMock = mockV0ImagesClient(flow, safeBrief);
+      return {
+        ...fallbackMock,
+        floor_plans: data.floor_plans?.length ? data.floor_plans : fallbackMock.floor_plans,
+        provider_note: "No live concept images returned — using preview renders.",
+      };
+    }
+
+    return data;
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status >= 500 || status === 404 || err?.code === "ERR_NETWORK") {
+      const mock = mockV0ImagesClient(flow, safeBrief);
+      mock.mock = true;
+      mock.provider_note =
+        status >= 500
+          ? "Render image API error — using preview images. Redeploy homemakers-api on Render from latest main, then Regenerate."
+          : `Image API unreachable (${formatAiApiError(err)}). Using preview images.`;
+      return mock;
+    }
+    throw err;
   }
-
-  if (!data.images || data.images.length === 0) {
-    throw new Error("No concept images returned from the API. Try again in a minute.");
-  }
-
-  return data;
 }
 
 /**

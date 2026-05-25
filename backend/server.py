@@ -527,8 +527,15 @@ def _grok_image_timeout_sec() -> int:
         return 24
 
 
+def _should_inline_grok_images() -> bool:
+    """Inlining bloats JSON (~1MB+). Default off — browser loads xAI CDN URLs directly."""
+    return os.getenv("GROK_INLINE_IMAGES", "0").strip().lower() in ("1", "true", "yes")
+
+
 def _inline_image_url(url: str) -> str:
     """Fetch remote Grok CDN URLs server-side so the client gets durable data URLs."""
+    if not _should_inline_grok_images():
+        return url
     if not url or str(url).startswith("data:"):
         return url
     try:
@@ -836,54 +843,78 @@ def _remodel_static_floor_plans(brief: dict) -> List[dict]:
     ]
 
 
+def _default_floor_plans(flow: FlowKind, brief: dict) -> List[dict]:
+    """Indicative plan cards — avoid calling full mock builder from inside Grok path."""
+    if flow == "remodel":
+        return _remodel_static_floor_plans(brief)
+    loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
+    floors = str(brief.get("floors") or "G+1")
+    return [
+        {
+            "url": "/floorplan_ground.png",
+            "label": "Ground floor plan v0",
+            "hint": f"Zoning + room grid for {loc} (indicative, not GFC)",
+        },
+        {
+            "url": "/floorplan_first.png",
+            "label": "First floor plan v0" if floors != "G" else "Alternate ground plan v0",
+            "hint": "Upper level blocking + baths" if floors != "G" else "Second layout option from same brief",
+        },
+    ]
+
+
 def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]:
     if not _xai_api_key("image"):
         logger.warning("Grok images skipped: no XAI_API_KEY / HM_AI_IMAGE_API_KEY")
         return None
 
     try:
-        mood_count = max(1, min(2, int(os.getenv("GROK_V0_MOOD_IMAGES", "2"))))
-    except ValueError:
-        mood_count = 2
+        try:
+            mood_count = max(1, min(2, int(os.getenv("GROK_V0_MOOD_IMAGES", "2"))))
+        except ValueError:
+            mood_count = 2
 
-    mood_specs = _grok_v0_image_prompts(flow, brief)[:mood_count]
-    images = _generate_specs_parallel(mood_specs, max_workers=mood_count)
+        mood_specs = _grok_v0_image_prompts(flow, brief)[:mood_count]
+        images = _generate_specs_parallel(mood_specs, max_workers=mood_count)
 
-    floor_plans: List[dict] = []
-    if flow == "remodel":
-        gen_fp = os.getenv("GROK_V0_REMODEL_FLOOR_PLANS", "0").strip().lower() in (
-            "1",
-            "true",
-            "yes",
+        floor_plans: List[dict] = []
+        if flow == "remodel":
+            gen_fp = os.getenv("GROK_V0_REMODEL_FLOOR_PLANS", "0").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            if gen_fp:
+                fp_specs = _grok_remodel_floor_plan_prompts(brief)
+                floor_plans = _generate_specs_parallel(fp_specs, max_workers=2)
+            if not floor_plans:
+                floor_plans = _remodel_static_floor_plans(brief)
+        else:
+            floor_plans = _default_floor_plans(flow, brief)
+
+        if not images:
+            logger.warning("Grok returned zero images for flow=%s", flow)
+            return None
+
+        model = os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image").strip() or "grok-imagine-image"
+        fp_note = (
+            " Layout cards are indicative references."
+            if flow == "remodel"
+            else " Floor plans are indicative placeholders."
         )
-        if gen_fp:
-            fp_specs = _grok_remodel_floor_plan_prompts(brief)
-            floor_plans = _generate_specs_parallel(fp_specs, max_workers=2)
-        if not floor_plans:
-            floor_plans = _remodel_static_floor_plans(brief)
-    else:
-        floor_plans = list(_mock_v0_images(flow, brief).floor_plans or [])
-
-    if not images:
-        logger.warning("Grok returned zero images for flow=%s", flow)
+        return AIV0ImagesResponse(
+            images=images,
+            floor_plans=floor_plans,
+            mock=False,
+            provider_note=(
+                f"Generated {len(images)} complementary concept image(s) via xAI {model} "
+                f"(2-image v0 pack, ~$0.02/img)."
+                + fp_note
+            ),
+        )
+    except Exception as exc:
+        logger.exception("Grok v0 image pack failed: %s", exc)
         return None
-
-    model = os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image").strip() or "grok-imagine-image"
-    fp_note = (
-        " Layout cards are indicative references."
-        if flow == "remodel"
-        else " Floor plans are indicative placeholders."
-    )
-    return AIV0ImagesResponse(
-        images=images,
-        floor_plans=floor_plans,
-        mock=False,
-        provider_note=(
-            f"Generated {len(images)} complementary concept image(s) via xAI {model} "
-            f"(2-image v0 pack, ~$0.02/img)."
-            + fp_note
-        ),
-    )
 
 
 def _mock_v0_images(flow: FlowKind, brief: dict) -> AIV0ImagesResponse:
@@ -1081,16 +1112,25 @@ async def ai_status():
 
 @api_router.post("/ai/v0-images", response_model=AIV0ImagesResponse)
 async def ai_v0_images(payload: AIV0ImagesRequest):
-    grok = _grok_v0_images(payload.flow, payload.brief)
-    if grok is not None:
-        return grok
-    mock = _mock_v0_images(payload.flow, payload.brief)
-    mock.provider_note = (
-        "Demo placeholders — set XAI_API_KEY on Render (homemakers service) and redeploy. "
-        + (mock.provider_note or "")
-    )
-    logger.warning("ai/v0-images falling back to mock for flow=%s", payload.flow)
-    return mock
+    brief = payload.brief if isinstance(payload.brief, dict) else {}
+    try:
+        grok = _grok_v0_images(payload.flow, brief)
+        if grok is not None:
+            return grok
+        mock = _mock_v0_images(payload.flow, brief)
+        mock.provider_note = (
+            "Demo placeholders — Grok images unavailable. Confirm XAI_API_KEY on Render and redeploy homemakers-api. "
+            + (mock.provider_note or "")
+        )
+        logger.warning("ai/v0-images falling back to mock for flow=%s", payload.flow)
+        return mock
+    except Exception as exc:
+        logger.exception("ai/v0-images handler failed: %s", exc)
+        mock = _mock_v0_images(payload.flow, brief)
+        mock.provider_note = (
+            "Image service error — showing preview placeholders. Redeploy the Render backend (homemakers-api) from latest main."
+        )
+        return mock
 
 
 @api_router.post("/ai/estimate-plan", response_model=AIEstimatePlanResponse)

@@ -23,7 +23,9 @@ services:
       - key: GROK_V0_MOOD_IMAGES
         value: "2"
       - key: GROK_IMAGE_TIMEOUT
-        value: "24"
+        value: "45"
+      - key: GROK_INLINE_IMAGES
+        value: "0"
       - key: GROK_V0_REMODEL_FLOOR_PLANS
         value: "0"
       - key: MONGO_URL
