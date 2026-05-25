@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, User, ChevronDown, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ export default function LandingNavbar({ tagline = null }) {
   const location = useLocation();
   const session = useHmSession();
 
-  const signInHref = ({ role, mode } = {}) => {
+  const signInHref = useCallback(({ role, mode } = {}) => {
     const params = new URLSearchParams();
     params.set("mode", mode || "signin");
     if (role) params.set("role", role);
@@ -62,7 +62,7 @@ export default function LandingNavbar({ tagline = null }) {
       params.set("redirect", base);
     }
     return `/sign-in?${params.toString()}`;
-  };
+  }, [location.pathname, location.search]);
   const isProSession = session?.role === "pro";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [softwareOpen, setSoftwareOpen] = useState(false);
@@ -92,7 +92,7 @@ export default function LandingNavbar({ tagline = null }) {
       { label: "My Project", path: session ? "/project" : signInHref({ role: "homeowner" }) },
       { label: "Shop", path: "/shop" },
     ];
-  }, [isProSession, session]);
+  }, [isProSession, session, signInHref]);
 
   const go = (path) => {
     navigate(path);
