@@ -286,7 +286,7 @@ export async function requestV0Images(flow, brief, { onStatus } = {}) {
       onStatus?.(`Generating concepts… (attempt ${attempt} of ${IMAGE_ATTEMPTS})`);
       await sleep(IMAGE_RETRY_DELAY_MS);
     } else {
-      onStatus?.("Generating design concepts with AI… (about 1–2 minutes)");
+      onStatus?.("Generating matching design views & floor plans… (about 2–4 minutes)");
     }
 
     try {

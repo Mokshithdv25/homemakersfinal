@@ -5,6 +5,7 @@ import os
 import re
 import json
 import base64
+import hashlib
 import logging
 import requests
 from pathlib import Path
@@ -551,6 +552,24 @@ def _inline_image_url(url: str) -> str:
         return url
 
 
+def _grok_image_model() -> str:
+    return os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image").strip() or "grok-imagine-image"
+
+
+def _grok_image_from_response(resp: requests.Response) -> Optional[str]:
+    data = resp.json().get("data") or []
+    if not data:
+        return None
+    item = data[0]
+    url = item.get("url")
+    if url:
+        return _inline_image_url(str(url))
+    b64 = item.get("b64_json")
+    if b64:
+        return f"data:image/jpeg;base64,{b64}"
+    return None
+
+
 def _grok_generate_image(
     prompt: str, aspect_ratio: str = "16:9", timeout_sec: Optional[int] = None
 ) -> Optional[str]:
@@ -558,7 +577,7 @@ def _grok_generate_image(
     if not key:
         return None
 
-    model = os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image").strip() or "grok-imagine-image"
+    model = _grok_image_model()
     timeout = timeout_sec if timeout_sec is not None else _grok_image_timeout_sec()
     try:
         resp = requests.post(
@@ -576,20 +595,68 @@ def _grok_generate_image(
             timeout=timeout,
         )
         resp.raise_for_status()
-        data = resp.json().get("data") or []
-        if not data:
-            return None
-        item = data[0]
-        url = item.get("url")
-        if url:
-            return _inline_image_url(str(url))
-        b64 = item.get("b64_json")
-        if b64:
-            return f"data:image/jpeg;base64,{b64}"
-        return None
+        return _grok_image_from_response(resp)
     except Exception as exc:
         logger.exception("Grok image generation failed: %s", exc)
         return None
+
+
+def _grok_edit_image(
+    prompt: str,
+    reference_urls: List[str],
+    aspect_ratio: Optional[str] = None,
+    timeout_sec: Optional[int] = None,
+) -> Optional[str]:
+    """Edit / extend from reference image(s). Uses xAI /v1/images/edits."""
+    key = _xai_api_key("image")
+    refs = [u for u in reference_urls if u]
+    if not key or not refs:
+        return None
+
+    model = _grok_image_model()
+    timeout = timeout_sec if timeout_sec is not None else _grok_image_timeout_sec()
+    payload: dict = {"model": model, "prompt": prompt, "n": 1}
+    if aspect_ratio:
+        payload["aspect_ratio"] = aspect_ratio
+
+    def _img_obj(url: str) -> dict:
+        return {"url": url, "type": "image_url"}
+
+    if len(refs) == 1:
+        payload["image"] = _img_obj(refs[0])
+    else:
+        payload["images"] = [_img_obj(u) for u in refs[:3]]
+
+    try:
+        resp = requests.post(
+            "https://api.x.ai/v1/images/edits",
+            headers={
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        return _grok_image_from_response(resp)
+    except Exception as exc:
+        logger.exception("Grok image edit failed: %s", exc)
+        return None
+
+
+def _v0_design_seed(brief: dict) -> str:
+    """Stable id so every image in one v0 pack targets the same design session."""
+    try:
+        raw = json.dumps(brief, sort_keys=True, default=str)
+    except TypeError:
+        raw = str(brief)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:10]
+
+
+def _v0_floor_plans_enabled(flow: FlowKind) -> bool:
+    default = "1" if flow == "new_home" else "0"
+    env_key = "GROK_V0_FLOOR_PLANS" if flow == "new_home" else "GROK_V0_REMODEL_FLOOR_PLANS"
+    return os.getenv(env_key, default).strip().lower() in ("1", "true", "yes")
 
 
 def _brief_list(val) -> str:
@@ -619,11 +686,72 @@ def _brief_style_hint(brief: dict) -> str:
     return ", ".join(dict.fromkeys(p for p in parts if p)) or "modern Indian residential"
 
 
+def _brief_add(lines: List[str], label: str, brief: dict, key: str) -> None:
+    v = brief.get(key)
+    if v is None or (isinstance(v, str) and not str(v).strip()):
+        return
+    lines.append(f"{label}: {_brief_list(v) if isinstance(v, list) else v}")
+
+
+def _new_home_program_block(brief: dict) -> str:
+    """Room program + plot/services from build-new wizard — all selections for coherent plans."""
+    lines: List[str] = []
+    for label, key in (
+        ("Plot facing", "facing"),
+        ("Road access", "roadAccess"),
+        ("Location type", "locationType"),
+        ("Built-up target (% of plot)", "builtupPct"),
+        ("Staircase", "staircase"),
+        ("Lift", "lift"),
+        ("Vastu preference", "vastu"),
+        ("Overhead water tank", "overheadTank"),
+        ("Family members", "familyMembers"),
+        ("Master bedrooms", "masterBedrooms"),
+        ("Other bedrooms", "otherBedrooms"),
+        ("Living rooms", "living"),
+        ("Dining rooms", "dining"),
+        ("Kitchens", "kitchenCount"),
+        ("Kitchen layout", "kitchen"),
+        ("Common bathrooms", "commonBathrooms"),
+        ("Attached bathrooms", "attachedBathrooms"),
+        ("Utility rooms", "utility"),
+        ("Storage rooms", "storageRooms"),
+        ("Gym", "gym"),
+        ("Maid room", "maidRoom"),
+        ("Home theater", "homeTheater"),
+        ("Mini bar", "miniBar"),
+        ("Pooja / prayer", "poojaRoom"),
+        ("Balconies", "balconyCount"),
+        ("Garden / lawn", "gardenLawn"),
+        ("Two-wheeler parking", "twoWheeler"),
+        ("Four-wheeler parking", "fourWheeler"),
+        ("Visitor parking", "visitorParking"),
+        ("Colour base", "colourBase"),
+        ("Colour secondary", "colourSecondary"),
+        ("Start timeline", "startTimeline"),
+        ("Completion target", "completionTime"),
+        ("Payment mode", "paymentMode"),
+    ):
+        _brief_add(lines, label, brief, key)
+    notes = str(brief.get("budgetNotes") or "").strip()
+    if notes:
+        lines.append(f"Budget notes: {notes[:300]}")
+    hear = str(brief.get("hearAboutUs") or "").strip()
+    if hear:
+        lines.append(f"Referral: {hear[:120]}")
+    return "\n".join(lines)
+
+
 def _brief_constraints_summary(flow: FlowKind, brief: dict) -> str:
     """Turn wizard JSON into a short constraint block for Grok prompts."""
     loc = str(brief.get("location") or "India").strip()
     style = _brief_style_hint(brief)
-    lines = [f"Location: {loc}", f"Style: {style}"]
+    seed = _v0_design_seed(brief)
+    lines = [
+        f"Location: {loc}",
+        f"Style: {style}",
+        f"Design session (keep identical across every image in this pack): HM-{seed}",
+    ]
 
     if flow == "remodel":
         room = str(brief.get("room") or "room")
@@ -644,10 +772,10 @@ def _brief_constraints_summary(flow: FlowKind, brief: dict) -> str:
             ("Dealbreakers", "dealbreakers3"),
             ("Finish tier", "finishTier"),
             ("Timeline", "startTimeline"),
+            ("Space notes", "spaceNotes"),
+            ("Inspiration", "inspirationSummary"),
         ):
-            v = brief.get(key)
-            if v:
-                lines.append(f"{label}: {_brief_list(v) if isinstance(v, list) else v}")
+            _brief_add(lines, label, brief, key)
         cap = _brief_budget_inr(brief)
         if cap:
             lines.append(f"Budget cap (INR): {cap} — total estimate must not exceed this")
@@ -662,12 +790,12 @@ def _brief_constraints_summary(flow: FlowKind, brief: dict) -> str:
             ("Lifestyle", "lifestyle"),
             ("Exterior prefs", "exteriorPrefs"),
             ("Finish tier", "finishTier"),
-            ("Kitchen", "kitchen"),
-            ("Family size", "familyMembers"),
         ):
-            v = brief.get(key)
-            if v:
-                lines.append(f"{label}: {_brief_list(v) if isinstance(v, list) else v}")
+            _brief_add(lines, label, brief, key)
+        program = _new_home_program_block(brief)
+        if program:
+            lines.append("Room program & services (must appear on floor plans):")
+            lines.append(program)
 
     budget = (
         brief.get("budgetLabel")
@@ -687,20 +815,28 @@ def _brief_constraints_summary(flow: FlowKind, brief: dict) -> str:
     return "\n".join(lines)
 
 
-def _v0_pair_instruction(flow: FlowKind) -> str:
-    """Shared instruction: exactly two complementary Grok images per v0 pack."""
+def _v0_pair_instruction(flow: FlowKind, *, second_image: bool = False) -> str:
+    """Shared instruction: exactly two complementary Grok images for one coherent design."""
     if flow == "remodel":
+        if second_image:
+            return (
+                "IMAGE 2 OF 2 — SAME room remodel as <IMAGE_1>: identical palette, furniture style, "
+                "materials, and layout logic. Only change camera angle / emphasis (materials & lighting detail). "
+                "Do NOT show a different room or unrelated interior. No text, no watermark.\n"
+            )
         return (
-            "Generate ONE image that is part of a set of exactly TWO complementary interior concept "
-            "renders for the same remodel brief. Together the pair must give a complete first-pass "
-            "picture: layout, palette, materials, and lighting intent. Use a different camera angle "
-            "and emphasis than the sibling image. No text, no watermark.\n"
+            "IMAGE 1 OF 2 — Establish the definitive interior concept for this remodel brief. "
+            "This reference will anchor image 2. No text, no watermark.\n"
+        )
+    if second_image:
+        return (
+            "IMAGE 2 OF 2 — SAME house as <IMAGE_1>: identical massing, roofline, façade materials, "
+            "colour palette, and architectural character. Only change camera angle (e.g. rear/garden view). "
+            "Do NOT generate a different building. No text, no watermark.\n"
         )
     return (
-        "Generate ONE image that is part of a set of exactly TWO complementary architectural "
-        "concept renders for the same new-home brief. Together the pair must give a complete "
-        "first-pass picture: street presence, massing, roofline, materials, and outdoor connection. "
-        "Use a different viewpoint than the sibling image. No text, no watermark.\n"
+        "IMAGE 1 OF 2 — Establish the definitive exterior concept for this new-home brief. "
+        "This reference will anchor image 2. No text, no watermark.\n"
     )
 
 
@@ -711,7 +847,7 @@ def _grok_v0_image_prompts(flow: FlowKind, brief: dict) -> List[tuple]:
     room = str(brief.get("room") or "living space")
     floors = str(brief.get("floors") or "G+1")
     constraints = _brief_constraints_summary(flow, brief)
-    pair_note = _v0_pair_instruction(flow)
+    pair_note = _v0_pair_instruction(flow, second_image=False)
 
     if flow == "remodel":
         indoor_only = (
@@ -729,16 +865,14 @@ def _grok_v0_image_prompts(flow: FlowKind, brief: dict) -> List[tuple]:
                 "Interior concept — main view",
                 f"{room} — layout, palette & key furniture",
                 base
-                + "IMAGE 1 OF 2: Wide hero view of the room — seating layout, circulation, "
-                "main palette and joinery. Warm natural window light.",
+                + "Wide hero view — seating layout, circulation, main palette and joinery. "
+                "Warm natural window light.",
                 "4:3",
             ),
             (
                 "Interior concept — complementary view",
                 f"{room} — materials, lighting & detail",
-                base
-                + "IMAGE 2 OF 2: Complementary angle — highlight wall/floor finishes, lighting mood, "
-                "storage and material accents. Same brief, clearly related but not duplicate.",
+                base + _v0_pair_instruction(flow, second_image=True),
                 "4:3",
             ),
         ]
@@ -753,16 +887,13 @@ def _grok_v0_image_prompts(flow: FlowKind, brief: dict) -> List[tuple]:
             "Exterior concept — street view",
             "Front façade, massing & materials",
             base
-            + "IMAGE 1 OF 2: Front elevation, street-facing — clear daylight, roofline, "
-            "materials, and entry hierarchy.",
+            + "Front elevation, street-facing — clear daylight, roofline, materials, entry hierarchy.",
             "16:9",
         ),
         (
             "Exterior concept — complementary view",
             "Garden/rear connection & roof study",
-            base
-            + "IMAGE 2 OF 2: Three-quarter or rear-angled view — garden/courtyard connection, "
-            "roof form, and secondary façade. Completes the massing story with image 1.",
+            base + _v0_pair_instruction(flow, second_image=True),
             "16:9",
         ),
     ]
@@ -770,30 +901,204 @@ def _grok_v0_image_prompts(flow: FlowKind, brief: dict) -> List[tuple]:
 
 def _grok_remodel_floor_plan_prompts(brief: dict) -> List[tuple]:
     """Layout sketches for remodel — interior plan, not building exterior."""
-    loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
+    constraints = _brief_constraints_summary("remodel", brief)
     room = str(brief.get("room") or "living room")
-    size = str(brief.get("roomSizeLabel") or "medium room")
-    style = _brief_style_hint(brief)
     base = (
-        f"Architectural interior layout plan drawing, top-down view, {room} in {loc}, India. "
-        f"Room size: {size}. Style: {style}. "
+        f"Architectural interior layout plan drawing, top-down orthographic plan, {room}, India.\n"
+        f"Constraints:\n{constraints}\n"
         "Black ink lines on white paper, furniture placement, doors/windows as symbols. "
-        "NO exterior elevation, NO house facade, NO 3D building render. No text labels, no watermark.\n"
+        "NO exterior elevation, NO house facade, NO 3D render. No text labels, no watermark.\n"
     )
     return [
         (
             f"{room} — layout v0 (plan sketch)",
             "Furniture + circulation overlay on room footprint (indicative)",
-            base + "Focus: sofa, TV unit, circulation paths.",
+            base
+            + "FLOOR PLAN 1: Match palette and spatial intent of <IMAGE_1> concept. "
+            "Focus: sofa, TV unit, circulation paths.",
             "4:3",
         ),
         (
             "Services & ceiling v0",
             "Lighting grid + services assumptions for discussion",
-            base + "Focus: ceiling plan, light positions, AC diffuser symbols.",
+            base
+            + "FLOOR PLAN 2: Same room footprint as <IMAGE_1> and prior plan <IMAGE_2>. "
+            "Ceiling plan — light positions, AC diffuser symbols.",
             "4:3",
         ),
     ]
+
+
+def _grok_new_home_floor_plan_prompts(brief: dict) -> List[tuple]:
+    """Architectural floor plans aligned to exterior concept and brief room program."""
+    loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
+    floors = str(brief.get("floors") or "G+1")
+    constraints = _brief_constraints_summary("new_home", brief)
+    base = (
+        f"Architectural floor plan drawing, top-down orthographic, {floors} Indian home in {loc}.\n"
+        f"Constraints (every labeled room count must appear):\n{constraints}\n"
+        "Clean black ink on white paper, walls as thick lines, door swings, room labels as simple "
+        "rectangles only (no paragraph text). Match massing implied by <IMAGE_1> exterior concept. "
+        "Indicative v0 — not GFC. No watermark.\n"
+    )
+    slots: List[tuple] = []
+    if floors == "G":
+        slots = [
+            (
+                "Ground floor plan v0",
+                "Zoning + room grid from your brief (indicative)",
+                base
+                + "GROUND FLOOR ONLY: Reflect room program and vastu preference. "
+                "Staircase position if future floors implied.",
+                "4:3",
+            ),
+            (
+                "Alternate ground layout v0",
+                "Second zoning option — same brief, same building envelope",
+                base
+                + "GROUND FLOOR variant 2: Same footprint as <IMAGE_2> plan — alternate furniture/zoning only.",
+                "4:3",
+            ),
+        ]
+    elif floors == "G+1":
+        slots = [
+            (
+                "Ground floor plan v0",
+                "Zoning + room grid for ground level",
+                base + "GROUND FLOOR: All ground-level rooms from brief. Show staircase to first floor.",
+                "4:3",
+            ),
+            (
+                "First floor plan v0",
+                "Upper level bedrooms + baths",
+                base
+                + "FIRST FLOOR: Bedrooms/baths per brief. Stair must align with <IMAGE_2> ground plan.",
+                "4:3",
+            ),
+        ]
+    elif floors == "G+2":
+        slots = [
+            (
+                "Ground floor plan v0",
+                "Ground level program",
+                base + "GROUND FLOOR per brief.",
+                "4:3",
+            ),
+            (
+                "First floor plan v0",
+                "Mid level bedrooms / living",
+                base + "FIRST FLOOR per brief; stairs aligned with ground plan in <IMAGE_2>.",
+                "4:3",
+            ),
+            (
+                "Second floor plan v0",
+                "Top floor / terrace level (indicative)",
+                base + "SECOND FLOOR per brief; vertical circulation consistent with <IMAGE_2> and <IMAGE_3>.",
+                "4:3",
+            ),
+        ]
+    else:
+        slots = [
+            ("Ground floor plan v0", "Ground level", base + "GROUND FLOOR.", "4:3"),
+            ("First floor plan v0", "First floor", base + "FIRST FLOOR; align with <IMAGE_2>.", "4:3"),
+            (
+                "Second floor plan v0",
+                "Second floor",
+                base + "SECOND FLOOR; align with lower plans.",
+                "4:3",
+            ),
+            (
+                "Third floor plan v0",
+                "Top / terrace",
+                base + "TOP FLOOR / terrace; stack stairs/ducts above <IMAGE_2>.",
+                "4:3",
+            ),
+        ]
+    try:
+        cap = max(1, min(4, int(os.getenv("GROK_V0_MAX_FLOOR_PLANS", "4"))))
+    except ValueError:
+        cap = 4
+    return slots[:cap]
+
+
+def _generate_concept_images_sequential(
+    specs: List[Tuple[str, str, str, str]], flow: FlowKind, brief: dict
+) -> List[dict]:
+    """Image 1 from text; image 2+ from edits anchored to prior concept (same home/room)."""
+    if not specs:
+        return []
+
+    timeout = _grok_image_timeout_sec()
+    out: List[dict] = []
+    anchor_url: Optional[str] = None
+
+    for idx, spec in enumerate(specs):
+        label, hint, prompt, aspect = spec
+        if idx == 0:
+            url = _grok_generate_image(prompt, aspect_ratio=aspect, timeout_sec=timeout)
+        else:
+            edit_prompt = (
+                f"Using <IMAGE_1> as the exact same {'room' if flow == 'remodel' else 'house'} "
+                f"(design session HM-{_v0_design_seed(brief)}):\n{prompt}"
+            )
+            url = _grok_edit_image(edit_prompt, [anchor_url], aspect_ratio=aspect, timeout_sec=timeout)
+            if not url:
+                logger.warning("Concept edit %s failed; retrying text with anchor description", idx + 1)
+                url = _grok_generate_image(
+                    prompt
+                    + "\nCRITICAL: Must match the same design as the prior concept image in this pack — "
+                    "same massing/materials/palette. Do not invent a different building or room.",
+                    aspect_ratio=aspect,
+                    timeout_sec=timeout,
+                )
+        if not url:
+            break
+        anchor_url = url
+        out.append({"url": url, "label": label, "hint": hint})
+
+    return out
+
+
+def _generate_floor_plans_sequential(
+    specs: List[Tuple[str, str, str, str]], flow: FlowKind, brief: dict, concept_urls: List[str]
+) -> List[dict]:
+    """Floor plans chained: concept ref + prior floor plan for vertical consistency."""
+    if not specs or not concept_urls:
+        return []
+
+    timeout = _grok_image_timeout_sec()
+    out: List[dict] = []
+    prior_fp: Optional[str] = None
+    concept_ref = concept_urls[0]
+
+    for idx, spec in enumerate(specs):
+        label, hint, prompt, aspect = spec
+        refs: List[str] = [concept_ref]
+        if prior_fp:
+            refs.append(prior_fp)
+
+        if idx == 0:
+            edit_prompt = prompt.replace("<IMAGE_1>", "<IMAGE_1>").replace(
+                "<IMAGE_2>", "<IMAGE_2>"
+            )
+        else:
+            edit_prompt = prompt
+
+        url = _grok_edit_image(edit_prompt, refs, aspect_ratio=aspect, timeout_sec=timeout)
+        if not url and idx > 0:
+            url = _grok_edit_image(
+                prompt + "\nKeep staircase core and footprint identical to <IMAGE_2>.",
+                [concept_ref, prior_fp],
+                aspect_ratio=aspect,
+                timeout_sec=timeout,
+            )
+        if not url:
+            logger.warning("Floor plan generation failed at slot %s", label)
+            break
+        prior_fp = url
+        out.append({"url": url, "label": label, "hint": hint})
+
+    return out
 
 
 def _generate_specs_parallel(
@@ -875,41 +1180,38 @@ def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]
             mood_count = 2
 
         mood_specs = _grok_v0_image_prompts(flow, brief)[:mood_count]
-        images = _generate_specs_parallel(mood_specs, max_workers=mood_count)
+        images = _generate_concept_images_sequential(mood_specs, flow, brief)
 
+        concept_urls = [img["url"] for img in images if img.get("url")]
         floor_plans: List[dict] = []
-        if flow == "remodel":
-            gen_fp = os.getenv("GROK_V0_REMODEL_FLOOR_PLANS", "0").strip().lower() in (
-                "1",
-                "true",
-                "yes",
-            )
-            if gen_fp:
+        if _v0_floor_plans_enabled(flow):
+            if flow == "remodel":
                 fp_specs = _grok_remodel_floor_plan_prompts(brief)
-                floor_plans = _generate_specs_parallel(fp_specs, max_workers=2)
-            if not floor_plans:
-                floor_plans = _remodel_static_floor_plans(brief)
-        else:
-            floor_plans = _default_floor_plans(flow, brief)
+            else:
+                fp_specs = _grok_new_home_floor_plan_prompts(brief)
+            floor_plans = _generate_floor_plans_sequential(fp_specs, flow, brief, concept_urls)
+        if not floor_plans:
+            floor_plans = (
+                _remodel_static_floor_plans(brief)
+                if flow == "remodel"
+                else _default_floor_plans(flow, brief)
+            )
 
         if not images:
             logger.warning("Grok returned zero images for flow=%s", flow)
             return None
 
-        model = os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image").strip() or "grok-imagine-image"
-        fp_note = (
-            " Layout cards are indicative references."
-            if flow == "remodel"
-            else " Floor plans are indicative placeholders."
-        )
+        model = _grok_image_model()
+        fp_src = "Grok" if _v0_floor_plans_enabled(flow) and any(
+            p.get("url", "").find("x.ai") >= 0 for p in floor_plans
+        ) else "reference"
         return AIV0ImagesResponse(
             images=images,
             floor_plans=floor_plans,
             mock=False,
             provider_note=(
-                f"Generated {len(images)} complementary concept image(s) via xAI {model} "
-                f"(2-image v0 pack, ~$0.02/img)."
-                + fp_note
+                f"Coherent v0 pack via xAI {model}: {len(images)} concept view(s) (image 2+ anchored to "
+                f"image 1) + {len(floor_plans)} floor plan(s) ({fp_src})."
             ),
         )
     except Exception as exc:
