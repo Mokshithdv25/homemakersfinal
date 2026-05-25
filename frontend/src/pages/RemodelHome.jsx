@@ -414,6 +414,15 @@ export default function RemodelHome() {
       colourSecondary,
       visionInspirationCount: visionInspirationItems.length,
       inspirationCount: inspirationImgs.length,
+      inspirationItems: visionInspirationItems.filter((x) => x?.type === "image"),
+      inspirationImages: [
+        ...visionInspirationItems
+          .filter((x) => x?.type === "image" && x?.value)
+          .map((x) => x.value),
+        ...inspirationImgs.filter(
+          (u) => typeof u === "string" && u && !String(u).includes("unsplash.com"),
+        ),
+      ],
     };
   };
 

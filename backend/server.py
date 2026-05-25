@@ -654,9 +654,59 @@ def _v0_design_seed(brief: dict) -> str:
 
 
 def _v0_floor_plans_enabled(flow: FlowKind) -> bool:
-    default = "1" if flow == "new_home" else "0"
-    env_key = "GROK_V0_FLOOR_PLANS" if flow == "new_home" else "GROK_V0_REMODEL_FLOOR_PLANS"
-    return os.getenv(env_key, default).strip().lower() in ("1", "true", "yes")
+    """New build: Grok floor plans. Remodel: off by default (design images only)."""
+    if flow == "remodel":
+        return os.getenv("GROK_V0_REMODEL_FLOOR_PLANS", "0").strip().lower() in ("1", "true", "yes")
+    return os.getenv("GROK_V0_FLOOR_PLANS", "1").strip().lower() in ("1", "true", "yes")
+
+
+def _v0_concept_image_count(flow: FlowKind, brief: dict) -> int:
+    """New home: 1 holistic front elevation. Remodel: 1–2 sequential interior views."""
+    if flow == "new_home":
+        try:
+            return max(1, min(1, int(os.getenv("GROK_V0_NEW_HOME_IMAGES", "1"))))
+        except ValueError:
+            return 1
+    try:
+        cap = max(1, min(2, int(os.getenv("GROK_V0_REMODEL_IMAGES", "2"))))
+    except ValueError:
+        cap = 2
+    return cap
+
+
+def _brief_inspiration_urls(brief: dict, max_refs: int = 3) -> List[str]:
+    """Homeowner-uploaded or linked images (skip stock Unsplash placeholders)."""
+    urls: List[str] = []
+    seen: set = set()
+
+    def add(raw) -> None:
+        s = str(raw or "").strip()
+        if not s or s in seen or len(urls) >= max_refs:
+            return
+        low = s.lower()
+        if low.startswith("data:image"):
+            seen.add(s)
+            urls.append(s)
+            return
+        if s.startswith("http") and "unsplash.com" not in low:
+            seen.add(s)
+            urls.append(s)
+
+    for key in ("inspirationImages", "inspirationImgs"):
+        val = brief.get(key)
+        if isinstance(val, list):
+            for item in val:
+                if isinstance(item, str):
+                    add(item)
+                elif isinstance(item, dict):
+                    if item.get("type") == "image":
+                        add(item.get("value") or item.get("url"))
+
+    for item in brief.get("inspirationItems") or []:
+        if isinstance(item, dict) and item.get("type") == "image":
+            add(item.get("value"))
+
+    return urls[:max_refs]
 
 
 def _brief_list(val) -> str:
@@ -841,59 +891,65 @@ def _v0_pair_instruction(flow: FlowKind, *, second_image: bool = False) -> str:
 
 
 def _grok_v0_image_prompts(flow: FlowKind, brief: dict) -> List[tuple]:
-    """Exactly two complementary concept images per flow (credit-efficient)."""
+    """Concept image prompts — new home: 1 front holistic; remodel: up to 2 angles (sequential)."""
     loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
     style = _brief_style_hint(brief)
     room = str(brief.get("room") or "living space")
     floors = str(brief.get("floors") or "G+1")
     constraints = _brief_constraints_summary(flow, brief)
-    pair_note = _v0_pair_instruction(flow, second_image=False)
+    has_inspo = bool(_brief_inspiration_urls(brief))
 
     if flow == "remodel":
         indoor_only = (
             "STRICT: indoor photograph ONLY — no building exterior, no facade, no roofline, "
             "no street view, no cars, no aerial. Show the furnished room interior.\n"
         )
+        inspo_note = (
+            "Honor homeowner reference photo(s) for palette, furniture style, and materials.\n"
+            if has_inspo
+            else ""
+        )
         base = (
             f"Photorealistic interior design visualization for a {room} remodel in {loc}, India.\n"
-            f"{indoor_only}"
+            f"{indoor_only}{inspo_note}"
             f"Constraints from homeowner brief:\n{constraints}\n"
-            f"{pair_note}"
         )
-        return [
+        specs = [
             (
                 "Interior concept — main view",
                 f"{room} — layout, palette & key furniture",
                 base
+                + _v0_pair_instruction(flow, second_image=False)
                 + "Wide hero view — seating layout, circulation, main palette and joinery. "
                 "Warm natural window light.",
                 "4:3",
             ),
             (
-                "Interior concept — complementary view",
+                "Interior concept — complementary angle",
                 f"{room} — materials, lighting & detail",
                 base + _v0_pair_instruction(flow, second_image=True),
                 "4:3",
             ),
         ]
+        return specs
 
     base = (
         f"Photorealistic residential architecture in {loc}, India. {floors} home.\n"
         f"Constraints from homeowner brief:\n{constraints}\n"
-        f"{pair_note}"
+    )
+    inspo_note = (
+        "Blend massing and materials from homeowner reference photo(s) where provided.\n"
+        if has_inspo
+        else ""
     )
     return [
         (
-            "Exterior concept — street view",
-            "Front façade, massing & materials",
+            "Exterior concept — front view (holistic)",
+            "Single street-facing elevation — massing, roof, materials, entry",
             base
-            + "Front elevation, street-facing — clear daylight, roofline, materials, entry hierarchy.",
-            "16:9",
-        ),
-        (
-            "Exterior concept — complementary view",
-            "Garden/rear connection & roof study",
-            base + _v0_pair_instruction(flow, second_image=True),
+            + inspo_note
+            + "ONE holistic front elevation: full building in frame, clear daylight, "
+            "roofline, façade materials, landscape context, entry hierarchy. No text, no watermark.",
             "16:9",
         ),
     ]
@@ -1028,18 +1084,35 @@ def _grok_new_home_floor_plan_prompts(brief: dict) -> List[tuple]:
 def _generate_concept_images_sequential(
     specs: List[Tuple[str, str, str, str]], flow: FlowKind, brief: dict
 ) -> List[dict]:
-    """Image 1 from text; image 2+ from edits anchored to prior concept (same home/room)."""
+    """Image 1 from text or homeowner refs; image 2+ from edits anchored to image 1."""
     if not specs:
         return []
 
     timeout = _grok_image_timeout_sec()
     out: List[dict] = []
     anchor_url: Optional[str] = None
+    inspiration = _brief_inspiration_urls(brief)
 
     for idx, spec in enumerate(specs):
         label, hint, prompt, aspect = spec
         if idx == 0:
-            url = _grok_generate_image(prompt, aspect_ratio=aspect, timeout_sec=timeout)
+            if inspiration:
+                ref_prompt = (
+                    prompt
+                    + "\nSynthesize the design direction from the homeowner reference image(s) "
+                    "(<IMAGE_1>"
+                    + (", <IMAGE_2>" if len(inspiration) > 1 else "")
+                    + (", <IMAGE_3>" if len(inspiration) > 2 else "")
+                    + ") together with the written brief above.\n"
+                )
+                url = _grok_edit_image(
+                    ref_prompt, inspiration, aspect_ratio=aspect, timeout_sec=timeout
+                )
+                if not url:
+                    logger.warning("Inspiration-anchored concept failed; falling back to text-only")
+                    url = _grok_generate_image(prompt, aspect_ratio=aspect, timeout_sec=timeout)
+            else:
+                url = _grok_generate_image(prompt, aspect_ratio=aspect, timeout_sec=timeout)
         else:
             edit_prompt = (
                 f"Using <IMAGE_1> as the exact same {'room' if flow == 'remodel' else 'house'} "
@@ -1214,28 +1287,17 @@ def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]
         return None
 
     try:
-        try:
-            mood_count = max(1, min(2, int(os.getenv("GROK_V0_MOOD_IMAGES", "2"))))
-        except ValueError:
-            mood_count = 2
-
-        mood_specs = _grok_v0_image_prompts(flow, brief)[:mood_count]
+        concept_count = _v0_concept_image_count(flow, brief)
+        mood_specs = _grok_v0_image_prompts(flow, brief)[:concept_count]
         images = _generate_concept_images_sequential(mood_specs, flow, brief)
 
         concept_urls = [img["url"] for img in images if img.get("url")]
         floor_plans: List[dict] = []
         if _v0_floor_plans_enabled(flow):
-            if flow == "remodel":
-                fp_specs = _grok_remodel_floor_plan_prompts(brief)
-            else:
-                fp_specs = _grok_new_home_floor_plan_prompts(brief)
+            fp_specs = _grok_new_home_floor_plan_prompts(brief)
             floor_plans = _generate_floor_plans_sequential(fp_specs, flow, brief, concept_urls)
-        if not floor_plans:
-            floor_plans = (
-                _remodel_static_floor_plans(brief)
-                if flow == "remodel"
-                else _default_floor_plans(flow, brief)
-            )
+        elif flow == "new_home":
+            floor_plans = _default_floor_plans(flow, brief)
 
         if not images:
             logger.warning("Grok returned zero images for flow=%s", flow)
@@ -1245,13 +1307,19 @@ def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]
         fp_src = "Grok" if _v0_floor_plans_enabled(flow) and any(
             p.get("url", "").find("x.ai") >= 0 for p in floor_plans
         ) else "reference"
+        fp_part = (
+            f" + {len(floor_plans)} floor plan(s) ({fp_src})"
+            if floor_plans
+            else (" (no floor plans — remodel design-only)" if flow == "remodel" else "")
+        )
         return AIV0ImagesResponse(
             images=images,
             floor_plans=floor_plans,
             mock=False,
             provider_note=(
-                f"Coherent v0 pack via xAI {model}: {len(images)} concept view(s) (image 2+ anchored to "
-                f"image 1) + {len(floor_plans)} floor plan(s) ({fp_src})."
+                f"Coherent v0 via xAI {model}: {len(images)} concept image(s), sequential"
+                + fp_part
+                + "."
             ),
         )
     except Exception as exc:

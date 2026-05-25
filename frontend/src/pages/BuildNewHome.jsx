@@ -469,6 +469,9 @@ export default function BuildNewHome() {
         resolvedArchStyle: archResolved,
         flowWizard: "build_new_home",
         budgetLabel: budgetSingleLabel(form),
+        inspirationImages: (form.inspirationItems || [])
+          .filter((x) => x?.type === "image" && x?.value)
+          .map((x) => x.value),
       };
       setV0GenPhase("images");
       const imagesPayload = await requestV0Images("new_home", brief, {

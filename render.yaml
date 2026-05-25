@@ -20,7 +20,9 @@ services:
         value: grok-imagine-image
       - key: GROK_CHAT_MODEL
         value: grok-3-mini
-      - key: GROK_V0_MOOD_IMAGES
+      - key: GROK_V0_NEW_HOME_IMAGES
+        value: "1"
+      - key: GROK_V0_REMODEL_IMAGES
         value: "2"
       - key: GROK_IMAGE_TIMEOUT
         value: "90"
@@ -29,7 +31,7 @@ services:
       - key: GROK_V0_FLOOR_PLANS
         value: "1"
       - key: GROK_V0_REMODEL_FLOOR_PLANS
-        value: "1"
+        value: "0"
       - key: GROK_V0_MAX_FLOOR_PLANS
         value: "4"
       - key: MONGO_URL

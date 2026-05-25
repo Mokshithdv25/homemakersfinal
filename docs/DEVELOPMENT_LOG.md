@@ -25,6 +25,14 @@ Other transcript files in that folder are shorter or older chats.
 
 ## Session notes
 
+### 2026-05-25 — Slim v0 pack (1 build elevation, remodel design-only)
+
+**Request:** New build = 1 front holistic image + floor plans; remodel = 1–2 sequential angles from user photos, no floor plans.
+
+**Shipped:** `GROK_V0_NEW_HOME_IMAGES=1`, `GROK_V0_REMODEL_IMAGES=2`, `GROK_V0_REMODEL_FLOOR_PLANS=0`; `inspirationImages` in brief; first concept uses xAI edit from uploads.
+
+---
+
 ### 2026-05-25 — Floor plan multi-level refs (sequential only)
 
 **Request:** Confirm sequential (not parallel prompts) for 2 design views; 3rd floor plan must see 1st + 2nd context.
