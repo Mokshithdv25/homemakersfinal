@@ -24,70 +24,18 @@ export function V0GeneratingPanel({ phase = "images" }) {
   return (
     <div style={{ padding: "24px 20px", background: "linear-gradient(180deg,#FFFBF7,#FDF8F3)", border: "1px solid #EEDCCB", borderRadius: 14, marginBottom: 20 }}>
       <div style={{ fontSize: 15, fontWeight: 800, textAlign: "center", marginBottom: 4 }}>AI is generating your v0 pack</div>
-      <p style={{ fontSize: 12, color: "#7A6E62", textAlign: "center", margin: "0 0 16px" }}>Wizard answers → Grok on our server (~1–2 min).</p>
+      <p style={{ fontSize: 12, color: "#7A6E62", textAlign: "center", margin: "0 0 16px" }}>
+        Using your brief — usually 1–2 minutes. First request after idle may take a little longer.
+      </p>
       {row(1, "Design concepts", step1Active ? "Rendering…" : "Done", step1Active, step1Done)}
       {row(2, "Estimate", step2Active ? "INR lines…" : "Waiting", step2Active, false)}
     </div>
   );
 }
 
-export function V0AiSourceBanner({ imageBundle, planBundle }) {
-  const imagesLive = imageBundle && !imageBundle.mock;
-  const planLive = planBundle && !planBundle.mock;
-  const isLive = imagesLive && planLive;
-  const mockNote = imageBundle?.provider_note || planBundle?.provider_note;
-  if (imagesLive && !planLive) {
-    return (
-      <div
-        style={{
-          marginBottom: 16,
-          padding: "10px 14px",
-          borderRadius: 10,
-          fontSize: 12,
-          background: "rgba(34,163,107,0.08)",
-          border: "1px solid rgba(34,163,107,0.35)",
-          lineHeight: 1.45,
-        }}
-      >
-        <strong>Estimate: AI-generated</strong> from your brief. Concept images from Grok; floor plans may still be indicative cards.
-      </div>
-    );
-  }
-  if (isLive) {
-    return (
-      <div
-        style={{
-          marginBottom: 16,
-          padding: "10px 14px",
-          borderRadius: 10,
-          fontSize: 12,
-          background: "rgba(34,163,107,0.08)",
-          border: "1px solid rgba(34,163,107,0.35)",
-        }}
-      >
-        <strong>AI-generated</strong> — concept images from Grok using your brief.
-        {mockNote ? ` ${mockNote}` : " Floor plan cards may still be indicative placeholders."}
-      </div>
-    );
-  }
-  if (!imageBundle?.mock && !planBundle?.mock) return null;
-  return (
-    <div
-      style={{
-        marginBottom: 16,
-        padding: "10px 14px",
-        borderRadius: 10,
-        fontSize: 12,
-        background: "rgba(200,95,43,0.08)",
-        border: "1px solid rgba(200,95,43,0.25)",
-        lineHeight: 1.45,
-      }}
-    >
-      <strong>Preview placeholders</strong> — the AI backend did not return live Grok images.
-      {mockNote ? ` ${mockNote}` : " Check REACT_APP_BACKEND_URL on Vercel and XAI_API_KEY on Render, then redeploy and regenerate."}
-      {" "}Not sanction-grade drawings; share with your architect to refine.
-    </div>
-  );
+/** No technical status banners — v0 visuals speak for themselves. */
+export function V0AiSourceBanner() {
+  return null;
 }
 
 export function V0MilestonesSection({ planBundle }) {
@@ -268,9 +216,7 @@ export function V0VisualBundleSections({
         <div style={{ marginBottom: 36 }}>
           <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8, color: "#1C1917" }}>{floorPlanTitle}</div>
           <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 20px", lineHeight: 1.5 }}>
-            {bundle?.mock
-              ? "Layout directions for briefing — not sanction drawings."
-              : "One plan per floor from your brief; elevations and interiors below."}
+            Layout directions for briefing — not sanction drawings.
           </p>
           <div
             style={{
@@ -287,7 +233,7 @@ export function V0VisualBundleSections({
         <div style={{ marginBottom: 28 }}>
           <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 8, color: "#1C1917" }}>{elevationTitle}</div>
           <p style={{ fontSize: 13, color: "#57534E", margin: "0 0 20px", lineHeight: 1.5 }}>
-            {bundle?.mock ? "Concept renders for discussion." : "Grok-generated concepts from your wizard answers."}
+            Concept directions from your brief — share with your architect to refine.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
             {elevations.map((e, i) => conceptImageCard(e, i, interiorRenders ? "interior" : "elevation"))}

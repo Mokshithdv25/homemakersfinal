@@ -23,7 +23,7 @@ services:
       - key: GROK_V0_MOOD_IMAGES
         value: "2"
       - key: GROK_IMAGE_TIMEOUT
-        value: "45"
+        value: "90"
       - key: GROK_INLINE_IMAGES
         value: "0"
       - key: GROK_V0_REMODEL_FLOOR_PLANS

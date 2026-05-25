@@ -14,9 +14,8 @@ import {
   requestV0Images,
   requestEstimatePlan,
   formatAiApiError,
-  fetchAiBackendStatus,
-  getAiBackendHost,
-  isAiBackendConfigured,
+  sanitizeV0Bundle,
+  sanitizePlanBundle,
 } from "../lib/aiApi";
 import { createFlowProjectRecord, persistFlowAfterV0 } from "../lib/projectFlowApi";
 import { buildSignInRedirect, isHomeownerSignedIn } from "../lib/requireHomeownerAuth";
@@ -402,7 +401,6 @@ export default function BuildNewHome() {
   });
 
   const [stepBlockError, setStepBlockError] = useState("");
-  const [aiBackendStatus, setAiBackendStatus] = useState(null);
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const toggleLifestyle = (s) => set("lifestyle", form.lifestyle.includes(s) ? form.lifestyle.filter(x => x !== s) : [...form.lifestyle, s]);
@@ -412,8 +410,8 @@ export default function BuildNewHome() {
   useEffect(() => {
     const f = getBuildFlow();
     setV0Generated(!!f.v0);
-    if (f.v0Images) setV0ImageBundle(f.v0Images);
-    if (f.v0Plan) setV0PlanBundle(f.v0Plan);
+    if (f.v0Images) setV0ImageBundle(sanitizeV0Bundle(f.v0Images));
+    if (f.v0Plan) setV0PlanBundle(sanitizePlanBundle(f.v0Plan));
     if (f.projectId) setFlowProjectId(f.projectId);
     const source = (searchParams.get("source") || "").toLowerCase();
     if (typeof f.hasArchitect === "boolean") setHasArchitect(f.hasArchitect);
@@ -425,17 +423,6 @@ export default function BuildNewHome() {
       setMaxStepReached(savedStep);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    if (activeStep !== 5) return;
-    let cancelled = false;
-    fetchAiBackendStatus().then((s) => {
-      if (!cancelled) setAiBackendStatus(s);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeStep]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -472,8 +459,8 @@ export default function BuildNewHome() {
       const imagesPayload = await requestV0Images("new_home", brief);
       setV0GenPhase("estimate");
       const planPayload = await requestEstimatePlan("new_home", brief, imagesPayload);
-      setV0ImageBundle(imagesPayload);
-      setV0PlanBundle(planPayload);
+      setV0ImageBundle(sanitizeV0Bundle(imagesPayload));
+      setV0PlanBundle(sanitizePlanBundle(planPayload));
       setV0Generated(true);
       const briefForSave = {
         ...brief,
@@ -1709,22 +1696,6 @@ export default function BuildNewHome() {
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55, margin: "0 0 12px" }}>
                   Floor-plan direction, key elevations, and indicative cost — saved with your project when you continue.
                 </p>
-                {isAiBackendConfigured() ? (
-                  <p style={{ fontSize: 12, color: aiBackendStatus?.ok && aiBackendStatus?.grok_configured ? "#166534" : "#B45309", margin: "0 0 12px", lineHeight: 1.45 }}>
-                    AI server: {getAiBackendHost() || "connected"}
-                    {aiBackendStatus?.ok
-                      ? aiBackendStatus.grok_configured
-                        ? " · Grok ready"
-                        : " · Grok key missing on Render"
-                      : aiBackendStatus?.error
-                        ? ` · ${aiBackendStatus.error}`
-                        : " · checking…"}
-                  </p>
-                ) : (
-                  <p style={{ fontSize: 12, color: "#DC2626", margin: "0 0 12px", lineHeight: 1.45 }}>
-                    AI server not linked — set REACT_APP_BACKEND_URL on Vercel to https://homemakers-6o3h.onrender.com and redeploy.
-                  </p>
-                )}
                 {!isHomeownerSignedIn() ? (
                   <div style={{ padding: "12px 14px", borderRadius: 10, background: "#FDF4EF", border: "1px solid #EEDCCB", marginBottom: 12, fontSize: 13, color: "#57534E", lineHeight: 1.5 }}>
                     <strong style={{ color: "#1C1917" }}>Sign in required.</strong> Create an account or sign in before generating v0 so your design, estimate, and images are stored for you — not only in this browser.

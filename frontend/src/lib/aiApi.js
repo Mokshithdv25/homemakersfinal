@@ -26,22 +26,19 @@ export function isAiBackendConfigured() {
   return Boolean(aiClient);
 }
 
-/** Quick check: is Render AI up and is Grok configured? */
-export async function fetchAiBackendStatus() {
-  if (!aiClient) {
-    return { ok: false, grok_configured: false, host: null, error: "REACT_APP_BACKEND_URL not set on Vercel" };
-  }
-  try {
-    const { data } = await aiClient.get("/ai/status", { timeout: 12000 });
-    return { ok: true, host: getAiBackendHost(), ...data };
-  } catch (err) {
-    return {
-      ok: false,
-      grok_configured: false,
-      host: getAiBackendHost(),
-      error: formatAiApiError(err),
-    };
-  }
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Drop engineer-facing notes before UI or storage. */
+export function sanitizeV0Bundle(bundle) {
+  if (!bundle || typeof bundle !== "object") return bundle;
+  const { provider_note: _note, ...rest } = bundle;
+  return rest;
+}
+
+export function sanitizePlanBundle(bundle) {
+  return sanitizeV0Bundle(bundle);
 }
 
 /** Hostname only — safe to show in UI (no secrets). */
@@ -224,44 +221,61 @@ export async function requestV0Images(flow, brief) {
   const safeBrief = brief && typeof brief === "object" ? brief : {};
   if (!aiClient) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "AI backend is not connected. In Vercel → Settings → Environment Variables, set REACT_APP_BACKEND_URL to https://homemakers-6o3h.onrender.com (no /api), then redeploy the site.",
-      );
+      throw new Error("AI service is not configured. Please try again in a few minutes.");
     }
     await fallbackDelay();
-    return mockV0ImagesClient(flow, safeBrief);
+    return sanitizeV0Bundle(mockV0ImagesClient(flow, safeBrief));
   }
+
+  const postImages = () =>
+    aiClient.post("/ai/v0-images", { flow, brief: safeBrief }, { timeout: 200000 });
+
+  let response;
   try {
-    const { data } = await aiClient.post("/ai/v0-images", { flow, brief: safeBrief });
-
-    if (!data.floor_plans || data.floor_plans.length === 0) {
-      const fallbackMock = mockV0ImagesClient(flow, safeBrief);
-      data.floor_plans = fallbackMock.floor_plans;
-    }
-
-    if (!data.images || data.images.length === 0) {
-      const fallbackMock = mockV0ImagesClient(flow, safeBrief);
-      return {
-        ...fallbackMock,
-        floor_plans: data.floor_plans?.length ? data.floor_plans : fallbackMock.floor_plans,
-        provider_note: "No live concept images returned — using preview renders.",
-      };
-    }
-
-    return data;
+    response = await postImages();
   } catch (err) {
     const status = err?.response?.status;
-    if (status >= 500 || status === 404 || err?.code === "ERR_NETWORK") {
-      const mock = mockV0ImagesClient(flow, safeBrief);
-      mock.mock = true;
-      mock.provider_note =
-        status >= 500
-          ? "Render image API error — using preview images. Redeploy homemakers-api on Render from latest main, then Regenerate."
-          : `Image API unreachable (${formatAiApiError(err)}). Using preview images.`;
-      return mock;
+    const retryable =
+      !status || status >= 500 || err?.code === "ECONNABORTED" || err?.code === "ERR_NETWORK";
+    if (retryable) {
+      await sleep(22000);
+      try {
+        response = await postImages();
+      } catch (retryErr) {
+        const retryStatus = retryErr?.response?.status;
+        if (
+          !retryStatus ||
+          retryStatus >= 500 ||
+          retryErr?.code === "ERR_NETWORK" ||
+          retryErr?.code === "ECONNABORTED"
+        ) {
+          return sanitizeV0Bundle(mockV0ImagesClient(flow, safeBrief));
+        }
+        throw retryErr;
+      }
+    } else if (status >= 500 || !err?.response) {
+      return sanitizeV0Bundle(mockV0ImagesClient(flow, safeBrief));
+    } else {
+      throw err;
     }
-    throw err;
   }
+
+  const data = sanitizeV0Bundle(response.data);
+
+  if (!data.floor_plans || data.floor_plans.length === 0) {
+    const fallbackMock = mockV0ImagesClient(flow, safeBrief);
+    data.floor_plans = fallbackMock.floor_plans;
+  }
+
+  if (!data.images || data.images.length === 0) {
+    const fallbackMock = mockV0ImagesClient(flow, safeBrief);
+    return sanitizeV0Bundle({
+      ...fallbackMock,
+      floor_plans: data.floor_plans?.length ? data.floor_plans : fallbackMock.floor_plans,
+    });
+  }
+
+  return data;
 }
 
 /**
@@ -277,15 +291,15 @@ export async function requestEstimatePlan(flow, brief, imageBundle = null) {
     brief,
     image_bundle: imageBundle,
   });
-  return data;
+  return sanitizePlanBundle(data);
 }
 
 export function formatAiApiError(err) {
   if (err?.code === "ECONNABORTED") {
-    return "Generation timed out — Grok image steps can take 1–2 minutes. Try again.";
+    return "This is taking longer than usual — the AI server may be waking up. Wait a moment and tap Regenerate.";
   }
   if (err?.message === "Network Error" || err?.code === "ERR_NETWORK") {
-    return "Cannot reach the API. Start the backend: cd backend && uvicorn server:app --reload --port 8000";
+    return "Could not reach the AI service. Wait a minute and try again.";
   }
   const detail = err?.response?.data?.detail;
   if (typeof detail === "string") return detail;

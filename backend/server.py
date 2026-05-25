@@ -953,7 +953,7 @@ def _mock_v0_images(flow: FlowKind, brief: dict) -> AIV0ImagesResponse:
                 },
             ],
             mock=True,
-            provider_note="Replace with HM_AI_IMAGE_API_KEY provider call.",
+            provider_note=None,
         )
 
     return AIV0ImagesResponse(
@@ -987,7 +987,7 @@ def _mock_v0_images(flow: FlowKind, brief: dict) -> AIV0ImagesResponse:
             },
         ],
         mock=True,
-        provider_note="Replace with HM_AI_IMAGE_API_KEY provider call.",
+        provider_note=None,
     )
 
 
@@ -1002,7 +1002,7 @@ def _mock_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[dict
         {"label": "Core interiors (indicative)", "amount_inr": 980000, "note": "Kitchen, wardrobes, baths baseline"},
         {"label": "Services (MEP rough-in)", "amount_inr": 540000, "note": "Electrical, plumbing, basic HVAC points"},
     ]
-    summary = f"Dummy new-home estimate + milestones for {loc}. Replace with HM_AI_PLAN_API_KEY output later."
+    summary = f"Indicative new-home estimate and milestones for {loc}."
     total = sum(int(x["amount_inr"]) for x in estimate_lines if isinstance(x.get("amount_inr"), (int, float)))
 
     return AIEstimatePlanResponse(
@@ -1015,7 +1015,7 @@ def _mock_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[dict
         project_summary=summary,
         total_indicative_inr=total,
         mock=True,
-        provider_note="Replace with HM_AI_PLAN_API_KEY for LLM / estimation service.",
+        provider_note=None,
     )
 
 
@@ -1110,27 +1110,27 @@ async def ai_status():
     }
 
 
-@api_router.post("/ai/v0-images", response_model=AIV0ImagesResponse)
+def _v0_images_json(resp: AIV0ImagesResponse) -> dict:
+    data = resp.model_dump()
+    data["provider_note"] = None
+    return data
+
+
+@api_router.post("/ai/v0-images")
 async def ai_v0_images(payload: AIV0ImagesRequest):
     brief = payload.brief if isinstance(payload.brief, dict) else {}
     try:
         grok = _grok_v0_images(payload.flow, brief)
         if grok is not None:
-            return grok
+            grok.provider_note = None
+            return _v0_images_json(grok)
         mock = _mock_v0_images(payload.flow, brief)
-        mock.provider_note = (
-            "Demo placeholders — Grok images unavailable. Confirm XAI_API_KEY on Render and redeploy homemakers-api. "
-            + (mock.provider_note or "")
-        )
         logger.warning("ai/v0-images falling back to mock for flow=%s", payload.flow)
-        return mock
+        return _v0_images_json(mock)
     except Exception as exc:
         logger.exception("ai/v0-images handler failed: %s", exc)
         mock = _mock_v0_images(payload.flow, brief)
-        mock.provider_note = (
-            "Image service error — showing preview placeholders. Redeploy the Render backend (homemakers-api) from latest main."
-        )
-        return mock
+        return _v0_images_json(mock)
 
 
 @api_router.post("/ai/estimate-plan", response_model=AIEstimatePlanResponse)
