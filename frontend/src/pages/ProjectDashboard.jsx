@@ -389,8 +389,8 @@ export default function ProjectDashboard() {
     Object.fromEntries(Object.entries(MILESTONE_SEED).map(([phase, rows]) => [phase, rows.map((m) => ({ ...m }))]))
   );
 
-  const isLiveProject = Boolean(activeProjectId);
   const activeProjectId = searchParams.get("projectId") || "";
+  const isLiveProject = Boolean(activeProjectId);
 
   const hubQuery = useMemo(() => {
     const pid = activeProjectId;

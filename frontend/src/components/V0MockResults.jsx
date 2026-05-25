@@ -33,6 +33,7 @@ export function V0GeneratingPanel({ phase = "images" }) {
 
 export function V0AiSourceBanner({ imageBundle, planBundle }) {
   const isLive = imageBundle && !imageBundle.mock && planBundle && !planBundle.mock;
+  const mockNote = imageBundle?.provider_note || planBundle?.provider_note;
   if (isLive) {
     return (
       <div
@@ -45,7 +46,8 @@ export function V0AiSourceBanner({ imageBundle, planBundle }) {
           border: "1px solid rgba(34,163,107,0.35)",
         }}
       >
-        <strong>AI-generated</strong> — floor plans and concept images from your brief (Grok).
+        <strong>AI-generated</strong> — concept images from Grok using your brief.
+        {mockNote ? ` ${mockNote}` : " Floor plan cards may still be indicative placeholders."}
       </div>
     );
   }
@@ -62,8 +64,9 @@ export function V0AiSourceBanner({ imageBundle, planBundle }) {
         lineHeight: 1.45,
       }}
     >
-      <strong>Preview pack</strong> — connect the AI backend to generate floor plans and renders from your answers.
-      Not sanction-grade drawings; share with your architect to refine.
+      <strong>Preview placeholders</strong> — the AI backend did not return live Grok images.
+      {mockNote ? ` ${mockNote}` : " Check REACT_APP_BACKEND_URL on Vercel and XAI_API_KEY on Render, then redeploy and regenerate."}
+      {" "}Not sanction-grade drawings; share with your architect to refine.
     </div>
   );
 }

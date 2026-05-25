@@ -29,7 +29,8 @@ export async function uploadDataUrl({ bucket, path, dataUrl }) {
   if (!sb || !dataUrl?.startsWith("data:")) return null;
   const parsed = parseDataUrl(dataUrl);
   if (!parsed) return null;
-  const { error } = await sb.storage.from(bucket).upload(path, parsed.bytes, {
+  const fullPath = path.includes(".") ? path : `${path}.${parsed.ext}`;
+  const { error } = await sb.storage.from(bucket).upload(fullPath, parsed.bytes, {
     contentType: parsed.mime,
     upsert: true,
   });
@@ -37,7 +38,7 @@ export async function uploadDataUrl({ bucket, path, dataUrl }) {
     console.warn("uploadDataUrl:", error.message);
     return null;
   }
-  const { data } = sb.storage.from(bucket).getPublicUrl(path);
+  const { data } = sb.storage.from(bucket).getPublicUrl(fullPath);
   return data?.publicUrl || null;
 }
 
@@ -69,32 +70,53 @@ export async function uploadRemoteImage({ bucket, path, url }) {
   }
 }
 
-/** Mirror v0 concept images to durable storage; returns updated bundle. */
+async function mirrorImageToStorage({ userId, projectId, img, folder, idx }) {
+  if (!img) return img;
+  const remote = img?.url;
+  if (!remote) return img;
+  if (remote.includes("/storage/v1/object/public/")) {
+    return { ...img, stored_url: remote };
+  }
+  const base = `${userId}/${projectId}/${folder}-${idx}`;
+  let stored = null;
+  if (remote.startsWith("data:")) {
+    stored = await uploadDataUrl({ bucket: STORAGE_BUCKETS.v0, path: base, dataUrl: remote });
+  } else {
+    stored = await uploadRemoteImage({ bucket: STORAGE_BUCKETS.v0, path: base, url: remote });
+  }
+  return {
+    ...img,
+    url: stored || remote,
+    source_url: remote.startsWith("data:") ? undefined : remote,
+    stored_url: stored,
+  };
+}
+
+/** Mirror v0 concept images and floor plans to durable storage; returns updated bundle. */
 export async function persistV0ImagesToStorage({ userId, projectId, imageBundle }) {
-  if (!imageBundle?.images?.length || !userId || !projectId) return imageBundle;
-  const base = `${userId}/${projectId}`;
-  const images = await Promise.all(
-    imageBundle.images.map(async (img, idx) => {
-      const remote = img?.url;
-      if (!remote) return img;
-      if (remote.includes("/storage/v1/object/public/")) {
-        return { ...img, stored_url: remote };
-      }
-      const stored =
-        (await uploadRemoteImage({
-          bucket: STORAGE_BUCKETS.v0,
-          path: `${base}/concept-${idx}`,
-          url: remote,
-        })) || null;
-      return {
-        ...img,
-        url: stored || remote,
-        source_url: remote,
-        stored_url: stored,
-      };
-    })
-  );
-  return { ...imageBundle, images, storage_mirrored: images.some((i) => i.stored_url) };
+  if (!imageBundle || !userId || !projectId) return imageBundle;
+  const images = imageBundle.images?.length
+    ? await Promise.all(
+        imageBundle.images.map((img, idx) =>
+          mirrorImageToStorage({ userId, projectId, img, folder: "concept", idx })
+        )
+      )
+    : imageBundle.images;
+  const floorPlansRaw = imageBundle.floor_plans || imageBundle.floorPlans || [];
+  const floor_plans = floorPlansRaw.length
+    ? await Promise.all(
+        floorPlansRaw.map((img, idx) =>
+          mirrorImageToStorage({ userId, projectId, img, folder: "floor", idx })
+        )
+      )
+    : floorPlansRaw;
+  return {
+    ...imageBundle,
+    images,
+    floor_plans,
+    floorPlans: floor_plans,
+    storage_mirrored: [...(images || []), ...floor_plans].some((i) => i?.stored_url),
+  };
 }
 
 /** Upload portfolio photos/cover/profile; returns URL strings for DB. */

@@ -527,6 +527,23 @@ def _grok_image_timeout_sec() -> int:
         return 24
 
 
+def _inline_image_url(url: str) -> str:
+    """Fetch remote Grok CDN URLs server-side so the client gets durable data URLs."""
+    if not url or str(url).startswith("data:"):
+        return url
+    try:
+        resp = requests.get(url, timeout=25)
+        resp.raise_for_status()
+        content_type = (resp.headers.get("content-type") or "image/jpeg").split(";")[0].strip()
+        if not content_type.startswith("image/"):
+            content_type = "image/jpeg"
+        b64 = base64.b64encode(resp.content).decode("ascii")
+        return f"data:{content_type};base64,{b64}"
+    except Exception as exc:
+        logger.warning("Could not inline Grok image URL: %s", exc)
+        return url
+
+
 def _grok_generate_image(
     prompt: str, aspect_ratio: str = "16:9", timeout_sec: Optional[int] = None
 ) -> Optional[str]:
@@ -558,7 +575,7 @@ def _grok_generate_image(
         item = data[0]
         url = item.get("url")
         if url:
-            return str(url)
+            return _inline_image_url(str(url))
         b64 = item.get("b64_json")
         if b64:
             return f"data:image/jpeg;base64,{b64}"
