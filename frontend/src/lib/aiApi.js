@@ -18,9 +18,14 @@ const apiBase = normalizedBackendUrl
 const aiClient = apiBase
   ? axios.create({
       baseURL: apiBase,
-      timeout: 180000,
+      timeout: 200000,
     })
   : null;
+
+const WAKE_ATTEMPTS = 3;
+const WAKE_DELAY_MS = 28000;
+const IMAGE_ATTEMPTS = 3;
+const IMAGE_RETRY_DELAY_MS = 12000;
 
 export function isAiBackendConfigured() {
   return Boolean(aiClient);
@@ -30,11 +35,30 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Drop engineer-facing notes; never flag the pack as “demo” in the UI. */
+/** True when URL is from Grok/xAI (not stock Unsplash or local template paths). */
+export function isGrokConceptUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  const u = url.toLowerCase();
+  if (u.includes("unsplash.com")) return false;
+  if (u.includes("/floorplan_") || u.endsWith("floorplan_ground.png") || u.endsWith("floorplan_first.png")) {
+    return false;
+  }
+  if (u.startsWith("data:image")) return true;
+  if (u.includes("x.ai") || u.includes("imgen.x.ai")) return true;
+  return false;
+}
+
+/** At least one elevation/concept image from Grok (floor plans may still be indicative templates). */
+export function bundleHasGrokConcepts(bundle) {
+  const images = Array.isArray(bundle?.images) ? bundle.images : [];
+  return images.some((img) => isGrokConceptUrl(img?.url));
+}
+
+/** Strip engineer notes before UI; keep bundle shape. */
 export function sanitizeV0Bundle(bundle) {
   if (!bundle || typeof bundle !== "object") return bundle;
-  const { provider_note: _note, mock: _mock, ...rest } = bundle;
-  return { ...rest, mock: false };
+  const { provider_note: _note, ...rest } = bundle;
+  return rest;
 }
 
 export function sanitizePlanBundle(bundle) {
@@ -81,6 +105,7 @@ function buildFloorPlanMocks(floors, headline) {
   }));
 }
 
+/** Dev-only fallback when no backend URL is configured. */
 function mockV0ImagesClient(flow, brief) {
   const headline =
     brief?.location?.split?.(",")?.[0]?.trim?.() ||
@@ -91,7 +116,7 @@ function mockV0ImagesClient(flow, brief) {
 
   if (isRemodel) {
     return {
-      mock: false,
+      mock: true,
       floor_plans: [
         {
           url: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1000&q=80",
@@ -120,7 +145,7 @@ function mockV0ImagesClient(flow, brief) {
   }
 
   return {
-    mock: false,
+    mock: true,
     floor_plans: buildFloorPlanMocks(floors, headline),
     images: [
       {
@@ -173,7 +198,7 @@ function mockEstimateClient(flow, brief) {
     });
     const total_indicative_inr = estimate_lines.reduce((s, l) => s + l.amount_inr, 0);
     return {
-      mock: false,
+      mock: true,
       estimate_lines,
       total_indicative_inr,
       milestones: [
@@ -183,22 +208,20 @@ function mockEstimateClient(flow, brief) {
         { title: "Snag & handover", timeframe: "Final week" },
       ],
       project_summary: `Indicative ${brief?.room || "room"} remodel in ${headline} scoped to ~₹${Math.round(total_indicative_inr / 100000)} L (your budget band).`,
-      provider_note: "",
     };
   }
-  const estimate_lines =
-      [
-          { label: "Structure & shell (indicative)", amount_inr: 2650000, note: `${headline} — tied to floor plans v0` },
-          { label: "Exterior facade package", amount_inr: 620000, note: "Elevations v0 + materials allowance" },
-          { label: "Core interiors (indicative)", amount_inr: 980000, note: "Kitchen, wardrobes, baths baseline" },
-          { label: "Services (MEP rough-in)", amount_inr: 540000, note: "Electrical, plumbing, basic HVAC points" },
-        ];
+  const estimate_lines = [
+    { label: "Structure & shell (indicative)", amount_inr: 2650000, note: `${headline} — tied to floor plans v0` },
+    { label: "Exterior facade package", amount_inr: 620000, note: "Elevations v0 + materials allowance" },
+    { label: "Core interiors (indicative)", amount_inr: 980000, note: "Kitchen, wardrobes, baths baseline" },
+    { label: "Services (MEP rough-in)", amount_inr: 540000, note: "Electrical, plumbing, basic HVAC points" },
+  ];
   const total_indicative_inr = estimate_lines.reduce(
     (s, l) => s + (typeof l.amount_inr === "number" ? l.amount_inr : 0),
-    0
+    0,
   );
   return {
-    mock: false,
+    mock: true,
     estimate_lines,
     total_indicative_inr,
     milestones: [
@@ -207,17 +230,40 @@ function mockEstimateClient(flow, brief) {
       { title: "Execution window", timeframe: "Per timeline in brief" },
     ],
     project_summary:
-      flow === "remodel"
-        ? `Remodel roadmap for ${headline}.`
-        : `Build roadmap for ${headline}.`,
-    provider_note: "",
+      flow === "remodel" ? `Remodel roadmap for ${headline}.` : `Build roadmap for ${headline}.`,
   };
+}
+
+async function wakeAiBackend(onStatus) {
+  if (!aiClient) return false;
+  for (let i = 0; i < WAKE_ATTEMPTS; i++) {
+    if (i > 0) {
+      onStatus?.(`Waking AI server… (attempt ${i + 1} of ${WAKE_ATTEMPTS})`);
+      await sleep(WAKE_DELAY_MS);
+    } else {
+      onStatus?.("Connecting to AI…");
+    }
+    try {
+      await aiClient.get("/ai/status", { timeout: 90000 });
+      return true;
+    } catch {
+      /* retry */
+    }
+  }
+  return false;
+}
+
+function mergeFloorPlansFromTemplate(data, flow, brief) {
+  if (data.floor_plans?.length) return data;
+  const tmpl = mockV0ImagesClient(flow, brief);
+  return { ...data, floor_plans: tmpl.floor_plans };
 }
 
 /**
  * Design images from wizard brief → backend → Grok Imagine.
+ * Waits for real Grok URLs; never returns instant stock placeholders in production.
  */
-export async function requestV0Images(flow, brief) {
+export async function requestV0Images(flow, brief, { onStatus } = {}) {
   const safeBrief = brief && typeof brief === "object" ? brief : {};
   if (!aiClient) {
     if (process.env.NODE_ENV === "production") {
@@ -230,52 +276,33 @@ export async function requestV0Images(flow, brief) {
   const postImages = () =>
     aiClient.post("/ai/v0-images", { flow, brief: safeBrief }, { timeout: 200000 });
 
-  let response;
-  try {
-    response = await postImages();
-  } catch (err) {
-    const status = err?.response?.status;
-    const retryable =
-      !status || status >= 500 || err?.code === "ECONNABORTED" || err?.code === "ERR_NETWORK";
-    if (retryable) {
-      await sleep(22000);
-      try {
-        response = await postImages();
-      } catch (retryErr) {
-        const retryStatus = retryErr?.response?.status;
-        if (
-          !retryStatus ||
-          retryStatus >= 500 ||
-          retryErr?.code === "ERR_NETWORK" ||
-          retryErr?.code === "ECONNABORTED"
-        ) {
-          return sanitizeV0Bundle(mockV0ImagesClient(flow, safeBrief));
-        }
-        throw retryErr;
-      }
-    } else if (status >= 500 || !err?.response) {
-      return sanitizeV0Bundle(mockV0ImagesClient(flow, safeBrief));
+  onStatus?.("Preparing AI design generation…");
+  await wakeAiBackend(onStatus);
+
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= IMAGE_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      onStatus?.(`Generating concepts… (attempt ${attempt} of ${IMAGE_ATTEMPTS})`);
+      await sleep(IMAGE_RETRY_DELAY_MS);
     } else {
-      throw err;
+      onStatus?.("Generating design concepts with AI… (about 1–2 minutes)");
+    }
+
+    try {
+      const { data } = await postImages();
+      if (bundleHasGrokConcepts(data)) {
+        onStatus?.("Design concepts ready.");
+        const merged = mergeFloorPlansFromTemplate(data, flow, safeBrief);
+        return sanitizeV0Bundle(merged);
+      }
+      lastError = new Error("AI did not return generated concept images yet.");
+    } catch (err) {
+      lastError = err;
     }
   }
 
-  const data = sanitizeV0Bundle(response.data);
-
-  if (!data.floor_plans || data.floor_plans.length === 0) {
-    const fallbackMock = mockV0ImagesClient(flow, safeBrief);
-    data.floor_plans = fallbackMock.floor_plans;
-  }
-
-  if (!data.images || data.images.length === 0) {
-    const fallbackMock = mockV0ImagesClient(flow, safeBrief);
-    return sanitizeV0Bundle({
-      ...fallbackMock,
-      floor_plans: data.floor_plans?.length ? data.floor_plans : fallbackMock.floor_plans,
-    });
-  }
-
-  return data;
+  throw lastError || new Error("Could not generate design images. Wait a minute and tap Regenerate.");
 }
 
 /**
@@ -284,7 +311,7 @@ export async function requestV0Images(flow, brief) {
 export async function requestEstimatePlan(flow, brief, imageBundle = null) {
   if (!aiClient) {
     await fallbackDelay();
-    return mockEstimateClient(flow, brief);
+    return sanitizePlanBundle(mockEstimateClient(flow, brief));
   }
   const { data } = await aiClient.post("/ai/estimate-plan", {
     flow,

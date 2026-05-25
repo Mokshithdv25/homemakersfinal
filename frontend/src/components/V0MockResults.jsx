@@ -2,7 +2,7 @@ import React from "react";
 
 const OR = "#C85F2B";
 
-export function V0GeneratingPanel({ phase = "images" }) {
+export function V0GeneratingPanel({ phase = "images", statusLine = "" }) {
   const step1Active = phase === "images";
   const step2Active = phase === "estimate";
   const step1Done = step2Active;
@@ -24,9 +24,14 @@ export function V0GeneratingPanel({ phase = "images" }) {
   return (
     <div style={{ padding: "24px 20px", background: "linear-gradient(180deg,#FFFBF7,#FDF8F3)", border: "1px solid #EEDCCB", borderRadius: 14, marginBottom: 20 }}>
       <div style={{ fontSize: 15, fontWeight: 800, textAlign: "center", marginBottom: 4 }}>AI is generating your v0 pack</div>
-      <p style={{ fontSize: 12, color: "#7A6E62", textAlign: "center", margin: "0 0 16px" }}>
-        Using your brief — usually 1–2 minutes. First request after idle may take a little longer.
+      <p style={{ fontSize: 12, color: "#7A6E62", textAlign: "center", margin: "0 0 8px" }}>
+        Please keep this page open — we wait for real AI renders (about 1–2 minutes).
       </p>
+      {statusLine ? (
+        <p style={{ fontSize: 12, color: "#C85F2B", textAlign: "center", margin: "0 0 16px", fontWeight: 600, lineHeight: 1.45 }}>
+          {statusLine}
+        </p>
+      ) : null}
       {row(1, "Design concepts", step1Active ? "Rendering…" : "Done", step1Active, step1Done)}
       {row(2, "Estimate", step2Active ? "INR lines…" : "Waiting", step2Active, false)}
     </div>

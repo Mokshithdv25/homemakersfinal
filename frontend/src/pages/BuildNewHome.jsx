@@ -10,6 +10,7 @@ import {
 } from "../components/V0MockResults";
 import { getBuildFlow, setBuildFlow } from "../lib/projectFlowStorage";
 import {
+  bundleHasGrokConcepts,
   requestV0Images,
   requestEstimatePlan,
   formatAiApiError,
@@ -342,6 +343,7 @@ export default function BuildNewHome() {
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
   const [v0GenPhase, setV0GenPhase] = useState("");
+  const [v0GenStatus, setV0GenStatus] = useState("");
   const [projectSaving, setProjectSaving] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
   const [v0PlanBundle, setV0PlanBundle] = useState(null);
@@ -408,9 +410,19 @@ export default function BuildNewHome() {
 
   useEffect(() => {
     const f = getBuildFlow();
-    setV0Generated(!!f.v0);
-    if (f.v0Images) setV0ImageBundle(sanitizeV0Bundle(f.v0Images));
-    if (f.v0Plan) setV0PlanBundle(sanitizePlanBundle(f.v0Plan));
+    const hasRealV0 = bundleHasGrokConcepts(f.v0Images);
+    if (hasRealV0) {
+      setV0Generated(!!f.v0);
+      setV0ImageBundle(sanitizeV0Bundle(f.v0Images));
+      if (f.v0Plan) setV0PlanBundle(sanitizePlanBundle(f.v0Plan));
+    } else {
+      setV0Generated(false);
+      setV0ImageBundle(null);
+      setV0PlanBundle(null);
+      if (f.v0 || f.v0Images) {
+        setBuildFlow({ v0: false, v0Images: null, v0Plan: null });
+      }
+    }
     if (f.projectId) setFlowProjectId(f.projectId);
     const source = (searchParams.get("source") || "").toLowerCase();
     if (typeof f.hasArchitect === "boolean") setHasArchitect(f.hasArchitect);
@@ -446,7 +458,11 @@ export default function BuildNewHome() {
       return;
     }
     setV0Generating(true);
+    setV0Generated(false);
+    setV0ImageBundle(null);
+    setV0PlanBundle(null);
     setStepBlockError("");
+    setV0GenStatus("");
     try {
       const brief = {
         ...form,
@@ -455,11 +471,14 @@ export default function BuildNewHome() {
         budgetLabel: budgetSingleLabel(form),
       };
       setV0GenPhase("images");
-      const imagesPayload = await requestV0Images("new_home", brief);
+      const imagesPayload = await requestV0Images("new_home", brief, {
+        onStatus: (msg) => setV0GenStatus(msg),
+      });
       setV0GenPhase("estimate");
+      setV0GenStatus("Building your estimate…");
       const planPayload = await requestEstimatePlan("new_home", brief, imagesPayload);
-      setV0ImageBundle(sanitizeV0Bundle(imagesPayload));
-      setV0PlanBundle(sanitizePlanBundle(planPayload));
+      setV0ImageBundle(imagesPayload);
+      setV0PlanBundle(planPayload);
       setV0Generated(true);
       const briefForSave = {
         ...brief,
@@ -487,6 +506,7 @@ export default function BuildNewHome() {
     } finally {
       setV0Generating(false);
       setV0GenPhase("");
+      setV0GenStatus("");
     }
   };
 
@@ -1717,7 +1737,7 @@ export default function BuildNewHome() {
                 </button>
               </div>
             )}
-            {v0Generating && <V0GeneratingPanel phase={v0GenPhase || "images"} />}
+            {v0Generating && <V0GeneratingPanel phase={v0GenPhase || "images"} statusLine={v0GenStatus} />}
             {v0Generated && (
               <>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
