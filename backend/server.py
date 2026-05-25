@@ -993,7 +993,7 @@ def _grok_new_home_floor_plan_prompts(brief: dict) -> List[tuple]:
             (
                 "Second floor plan v0",
                 "Top floor / terrace level (indicative)",
-                base + "SECOND FLOOR per brief; vertical circulation consistent with <IMAGE_2> and <IMAGE_3>.",
+                base + "SECOND FLOOR per brief; vertical circulation must stack above rooms in <IMAGE_2>.",
                 "4:3",
             ),
         ]
