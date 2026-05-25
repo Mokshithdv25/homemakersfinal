@@ -212,7 +212,7 @@ function App() {
     } = sb.auth.onAuthStateChange((event, session) => {
       if (session) syncSession(session);
       else if (event === "SIGNED_OUT") {
-        signOutHm();
+        /* HmUserMenu / AccountPage already cleared local session; avoid guard redirect races. */
       }
     });
 

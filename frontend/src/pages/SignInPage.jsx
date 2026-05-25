@@ -88,7 +88,7 @@ export default function SignInPage() {
     setAuthError("");
     const sb = getSupabase();
     if (!sb) {
-      setAuthError("Supabase is not configured. Add REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.");
+      setAuthError("Sign-in is not available right now. Please try again later.");
       return;
     }
     setLoading(true);
@@ -108,7 +108,7 @@ export default function SignInPage() {
       if (error) throw error;
       /* Browser leaves the app for Google; session resumes on redirectTo. */
     } catch (err) {
-      setAuthError(err?.message || "Google sign-in failed. Check Supabase Google provider settings.");
+      setAuthError(err?.message || "Could not sign in with Google. Try email instead, or try again in a moment.");
       setLoading(false);
     }
   };
@@ -461,18 +461,19 @@ export default function SignInPage() {
                     </div>
                     <p className="mt-2 px-1 text-[11px] leading-relaxed text-muted-foreground font-body">
                       {accountRole === "pro"
-                        ? "Sign in first, then build your portfolio. After you go live, your pro dashboard unlocks."
-                        : "You will land in the homeowner experience after login."}
+                        ? "Build your portfolio, then go live for homeowners to find you."
+                        : "Save projects and pick up where you left off on any device."}
                     </p>
                   </div>
 
                   {!supabaseConfigured ? (
                     <p className="rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-2 font-body text-sm text-amber-900">
-                      Supabase is not configured on this deploy. Add{" "}
-                      <strong>REACT_APP_SUPABASE_URL</strong> and <strong>REACT_APP_SUPABASE_ANON_KEY</strong> in
-                      Vercel → Settings → Environment Variables, then redeploy.
-                      {supabaseInitError ? (
-                        <span className="block mt-2 text-xs font-mono">{String(supabaseInitError.message)}</span>
+                      Sign-in is temporarily unavailable. Please try again later.
+                      {process.env.NODE_ENV === "development" ? (
+                        <span className="block mt-2 text-xs font-mono text-amber-800/90">
+                          Dev: set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY, then restart.
+                          {supabaseInitError ? ` (${supabaseInitError.message})` : ""}
+                        </span>
                       ) : null}
                     </p>
                   ) : null}
@@ -526,16 +527,6 @@ export default function SignInPage() {
                     )}
                     Continue with Google
                   </button>
-                  {!supabaseConfigured ? (
-                    <p className="text-center font-body text-[11px] text-muted-foreground">
-                      Google sign-in needs Supabase env vars (local <code className="text-[10px]">.env</code> or Vercel).
-                    </p>
-                  ) : (
-                    <p className="text-center font-body text-[11px] text-muted-foreground">
-                      Secure sign-in via Google — account stored in Supabase.
-                    </p>
-                  )}
-
                   {/* Divider */}
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
@@ -622,15 +613,6 @@ export default function SignInPage() {
                   {/* Email Input */}
                   {(!showPhoneOtp || authMethod === "email") && (
                     <>
-                      {getSupabase() ? (
-                        <p className="text-[11px] leading-relaxed text-muted-foreground font-body text-center">
-                          Email sign-in saves your account in Supabase (upgrade to OAuth / phone OTP when you enable them in the dashboard).
-                        </p>
-                      ) : (
-                        <p className="text-[11px] leading-relaxed text-amber-800/90 font-body text-center rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2">
-                          This build is not connected to Supabase. Projects and portfolios will not save to the cloud until env vars are set on Vercel.
-                        </p>
-                      )}
                       <div className="space-y-4">
                         <div>
                           <Label className="font-body text-sm font-semibold mb-1.5 block">

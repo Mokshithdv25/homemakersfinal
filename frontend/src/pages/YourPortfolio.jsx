@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
+import HmUserMenu from "../components/HmUserMenu";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import { ArrowLeft, ArrowRight, UploadCloud, X, Camera, Download, ShieldCheck } from "lucide-react";
 import {
@@ -173,7 +174,10 @@ export default function YourPortfolio() {
           <StepRail currentStep={3} />
         </div>
 
-        <ProfileStrength value={65} subtext="Almost there!" />
+        <div className="flex items-center gap-3 shrink-0">
+          <ProfileStrength value={65} subtext="Almost there!" />
+          <HmUserMenu />
+        </div>
       </header>
 
       {/* Mobile step rail */}

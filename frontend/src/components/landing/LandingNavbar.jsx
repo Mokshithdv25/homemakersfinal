@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, User, ChevronDown, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TAGLINE_CLASS, hmLogoMarkSrc } from "../../lib/hmBrand";
@@ -49,7 +49,19 @@ const FIND_PROS_GROUPS = [
  */
 export default function LandingNavbar({ tagline = null }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const session = useHmSession();
+
+  const signInHref = ({ role, mode } = {}) => {
+    const params = new URLSearchParams();
+    params.set("mode", mode || "signin");
+    if (role) params.set("role", role);
+    const base = location.pathname + location.search;
+    if (base && base !== "/" && !base.startsWith("/sign-in")) {
+      params.set("redirect", base);
+    }
+    return `/sign-in?${params.toString()}`;
+  };
   const isProSession = session?.role === "pro";
   const [mobileOpen, setMobileOpen] = useState(false);
   const [softwareOpen, setSoftwareOpen] = useState(false);
@@ -69,7 +81,7 @@ export default function LandingNavbar({ tagline = null }) {
       ];
     }
     return [
-      { label: "My Project", path: session ? "/project" : "/sign-in" },
+      { label: "My Project", path: session ? "/project" : signInHref({ role: "homeowner" }) },
       { label: "Shop", path: "/shop" },
     ];
   }, [isProSession, session]);
@@ -247,7 +259,7 @@ export default function LandingNavbar({ tagline = null }) {
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => go("/sign-in")}
+                onClick={() => go(signInHref())}
                 className="rounded-full px-3.5 font-body text-sm gap-2"
               >
                 <User className="w-4 h-4" />
@@ -256,7 +268,7 @@ export default function LandingNavbar({ tagline = null }) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => go("/sign-in?role=pro&mode=signup")}
+                onClick={() => go(signInHref({ role: "pro", mode: "signup" }))}
                 className="rounded-full border-foreground/15 bg-white/70 px-4 font-body text-sm gap-2 shadow-sm hover:bg-secondary"
               >
                 <Briefcase className="w-4 h-4" />
@@ -308,14 +320,14 @@ export default function LandingNavbar({ tagline = null }) {
             </div>
           ) : (
             <>
-              <Button type="button" variant="ghost" onClick={() => go("/sign-in")} className="w-full justify-start font-body text-sm gap-2">
+              <Button type="button" variant="ghost" onClick={() => go(signInHref())} className="w-full justify-start font-body text-sm gap-2">
                 <User className="w-4 h-4" />
                 Sign In
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => go("/sign-in?role=pro&mode=signup")}
+                onClick={() => go(signInHref({ role: "pro", mode: "signup" }))}
                 className="w-full rounded-2xl border-foreground/20 font-body text-sm gap-2"
               >
                 <Briefcase className="w-4 h-4" />

@@ -72,10 +72,10 @@ export default function HmUserMenu({ className = "" }) {
     navigate(path);
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     setOpen(false);
-    await signOutHm();
     navigate("/", { replace: true });
+    void signOutHm();
   };
 
   const menuItem = (icon, label, path) => (

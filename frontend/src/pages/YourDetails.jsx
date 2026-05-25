@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
+import HmUserMenu from "../components/HmUserMenu";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import { findCraft } from "../lib/crafts";
 import { updatePortfolio } from "../lib/api";
@@ -262,7 +263,10 @@ export default function YourDetails() {
           <StepRail currentStep={2} />
         </div>
 
-        <ProfileStrength value={35} subtext="Keep going!" />
+        <div className="flex items-center gap-3 shrink-0">
+          <ProfileStrength value={35} subtext="Keep going!" />
+          <HmUserMenu />
+        </div>
       </header>
 
       {/* Mobile step rail */}

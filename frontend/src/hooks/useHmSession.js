@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "../lib/supabaseClient";
-import { readHmSession } from "../lib/hmAuth";
+import { HM_SESSION_CLEARED_EVENT, readHmSession } from "../lib/hmAuth";
 
 /** Reactive homeowner/pro session from localStorage + Supabase auth events. */
 export function useHmSession() {
@@ -10,23 +10,23 @@ export function useHmSession() {
     const refresh = () => setSession(readHmSession());
     refresh();
 
-    const sb = getSupabase();
-    if (!sb) return undefined;
-
-    const {
-      data: { subscription },
-    } = sb.auth.onAuthStateChange(() => {
-      refresh();
-    });
-
     const onStorage = (e) => {
       if (!e.key || e.key === "hmSession" || e.key === "hmUser") refresh();
     };
     window.addEventListener("storage", onStorage);
+    window.addEventListener(HM_SESSION_CLEARED_EVENT, refresh);
+
+    const sb = getSupabase();
+    const subscription = sb
+      ? sb.auth.onAuthStateChange(() => {
+          refresh();
+        }).data.subscription
+      : null;
 
     return () => {
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener(HM_SESSION_CLEARED_EVENT, refresh);
     };
   }, []);
 

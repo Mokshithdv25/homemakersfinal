@@ -93,9 +93,9 @@ export default function AccountPage() {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOutHm();
+  const handleSignOut = () => {
     navigate("/", { replace: true });
+    void signOutHm();
   };
 
   if (!session) {

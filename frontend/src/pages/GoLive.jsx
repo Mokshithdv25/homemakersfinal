@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
 import { Copy, Eye, LayoutGrid, CheckCircle2, Link2, QrCode, ShieldCheck } from "lucide-react";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
+import HmUserMenu from "../components/HmUserMenu";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
 import {
   getPortfolioBase,
@@ -147,7 +148,10 @@ export default function GoLive() {
           <StepRail currentStep={4} />
         </div>
 
-        <ProfileStrength value={100} subtext="Amazing! You're all set 🎉" />
+        <div className="flex items-center gap-3 shrink-0">
+          <ProfileStrength value={100} subtext="Amazing! You're all set 🎉" />
+          <HmUserMenu />
+        </div>
       </header>
 
       {/* Mobile step rail */}

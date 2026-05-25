@@ -22,11 +22,13 @@ export default class SignInErrorBoundary extends React.Component {
           <div className="max-w-md w-full rounded-2xl border border-[#EEDCCB] bg-white p-8 shadow-lg">
             <h1 className="text-xl font-bold text-[#1C1917] mb-2">Sign-in could not load</h1>
             <p className="text-sm text-[#57534E] mb-4 leading-relaxed">
-              Something crashed in the browser. Try a hard refresh (Cmd+Shift+R). If it persists, check the
-              console or confirm Vercel has <code className="text-xs">REACT_APP_SUPABASE_URL</code> and{" "}
-              <code className="text-xs">REACT_APP_SUPABASE_ANON_KEY</code>.
+              Something went wrong loading this page. Try a hard refresh, or come back in a moment.
             </p>
-            <p className="text-xs text-[#78716C] font-mono break-all mb-6">{String(this.state.error?.message || this.state.error)}</p>
+            {process.env.NODE_ENV === "development" ? (
+              <p className="text-xs text-[#78716C] font-mono break-all mb-6">
+                {String(this.state.error?.message || this.state.error)}
+              </p>
+            ) : null}
             <a href="/" className="text-sm font-semibold text-[#C85F2B] hover:underline">
               ← Back to home
             </a>

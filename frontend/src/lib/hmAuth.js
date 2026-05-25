@@ -3,6 +3,15 @@ import { getSupabase } from "./supabaseClient";
 import { persistHmSessionFromSupabase } from "./userProfileApi";
 
 const LAST_AUTH_USER_KEY = "hm_last_auth_user_id";
+export const HM_SESSION_CLEARED_EVENT = "hm-session-cleared";
+
+function notifySessionCleared() {
+  try {
+    window.dispatchEvent(new Event(HM_SESSION_CLEARED_EVENT));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Read cached session written by {@link persistHmSessionFromSupabase}. */
 export function readHmSession() {
@@ -165,12 +174,14 @@ export function getProLandingPath() {
 }
 
 export function getHomeownerLandingPath() {
-  return "/build";
+  return "/project";
 }
 
+/** Where to send the user right after sign-in. */
 export function getPostLoginPath(role, redirectPath) {
-  if (redirectPath && String(redirectPath).startsWith("/")) {
-    return redirectPath;
+  const path = String(redirectPath || "").trim();
+  if (path.startsWith("/") && !path.startsWith("/sign-in")) {
+    return path;
   }
   if (role === "pro") return getProLandingPath();
   return getHomeownerLandingPath();
@@ -194,20 +205,23 @@ export async function establishHmSession(user, profile, { signInIntent } = {}) {
   return activeRole;
 }
 
+/** Clear local session and Supabase auth. Call after navigating away from guarded pages. */
 export async function signOutHm() {
-  const sb = getSupabase();
-  if (sb) {
-    try {
-      await sb.auth.signOut();
-    } catch (_) {
-      /* ignore */
-    }
-  }
   try {
-    localStorage.removeItem("hmSession");
-    localStorage.removeItem("hmUser");
+    clearHmUserDeviceCaches();
     localStorage.removeItem(LAST_AUTH_USER_KEY);
   } catch (_) {
     /* ignore */
   }
+  notifySessionCleared();
+
+  const sb = getSupabase();
+  if (sb) {
+    try {
+      await sb.auth.signOut({ scope: "local" });
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  notifySessionCleared();
 }
