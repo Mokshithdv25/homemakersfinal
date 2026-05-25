@@ -1,5 +1,8 @@
 import { fetchOwnedPortfolio } from "./api";
 import { getSupabase } from "./supabaseClient";
+import { persistHmSessionFromSupabase } from "./userProfileApi";
+
+const LAST_AUTH_USER_KEY = "hm_last_auth_user_id";
 
 /** Read cached session written by {@link persistHmSessionFromSupabase}. */
 export function readHmSession() {
@@ -27,6 +30,58 @@ export function getProfileInitial(session) {
   const name = session?.profile?.name || session?.profile?.email || "";
   const ch = String(name).trim().charAt(0);
   return ch ? ch.toUpperCase() : "?";
+}
+
+/** Clear device caches when a different Supabase user signs in (stale name / portfolio). */
+export function clearHmUserDeviceCaches() {
+  const keys = [
+    "hmSession",
+    "hmUser",
+    "hm_portfolio",
+    "hm_portfolio_id",
+    "hm_build_new_flow",
+    "hm_remodel_flow",
+  ];
+  keys.forEach((k) => {
+    try {
+      localStorage.removeItem(k);
+    } catch {
+      /* ignore */
+    }
+  });
+}
+
+export function ensureUserDeviceIsolation(userId) {
+  if (!userId) return;
+  let previous = null;
+  try {
+    previous = localStorage.getItem(LAST_AUTH_USER_KEY);
+  } catch {
+    /* ignore */
+  }
+  if (previous && previous !== userId) {
+    clearHmUserDeviceCaches();
+  }
+  try {
+    localStorage.setItem(LAST_AUTH_USER_KEY, userId);
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Role for this session: explicit sign-in intent (homeowner vs pro) wins over DB default.
+ */
+export function resolveSessionRole({ profile, user, signInIntent }) {
+  if (signInIntent === "pro" || signInIntent === "homeowner") return signInIntent;
+  const existing = readHmSession();
+  if (existing?.supabaseUserId === user?.id && (existing.role === "pro" || existing.role === "homeowner")) {
+    return existing.role;
+  }
+  if (profile?.role === "pro" || profile?.role === "homeowner") return profile.role;
+  const meta = user?.user_metadata?.role;
+  if (meta === "pro" || meta === "homeowner") return meta;
+  return "homeowner";
 }
 
 /** Portfolio wizard progress from local draft (device). */
@@ -73,6 +128,14 @@ export async function syncProPortfolioFromServer(ownerUserId) {
   if (!ownerUserId) return null;
   const row = await fetchOwnedPortfolio(ownerUserId);
   if (row) persistProPortfolioCache(row);
+  else {
+    try {
+      localStorage.removeItem("hm_portfolio");
+      localStorage.removeItem("hm_portfolio_id");
+    } catch {
+      /* ignore */
+    }
+  }
   return row;
 }
 
@@ -87,12 +150,7 @@ export function getProPublicProfilePath() {
   return null;
 }
 
-/** Best route for a pro after auth — dashboard if portfolio is live, else continue onboarding. */
-export function getProLandingPath() {
-  return getProOnboardingResumePath();
-}
-
-/** Resume portfolio wizard at the right step. */
+/** Resume portfolio wizard at the right step, or dashboard when live. */
 export function getProOnboardingResumePath() {
   const { status, step } = readProPortfolioState();
   if (status === "published") return "/pro/dashboard";
@@ -102,12 +160,38 @@ export function getProOnboardingResumePath() {
   return "/craft";
 }
 
+export function getProLandingPath() {
+  return getProOnboardingResumePath();
+}
+
+export function getHomeownerLandingPath() {
+  return "/build";
+}
+
 export function getPostLoginPath(role, redirectPath) {
   if (redirectPath && String(redirectPath).startsWith("/")) {
     return redirectPath;
   }
-  if (role === "pro") return getProOnboardingResumePath();
-  return "/build";
+  if (role === "pro") return getProLandingPath();
+  return getHomeownerLandingPath();
+}
+
+/**
+ * After Supabase auth: isolate device caches, persist session role, sync pro portfolio when needed.
+ */
+export async function establishHmSession(user, profile, { signInIntent } = {}) {
+  if (!user?.id) return null;
+  ensureUserDeviceIsolation(user.id);
+  const activeRole = resolveSessionRole({ profile, user, signInIntent });
+  persistHmSessionFromSupabase(user, profile, { activeRole });
+  if (activeRole === "pro") {
+    try {
+      await syncProPortfolioFromServer(user.id);
+    } catch (_) {
+      /* portfolio table may not be ready */
+    }
+  }
+  return activeRole;
 }
 
 export async function signOutHm() {
@@ -122,6 +206,7 @@ export async function signOutHm() {
   try {
     localStorage.removeItem("hmSession");
     localStorage.removeItem("hmUser");
+    localStorage.removeItem(LAST_AUTH_USER_KEY);
   } catch (_) {
     /* ignore */
   }

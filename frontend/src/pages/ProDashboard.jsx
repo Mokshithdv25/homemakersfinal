@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import LandingNavbar from "../components/landing/LandingNavbar";
 import HmUserMenu from "../components/HmUserMenu";
-import { HM_FIXED_NAV_OFFSET_TAGLINE_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
+import { HM_FIXED_NAV_OFFSET_CLASS } from "../lib/hmBrand";
 import { useHmSession } from "../hooks/useHmSession";
 import { getProOnboardingResumePath, readProPortfolioState } from "../lib/hmAuth";
 
@@ -78,7 +78,7 @@ export default function ProDashboard() {
   const navigate = useNavigate();
   const session = useHmSession();
   const portfolioState = readProPortfolioState();
-  const firstName = (session?.profile?.name || "Pro").split(" ")[0];
+  const firstName = (session?.profile?.name || session?.profile?.email?.split("@")[0] || "there").split(" ")[0];
   const portfolioSlug = (() => {
     try {
       const p = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
@@ -89,8 +89,8 @@ export default function ProDashboard() {
   })();
 
   return (
-    <div className={HM_FIXED_NAV_OFFSET_TAGLINE_CLASS} style={{ minHeight: "100vh", background: "#FBF7F2", color: "#1C1917", fontFamily: "'DM Sans', Inter, system-ui, sans-serif" }}>
-      <LandingNavbar tagline={HM_TAGLINE_PORTFOLIO} />
+    <div className={HM_FIXED_NAV_OFFSET_CLASS} style={{ minHeight: "100vh", background: "#FBF7F2", color: "#1C1917", fontFamily: "'DM Sans', Inter, system-ui, sans-serif" }}>
+      <LandingNavbar />
 
       <main className="mx-auto max-w-6xl px-5 md:px-8 py-8 md:py-10">
         <div

@@ -11,6 +11,8 @@ import {
   CreditCard,
   FolderKanban,
   Pencil,
+  Users,
+  ShoppingBag,
 } from "lucide-react";
 import { useHmSession } from "../hooks/useHmSession";
 import {
@@ -54,7 +56,7 @@ export default function HmUserMenu({ className = "" }) {
   if (!session) return null;
 
   const initial = getProfileInitial(session);
-  const displayName = session.profile?.name || "Your account";
+  const displayName = session.profile?.name || session.profile?.email || "Your account";
   const isPro = session.role === "pro";
   const publicProfilePath = isPro ? getProPublicProfilePath() : null;
   const portfolioPath = isPro ? getProOnboardingResumePath() : null;
@@ -142,14 +144,33 @@ export default function HmUserMenu({ className = "" }) {
                   "/build/remodel",
                 )}
               </MenuSection>
+              <MenuSection label="Explore">
+                {menuItem(<Users className="h-4 w-4 shrink-0 text-copper" />, "Find professionals", "/browse")}
+                {menuItem(<ShoppingBag className="h-4 w-4 shrink-0 text-copper" />, "Materials shop", "/shop")}
+              </MenuSection>
             </>
           ) : (
             <>
               <MenuSection label="Work">
                 {menuItem(
                   <LayoutGrid className="h-4 w-4 shrink-0 text-copper" />,
-                  "My projects",
+                  "Dashboard",
                   "/pro/dashboard",
+                )}
+                {menuItem(
+                  <Users className="h-4 w-4 shrink-0 text-copper" />,
+                  "Leads & new projects",
+                  "/browse",
+                )}
+                {menuItem(
+                  <FolderKanban className="h-4 w-4 shrink-0 text-copper" />,
+                  "Manage jobs",
+                  "/project",
+                )}
+                {menuItem(
+                  <ShoppingBag className="h-4 w-4 shrink-0 text-copper" />,
+                  "Materials shop",
+                  "/shop",
                 )}
                 {menuItem(
                   <Pencil className="h-4 w-4 shrink-0 text-copper" />,

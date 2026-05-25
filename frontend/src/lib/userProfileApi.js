@@ -32,9 +32,12 @@ export async function upsertUserProfile({ fullName, phone, city, role }) {
 }
 
 /** Sync localStorage keys used by the rest of the app (until full auth rollout). */
-export function persistHmSessionFromSupabase(user, profile) {
+export function persistHmSessionFromSupabase(user, profile, { activeRole } = {}) {
   if (!user) return;
-  const role = profile?.role || user.user_metadata?.role || "homeowner";
+  const role =
+    activeRole === "pro" || activeRole === "homeowner"
+      ? activeRole
+      : profile?.role || user.user_metadata?.role || "homeowner";
   const name = profile?.full_name || "";
   const emailStr = user.email || "";
   try {

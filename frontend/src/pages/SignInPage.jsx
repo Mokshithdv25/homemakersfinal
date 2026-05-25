@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../lib/hmBrand";
 import { getSupabase, isSupabaseConfigured, getSupabaseInitError } from "../lib/supabaseClient";
-import { fetchUserProfile, persistHmSessionFromSupabase, upsertUserProfile } from "../lib/userProfileApi";
-import { getPostLoginPath, syncProPortfolioFromServer } from "../lib/hmAuth";
+import { fetchUserProfile, upsertUserProfile } from "../lib/userProfileApi";
+import { establishHmSession, getPostLoginPath } from "../lib/hmAuth";
 
 /**
  * Sign-in: Supabase Auth — email/password and Google OAuth when env vars are set.
@@ -119,12 +119,12 @@ export default function SignInPage() {
     } catch (_) {
       /* user_profiles table or policies not ready — continue to profile step */
     }
-    const resolvedRole = profile?.role || user.user_metadata?.role || accountRole;
+    const signInIntent =
+      searchParams.get("role") === "pro" || searchParams.get("role") === "homeowner"
+        ? searchParams.get("role")
+        : accountRole;
     if (profile?.full_name?.trim()) {
-      persistHmSessionFromSupabase(user, profile);
-      if (resolvedRole === "pro") {
-        await syncProPortfolioFromServer(user.id);
-      }
+      const resolvedRole = await establishHmSession(user, profile, { signInIntent });
       navigate(getPostLoginPath(resolvedRole, redirectFromQuery), { replace: true });
       return;
     }
@@ -308,10 +308,7 @@ export default function SignInPage() {
           } catch (_) {
             /* ignore */
           }
-          persistHmSessionFromSupabase(session.user, profile);
-          if (accountRole === "pro") {
-            await syncProPortfolioFromServer(session.user.id);
-          }
+          await establishHmSession(session.user, profile, { signInIntent: accountRole });
         }
       } else {
         await new Promise((r) => setTimeout(r, 800));

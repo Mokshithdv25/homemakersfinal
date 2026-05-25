@@ -4,9 +4,9 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { getSupabase } from "./lib/supabaseClient";
-import { fetchUserProfile, persistHmSessionFromSupabase } from "./lib/userProfileApi";
+import { fetchUserProfile } from "./lib/userProfileApi";
 import { claimAnonymousProjects } from "./lib/projectFlowApi";
-import { syncProPortfolioFromServer } from "./lib/hmAuth";
+import { establishHmSession, signOutHm } from "./lib/hmAuth";
 import { useMobileNative } from "./hooks/useMobileNative";
 import MobileAppRoutes from "./mobile/MobileAppRoutes";
 import HomePage from "./pages/HomePage";
@@ -137,15 +137,7 @@ function App() {
       } catch (_) {
         /* table missing or RLS — still keep auth session */
       }
-      persistHmSessionFromSupabase(session.user, profile);
-      const role = profile?.role || session.user.user_metadata?.role;
-      if (role === "pro") {
-        try {
-          await syncProPortfolioFromServer(session.user.id);
-        } catch (_) {
-          /* portfolio table may not be ready */
-        }
-      }
+      await establishHmSession(session.user, profile);
       try {
         await claimAnonymousProjects(session.user.id);
       } catch (_) {
@@ -162,12 +154,7 @@ function App() {
     } = sb.auth.onAuthStateChange((event, session) => {
       if (session) syncSession(session);
       else if (event === "SIGNED_OUT") {
-        try {
-          localStorage.removeItem("hmSession");
-          localStorage.removeItem("hmUser");
-        } catch (_) {
-          /* ignore */
-        }
+        signOutHm();
       }
     });
 
