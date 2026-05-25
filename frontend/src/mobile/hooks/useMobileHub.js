@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getBuildFlow, getRemodelFlow } from "../../lib/projectFlowStorage";
-import { listUserProjects } from "../../lib/projectFlowApi";
+import { AUTH_UI_ENABLED } from "../../lib/authMode";
+import { listLocalFlowProjects, listUserProjects } from "../../lib/projectFlowApi";
 import { listPublishedPortfolios } from "../../lib/api";
 import { useHmSession } from "../../hooks/useHmSession";
 import { flowTypeLabel, projectStatusLabel } from "../mobileIA";
@@ -41,7 +42,10 @@ export function useMobileHub() {
     let cancelled = false;
     (async () => {
       setLoadingProjects(true);
-      const rows = await listUserProjects();
+      const rows =
+        !AUTH_UI_ENABLED && !session?.supabaseUserId
+          ? listLocalFlowProjects()
+          : await listUserProjects();
       if (!cancelled) {
         setProjects(rows || []);
         setLoadingProjects(false);

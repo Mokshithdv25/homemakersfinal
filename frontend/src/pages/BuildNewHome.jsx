@@ -333,11 +333,6 @@ export default function BuildNewHome() {
   const [searchParams] = useSearchParams();
   const [activeStep, setActiveStep] = useState(1);
 
-  useEffect(() => {
-    if (!isHomeownerSignedIn()) {
-      navigate(buildSignInRedirect(`${location.pathname}${location.search}`), { replace: true });
-    }
-  }, [navigate, location.pathname, location.search]);
   const [maxStepReached, setMaxStepReached] = useState(1);
   const [v0Generated, setV0Generated] = useState(false);
   const [v0Generating, setV0Generating] = useState(false);
@@ -1693,7 +1688,7 @@ export default function BuildNewHome() {
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Run AI v0 (uses all wizard inputs)</div>
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55, margin: "0 0 12px" }}>
-                  Floor-plan direction, key elevations, and indicative cost — saved to your account in Supabase after sign-in.
+                  Floor-plan direction, key elevations, and indicative cost — saved with your project when you continue.
                 </p>
                 {!isHomeownerSignedIn() ? (
                   <div style={{ padding: "12px 14px", borderRadius: 10, background: "#FDF4EF", border: "1px solid #EEDCCB", marginBottom: 12, fontSize: 13, color: "#57534E", lineHeight: 1.5 }}>

@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { AUTH_UI_ENABLED } from "../lib/authMode";
 import LandingNavbar from "../components/landing/LandingNavbar";
 import LandingHero from "../components/landing/LandingHero";
 import LandingInspirationSection from "../components/landing/LandingInspirationSection";
@@ -45,7 +46,7 @@ export default function HomePage() {
           </p>
           <button
             type="button"
-            onClick={() => navigate("/sign-in?role=pro&mode=signup")}
+            onClick={() => navigate(AUTH_UI_ENABLED ? "/sign-in?role=pro&mode=signup" : "/craft")}
             className="mt-8 gradient-copper rounded-xl px-10 py-3.5 font-body text-base font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90"
           >
             Set up your practice

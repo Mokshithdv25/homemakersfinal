@@ -259,11 +259,6 @@ export default function RemodelHome() {
   const [step, setStep] = useState(1);
   const [maxStepReached, setMaxStepReached] = useState(1);
 
-  useEffect(() => {
-    if (!isHomeownerSignedIn()) {
-      navigate(buildSignInRedirect(`${location.pathname}${location.search}`), { replace: true });
-    }
-  }, [navigate, location.pathname, location.search]);
   const [dreamVision, setDreamVision] = useState(
     "Brighter living room with Scandinavian calm — warm oak accents, hidden storage for toys, and soft daylight. Keep the sofa; rethink the TV wall and ceiling."
   );
@@ -1102,7 +1097,7 @@ export default function RemodelHome() {
             {!v0Generated && !v0Generating && (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Generate v0 for {room}</div>
-                <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 12px" }}>Indicative visuals and estimate — saved to Supabase after sign-in.</p>
+                <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 12px" }}>Indicative visuals and estimate — saved with your project when you continue.</p>
                 {!isHomeownerSignedIn() ? (
                   <div style={{ padding: "12px 14px", borderRadius: 10, background: "#FDF4EF", border: "1px solid #EEDCCB", marginBottom: 12, fontSize: 13, color: "#57534E", lineHeight: 1.5 }}>
                     <strong style={{ color: "#1C1917" }}>Sign in required</strong> before Generate v0.

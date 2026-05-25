@@ -4,6 +4,7 @@ import MobileHeader from "../MobileHeader";
 import { useHmSession } from "../../hooks/useHmSession";
 import HmUserMenu from "../../components/HmUserMenu";
 import { HM_PRO_FLOWS } from "../mobileIA";
+import { AUTH_UI_ENABLED } from "../../lib/authMode";
 import { getProOnboardingResumePath } from "../../lib/hmAuth";
 
 export default function MobileAccountPage() {
@@ -15,9 +16,9 @@ export default function MobileAccountPage() {
 
   return (
     <>
-      <MobileHeader title="You" subtitle={session ? name : "Sign in to continue"} />
+      <MobileHeader title="You" subtitle={session ? name : "Explore HomeMakers"} />
       <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-        {session ? (
+        {session || !AUTH_UI_ENABLED ? (
           <div className="hm-m-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontWeight: 700 }}>{name}</div>
@@ -27,7 +28,7 @@ export default function MobileAccountPage() {
             </div>
             <HmUserMenu />
           </div>
-        ) : (
+        ) : AUTH_UI_ENABLED ? (
           <>
             <button type="button" className="hm-m-btn-primary" onClick={() => navigate("/sign-in")}>
               Sign in
@@ -36,9 +37,9 @@ export default function MobileAccountPage() {
               Join as a pro
             </button>
           </>
-        )}
+        ) : null}
 
-        {session && !isPro ? (
+        {(session || !AUTH_UI_ENABLED) && !isPro ? (
           <>
             <p className="hm-m-section-title" style={{ padding: 0, margin: "8px 0 0" }}>
               Projects
@@ -109,7 +110,7 @@ export default function MobileAccountPage() {
           </>
         ) : null}
 
-        {!session ? (
+        {!isPro && (!session || !AUTH_UI_ENABLED) ? (
           <>
             <p className="hm-m-section-title" style={{ padding: 0, margin: "8px 0 0" }}>
               Professional

@@ -10,10 +10,12 @@ import {
   hmProjectSidebarNavItemStyle,
   hmProjectSidebarNavScrollStyle,
 } from "../lib/hmBrand";
+import { AUTH_UI_ENABLED } from "../lib/authMode";
 import { useHmSession } from "../hooks/useHmSession";
 import {
   formatInrShort,
   getRememberedProject,
+  listLocalFlowProjects,
   listUserProjects,
   loadProjectBoard,
 } from "../lib/projectFlowApi";
@@ -423,6 +425,15 @@ export default function ProjectDashboard() {
 
   useEffect(() => {
     const userId = hmSession?.supabaseUserId;
+    if (!AUTH_UI_ENABLED && !userId) {
+      const local = listLocalFlowProjects();
+      setUserProjects(local);
+      setProjectsLoading(false);
+      if (!activeProjectId && local.length > 0 && searchParams.get("phase") !== "handoff") {
+        openProject(local[0], { preserveQuery: false });
+      }
+      return;
+    }
     if (!userId) {
       setUserProjects([]);
       return;
@@ -565,8 +576,8 @@ export default function ProjectDashboard() {
     };
   }, [isLiveProject, briefData, v0Pack]);
 
-  const isSignedIn = Boolean(hmSession?.supabaseUserId);
-  const needsSignIn = !isSignedIn;
+  const isSignedIn = AUTH_UI_ENABLED ? Boolean(hmSession?.supabaseUserId) : true;
+  const needsSignIn = AUTH_UI_ENABLED && !isSignedIn;
   const needsProjectPick = isSignedIn && !activeProjectId;
   const handoffMissingProject =
     searchParams.get("phase") === "handoff" && !activeProjectId && !projectsLoading;
@@ -732,13 +743,13 @@ export default function ProjectDashboard() {
         <div style={{ padding: "14px 20px 6px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>
           YOUR PROJECTS
         </div>
-        {hmSession?.supabaseUserId ? (
+        {(AUTH_UI_ENABLED ? hmSession?.supabaseUserId : true) ? (
           <div style={{ padding: "0 12px 10px", maxHeight: 140, overflowY: "auto" }}>
             {projectsLoading ? (
               <div style={{ fontSize: 11, color: "#9A8F87", padding: "4px 8px" }}>Loading saved projects…</div>
             ) : userProjects.length === 0 ? (
               <div style={{ fontSize: 11, color: "#9A8F87", padding: "4px 8px", lineHeight: 1.45 }}>
-                No saved projects yet. Finish a build or remodel flow with v0 — it will appear here when you sign in.
+                No saved projects yet. Finish a build or remodel flow with v0 — it will appear here.
               </div>
             ) : (
               userProjects.map((p) => {
@@ -791,7 +802,7 @@ export default function ProjectDashboard() {
             >
               Sign in
             </button>{" "}
-            to load projects saved in Supabase across devices.
+            to load projects saved on this device.
           </div>
         )}
         <div style={{ padding: "8px 20px 6px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>
@@ -861,7 +872,7 @@ export default function ProjectDashboard() {
               lineHeight: 1.5,
             }}
           >
-            <strong>Project not saved yet.</strong> Sign in, complete the wizard, and try handoff again — or pick a
+            <strong>Project not saved yet.</strong> Complete the wizard and try handoff again — or pick a
             saved project from the left.
           </div>
         )}

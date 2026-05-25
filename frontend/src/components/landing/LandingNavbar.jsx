@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Menu, X, User, ChevronDown, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TAGLINE_CLASS, hmLogoMarkSrc } from "../../lib/hmBrand";
+import { AUTH_UI_ENABLED } from "../../lib/authMode";
 import { useHmSession } from "../../hooks/useHmSession";
 import HmUserMenu from "../HmUserMenu";
 import HmMarketingWordmark from "../HmMarketingWordmark";
@@ -77,6 +78,13 @@ export default function LandingNavbar({ tagline = null }) {
       return [
         { label: "Leads", path: "/browse" },
         { label: "Collaborate", path: "/browse" },
+        { label: "Shop", path: "/shop" },
+      ];
+    }
+    if (!AUTH_UI_ENABLED) {
+      return [
+        { label: "My Project", path: "/project" },
+        { label: "Start build", path: "/build" },
         { label: "Shop", path: "/shop" },
       ];
     }
@@ -252,29 +260,41 @@ export default function LandingNavbar({ tagline = null }) {
         </div>
 
         <div className="hidden md:flex items-center gap-2.5 shrink-0">
-          {session ? (
-            <HmUserMenu />
+          {AUTH_UI_ENABLED ? (
+            session ? (
+              <HmUserMenu />
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => go(signInHref())}
+                  className="rounded-full px-3.5 font-body text-sm gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  Sign In
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => go(signInHref({ role: "pro", mode: "signup" }))}
+                  className="rounded-full border-foreground/15 bg-white/70 px-4 font-body text-sm gap-2 shadow-sm hover:bg-secondary"
+                >
+                  <Briefcase className="w-4 h-4" />
+                  Join as a Pro
+                </Button>
+              </>
+            )
           ) : (
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => go(signInHref())}
-                className="rounded-full px-3.5 font-body text-sm gap-2"
-              >
-                <User className="w-4 h-4" />
-                Sign In
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => go(signInHref({ role: "pro", mode: "signup" }))}
-                className="rounded-full border-foreground/15 bg-white/70 px-4 font-body text-sm gap-2 shadow-sm hover:bg-secondary"
-              >
-                <Briefcase className="w-4 h-4" />
-                Join as a Pro
-              </Button>
-            </>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => go("/craft")}
+              className="rounded-full border-foreground/15 bg-white/70 px-4 font-body text-sm gap-2 shadow-sm hover:bg-secondary"
+            >
+              <Briefcase className="w-4 h-4" />
+              Pro portfolio
+            </Button>
           )}
         </div>
 
@@ -314,26 +334,38 @@ export default function LandingNavbar({ tagline = null }) {
               {item.label}
             </button>
           ))}
-          {session ? (
-            <div className="flex justify-end py-1">
-              <HmUserMenu />
-            </div>
+          {AUTH_UI_ENABLED ? (
+            session ? (
+              <div className="flex justify-end py-1">
+                <HmUserMenu />
+              </div>
+            ) : (
+              <>
+                <Button type="button" variant="ghost" onClick={() => go(signInHref())} className="w-full justify-start font-body text-sm gap-2">
+                  <User className="w-4 h-4" />
+                  Sign In
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => go(signInHref({ role: "pro", mode: "signup" }))}
+                  className="w-full rounded-2xl border-foreground/20 font-body text-sm gap-2"
+                >
+                  <Briefcase className="w-4 h-4" />
+                  Join as a Pro
+                </Button>
+              </>
+            )
           ) : (
-            <>
-              <Button type="button" variant="ghost" onClick={() => go(signInHref())} className="w-full justify-start font-body text-sm gap-2">
-                <User className="w-4 h-4" />
-                Sign In
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => go(signInHref({ role: "pro", mode: "signup" }))}
-                className="w-full rounded-2xl border-foreground/20 font-body text-sm gap-2"
-              >
-                <Briefcase className="w-4 h-4" />
-                Join as a Pro
-              </Button>
-            </>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => go("/craft")}
+              className="w-full rounded-2xl border-foreground/20 font-body text-sm gap-2"
+            >
+              <Briefcase className="w-4 h-4" />
+              Pro portfolio
+            </Button>
           )}
         </div>
       )}

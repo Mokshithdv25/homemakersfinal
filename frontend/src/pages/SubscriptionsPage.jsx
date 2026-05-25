@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../lib/hmBrand";
+import { AUTH_UI_ENABLED } from "../lib/authMode";
 import { useHmSession } from "../hooks/useHmSession";
 import HmUserMenu from "../components/HmUserMenu";
 
@@ -13,12 +14,12 @@ export default function SubscriptionsPage() {
   const session = useHmSession();
 
   React.useEffect(() => {
-    if (!session) navigate("/sign-in?mode=signin&redirect=/subscriptions", { replace: true });
+    if (AUTH_UI_ENABLED && !session) navigate("/sign-in?mode=signin&redirect=/subscriptions", { replace: true });
   }, [session, navigate]);
 
-  if (!session) return null;
+  if (AUTH_UI_ENABLED && !session) return null;
 
-  const backPath = session.role === "pro" ? "/pro/dashboard" : "/project";
+  const backPath = session?.role === "pro" ? "/pro/dashboard" : "/project";
 
   return (
     <div className="hm-landing-page min-h-screen bg-background flex flex-col">

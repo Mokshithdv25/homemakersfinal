@@ -127,6 +127,38 @@ export async function listUserProjects() {
   return data || [];
 }
 
+/** Projects referenced in this browser's build/remodel flows (no account required). */
+export function listLocalFlowProjects() {
+  const out = [];
+  try {
+    const build = JSON.parse(localStorage.getItem("hm_build_new_flow") || "{}");
+    if (build?.projectId) {
+      out.push({
+        id: build.projectId,
+        title: build.title || "New home",
+        flow_type: "new_home",
+        source: "build-new",
+      });
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  try {
+    const remodel = JSON.parse(localStorage.getItem("hm_remodel_flow") || "{}");
+    if (remodel?.projectId && !out.some((p) => p.id === remodel.projectId)) {
+      out.push({
+        id: remodel.projectId,
+        title: remodel.title || "Remodel",
+        flow_type: "remodel",
+        source: "remodel",
+      });
+    }
+  } catch (_) {
+    /* ignore */
+  }
+  return out;
+}
+
 function seedFromBrief(brief, flowType, aiPlan = null) {
   const area = Number(brief?.plotArea || brief?.len || 0) * Number(brief?.breadth || 1);
   const style = Array.isArray(brief?.styles) ? brief.styles.join(" + ") : brief?.style || "selected style";
@@ -358,9 +390,6 @@ export async function upsertFlowProject({
   if (!supabase) return null;
 
   const ownerUserId = await getCurrentUserId();
-  if (!ownerUserId) {
-    throw new Error("Sign in to save your project.");
-  }
   const budget = budgetFieldsFromBrief(brief);
   const title =
     brief?.title ||
@@ -383,7 +412,7 @@ export async function upsertFlowProject({
     budget_min: budget.budget_min,
     budget_max: budget.budget_max,
   };
-  projectRow.owner_user_id = ownerUserId;
+  if (ownerUserId) projectRow.owner_user_id = ownerUserId;
 
   let projectId = existingProjectId || null;
   let project = null;
@@ -526,7 +555,6 @@ export async function loadProjectBoard({ projectId, source }) {
   if (!supabase) return null;
 
   const ownerUserId = await getCurrentUserId();
-  if (!ownerUserId) return null;
 
   let resolvedProjectId = projectId || "";
   let project = null;

@@ -217,11 +217,7 @@ export async function signOutHm() {
 
   const sb = getSupabase();
   if (sb) {
-    try {
-      await sb.auth.signOut({ scope: "local" });
-    } catch (_) {
-      /* ignore */
-    }
+    void sb.auth.signOut({ scope: "local" }).catch(() => {});
   }
   notifySessionCleared();
 }

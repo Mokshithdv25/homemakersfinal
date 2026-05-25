@@ -6,7 +6,8 @@ import { useLocation } from "react-router-dom";
 import { getSupabase } from "./lib/supabaseClient";
 import { fetchUserProfile } from "./lib/userProfileApi";
 import { claimAnonymousProjects } from "./lib/projectFlowApi";
-import { establishHmSession, signOutHm } from "./lib/hmAuth";
+import { AUTH_UI_ENABLED } from "./lib/authMode";
+import { establishHmSession } from "./lib/hmAuth";
 import { useMobileNative } from "./hooks/useMobileNative";
 import MobileAppRoutes from "./mobile/MobileAppRoutes";
 import HomePage from "./pages/HomePage";
@@ -64,11 +65,7 @@ function DesktopRoutes() {
       <Route path="/" element={<HomePage />} />
       <Route
         path="/sign-in"
-        element={
-          <SignInErrorBoundary>
-            <SignInPage />
-          </SignInErrorBoundary>
-        }
+        element={AUTH_UI_ENABLED ? <SignInErrorBoundary><SignInPage /></SignInErrorBoundary> : <Navigate to="/" replace />}
       />
       <Route path="/account" element={<AccountPage />} />
       <Route path="/account/settings" element={<AccountPage />} />
@@ -184,6 +181,7 @@ function AppRoutes() {
 
 function App() {
   useEffect(() => {
+    if (!AUTH_UI_ENABLED) return undefined;
     const sb = getSupabase();
     if (!sb) return undefined;
 

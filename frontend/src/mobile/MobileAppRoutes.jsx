@@ -25,6 +25,7 @@ import GoLive from "../pages/GoLive";
 import ProDashboard from "../pages/ProDashboard";
 import SubscriptionsPage from "../pages/SubscriptionsPage";
 import AccountPage from "../pages/AccountPage";
+import { AUTH_UI_ENABLED } from "../lib/authMode";
 import HomeownerFlowGuard from "../components/HomeownerFlowGuard";
 
 function withShell(Page) {
@@ -80,11 +81,15 @@ export default function MobileAppRoutes() {
       <Route
         path="/sign-in"
         element={
-          <MobileShell hideTabs>
-            <SignInErrorBoundary>
-              <SignInPage />
-            </SignInErrorBoundary>
-          </MobileShell>
+          AUTH_UI_ENABLED ? (
+            <MobileShell hideTabs>
+              <SignInErrorBoundary>
+                <SignInPage />
+              </SignInErrorBoundary>
+            </MobileShell>
+          ) : (
+            <Navigate to="/" replace />
+          )
         }
       />
       <Route path="/shop" element={withShell(MobileShopPage)} />

@@ -10,6 +10,7 @@ import { getProfileInitial, signOutHm } from "../lib/hmAuth";
 import { getSupabase } from "../lib/supabaseClient";
 import { fetchUserProfile, persistHmSessionFromSupabase, upsertUserProfile } from "../lib/userProfileApi";
 import { formatInrShort, listUserProjects } from "../lib/projectFlowApi";
+import { AUTH_UI_ENABLED } from "../lib/authMode";
 import HmUserMenu from "../components/HmUserMenu";
 
 export default function AccountPage() {
@@ -26,6 +27,10 @@ export default function AccountPage() {
   const [projectsLoading, setProjectsLoading] = useState(false);
 
   useEffect(() => {
+    if (!AUTH_UI_ENABLED && !session) {
+      navigate("/project", { replace: true });
+      return;
+    }
     if (!session) {
       navigate("/sign-in?mode=signin", { replace: true });
       return;
@@ -194,9 +199,9 @@ export default function AccountPage() {
           </div>
 
           <div className="rounded-2xl border border-border bg-card/90 p-6 space-y-3 shadow-sm">
-            <p className="font-body text-sm font-semibold text-foreground m-0">Saved projects (Supabase)</p>
+            <p className="font-body text-sm font-semibold text-foreground m-0">Saved projects</p>
             <p className="font-body text-xs text-muted-foreground m-0 leading-relaxed">
-              Design, estimate, brief, and tasks live in your account — available on any device after sign-in.
+              Design, estimate, brief, and tasks from your build or remodel flows.
             </p>
             {projectsLoading ? (
               <p className="font-body text-xs text-muted-foreground m-0">Loading…</p>
@@ -252,13 +257,15 @@ export default function AccountPage() {
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="w-full font-body text-sm text-destructive hover:underline bg-transparent border-none cursor-pointer py-2"
-          >
-            Sign out
-          </button>
+          {AUTH_UI_ENABLED ? (
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="w-full font-body text-sm text-destructive hover:underline bg-transparent border-none cursor-pointer py-2"
+            >
+              Sign out
+            </button>
+          ) : null}
         </div>
       </main>
     </div>

@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowUpRight, Home, Hammer, LayoutDashboard, Briefcase, Store } from "lucide-react";
+import { AUTH_UI_ENABLED } from "../../lib/authMode";
 import { navigateToHomeownerFlow } from "../../lib/requireHomeownerAuth";
 
 const OR = "#C85F2B";
@@ -38,7 +39,7 @@ const PATHS = [
     id: "pro",
     title: "For professionals",
     description: "Portfolio, marketplace leads, and a workspace to run jobs.",
-    to: "/sign-in?role=pro&mode=signup",
+    to: AUTH_UI_ENABLED ? "/sign-in?role=pro&mode=signup" : "/craft",
     icon: Briefcase,
   },
 ];

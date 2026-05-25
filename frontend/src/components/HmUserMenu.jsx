@@ -14,6 +14,7 @@ import {
   Users,
   ShoppingBag,
 } from "lucide-react";
+import { AUTH_UI_ENABLED } from "../lib/authMode";
 import { useHmSession } from "../hooks/useHmSession";
 import {
   getProOnboardingResumePath,
@@ -53,7 +54,7 @@ export default function HmUserMenu({ className = "" }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  if (!session) return null;
+  if (!AUTH_UI_ENABLED || !session) return null;
 
   const initial = getProfileInitial(session);
   const displayName = session.profile?.name || session.profile?.email || "Your account";

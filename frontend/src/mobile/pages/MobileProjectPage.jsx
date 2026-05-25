@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import MobileHeader from "../MobileHeader";
 import { useMobileHub } from "../hooks/useMobileHub";
 import { flowTypeLabel, projectStatusLabel } from "../mobileIA";
+import { AUTH_UI_ENABLED } from "../../lib/authMode";
 import { formatInrShort } from "../../lib/projectFlowApi";
 
 const PROJECT_TOOLS = [
@@ -44,7 +45,7 @@ export default function MobileProjectPage() {
   return (
     <>
       <MobileHeader title={title} subtitle={subtitle} />
-      {!session?.supabaseUserId ? (
+      {AUTH_UI_ENABLED && !session?.supabaseUserId ? (
         <div style={{ padding: 16 }}>
           <p style={{ fontSize: 14, color: "#78716C", marginBottom: 16, lineHeight: 1.5 }}>
             Sign in to sync projects from build & remodel flows across devices.
