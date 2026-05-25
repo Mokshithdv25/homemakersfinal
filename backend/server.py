@@ -993,7 +993,9 @@ def _grok_new_home_floor_plan_prompts(brief: dict) -> List[tuple]:
             (
                 "Second floor plan v0",
                 "Top floor / terrace level (indicative)",
-                base + "SECOND FLOOR per brief; vertical circulation must stack above rooms in <IMAGE_2>.",
+                base
+                + "SECOND FLOOR (top) per brief; stack above <IMAGE_2> ground and <IMAGE_3> first floor — "
+                "same outline and stair core.",
                 "4:3",
             ),
         ]
@@ -1010,7 +1012,9 @@ def _grok_new_home_floor_plan_prompts(brief: dict) -> List[tuple]:
             (
                 "Third floor plan v0",
                 "Top / terrace",
-                base + "TOP FLOOR / terrace; stack stairs/ducts above <IMAGE_2>.",
+                base
+                + "TOP FLOOR / terrace; align with <IMAGE_2> and <IMAGE_3> (floors below); "
+                "same building footprint.",
                 "4:3",
             ),
         ]
@@ -1059,43 +1063,79 @@ def _generate_concept_images_sequential(
     return out
 
 
+def _floor_plan_reference_urls(concept_ref: str, prior_stack: List[str], idx: int, total: int) -> List[str]:
+    """
+    Up to 3 xAI edit refs. Sequential only — not parallel.
+    - Level 0: concept elevation
+    - Level 1: concept + ground
+    - Level 2+: concept + ground + floor directly below (3rd floor sees ground + 2nd)
+    - Top level (4+ story): concept + two floors immediately below (keeps 1st+2nd context)
+    """
+    if idx == 0:
+        return [concept_ref]
+    if idx == 1:
+        return [concept_ref, prior_stack[0]]
+    if idx == total - 1 and len(prior_stack) >= 3:
+        return [concept_ref, prior_stack[-2], prior_stack[-1]]
+    below = prior_stack[idx - 1]
+    return [concept_ref, prior_stack[0], below]
+
+
+def _floor_plan_edit_prompt(prompt: str, idx: int, total: int) -> str:
+    """Clarify IMAGE roles when 3 references are sent."""
+    if idx == 0:
+        return (
+            prompt
+            + "\n<IMAGE_1> is the exterior/interior concept — match building footprint and massing.\n"
+        )
+    if idx == 1:
+        return (
+            prompt
+            + "\n<IMAGE_1> concept, <IMAGE_2> ground floor plan — align stairs/core with ground.\n"
+        )
+    if idx == total - 1 and total >= 4:
+        return (
+            prompt
+            + "\n<IMAGE_1> concept, <IMAGE_2> floor below this level, <IMAGE_3> floor below that — "
+            "same footprint and stair core through full height.\n"
+        )
+    return (
+        prompt
+        + "\n<IMAGE_1> concept, <IMAGE_2> ground floor, <IMAGE_3> floor directly below — "
+        "vertical circulation must stack; do not shift the building outline.\n"
+    )
+
+
 def _generate_floor_plans_sequential(
     specs: List[Tuple[str, str, str, str]], flow: FlowKind, brief: dict, concept_urls: List[str]
 ) -> List[dict]:
-    """Floor plans chained: concept ref + prior floor plan for vertical consistency."""
+    """Floor plans one-by-one; each step uses up to 3 refs (concept + lower floors). Never parallel."""
     if not specs or not concept_urls:
         return []
 
     timeout = _grok_image_timeout_sec()
     out: List[dict] = []
-    prior_fp: Optional[str] = None
+    prior_stack: List[str] = []
     concept_ref = concept_urls[0]
+    total = len(specs)
 
     for idx, spec in enumerate(specs):
         label, hint, prompt, aspect = spec
-        refs: List[str] = [concept_ref]
-        if prior_fp:
-            refs.append(prior_fp)
-
-        if idx == 0:
-            edit_prompt = prompt.replace("<IMAGE_1>", "<IMAGE_1>").replace(
-                "<IMAGE_2>", "<IMAGE_2>"
-            )
-        else:
-            edit_prompt = prompt
+        refs = _floor_plan_reference_urls(concept_ref, prior_stack, idx, total)
+        edit_prompt = _floor_plan_edit_prompt(prompt, idx, total)
 
         url = _grok_edit_image(edit_prompt, refs, aspect_ratio=aspect, timeout_sec=timeout)
         if not url and idx > 0:
             url = _grok_edit_image(
-                prompt + "\nKeep staircase core and footprint identical to <IMAGE_2>.",
-                [concept_ref, prior_fp],
+                edit_prompt + "\nCRITICAL: Identical footprint and stair position as <IMAGE_2> and <IMAGE_3>.",
+                refs,
                 aspect_ratio=aspect,
                 timeout_sec=timeout,
             )
         if not url:
             logger.warning("Floor plan generation failed at slot %s", label)
             break
-        prior_fp = url
+        prior_stack.append(url)
         out.append({"url": url, "label": label, "hint": hint})
 
     return out

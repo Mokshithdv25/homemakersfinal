@@ -25,6 +25,14 @@ Other transcript files in that folder are shorter or older chats.
 
 ## Session notes
 
+### 2026-05-25 — Floor plan multi-level refs (sequential only)
+
+**Request:** Confirm sequential (not parallel prompts) for 2 design views; 3rd floor plan must see 1st + 2nd context.
+
+**Shipped:** `_floor_plan_reference_urls` — up to 3 xAI refs: concept + ground + floor below (top floor uses two floors below). Concepts unchanged: image 2 via `/images/edits` from image 1.
+
+---
+
 ### 2026-05-25 — Coherent Grok v0 + audit trail
 
 **Requests (user):**
