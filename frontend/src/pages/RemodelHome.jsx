@@ -1083,8 +1083,8 @@ export default function RemodelHome() {
                 </>
               ) : (
                 <>
-                  <strong>Placeholders until Vercel is wired:</strong> set{" "}
-                  <code style={{ fontSize: 11 }}>REACT_APP_BACKEND_URL=https://homemakers-6o3h.onrender.com</code> on Vercel, redeploy, then regenerate.
+                  <strong>AI server not reachable.</strong> Sign in and tap Regenerate v0 — if you still see stock
+                  photos, wait a minute and try again.
                 </>
               )}
               {v0ImageBundle?.mock ? (
@@ -1396,8 +1396,15 @@ export default function RemodelHome() {
                         v0Images: v0ImageBundle,
                         v0Plan: v0PlanBundle,
                       });
-                      const pid = created?.projectId ? `&projectId=${encodeURIComponent(created.projectId)}` : "";
-                      navigate(`/project?source=remodel&phase=handoff${pid}`);
+                      if (!created?.projectId) {
+                        setStepBlockError(
+                          "Could not save this project. Sign in with email or Google, then try again.",
+                        );
+                        return;
+                      }
+                      navigate(
+                        `/project?source=remodel&phase=handoff&projectId=${encodeURIComponent(created.projectId)}`,
+                      );
                     } catch (err) {
                       console.error("Failed to persist project from remodel flow:", err);
                       setStepBlockError("Could not save this project to database yet. Please retry.");

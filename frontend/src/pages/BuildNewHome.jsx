@@ -530,8 +530,15 @@ export default function BuildNewHome() {
           v0Images: v0ImageBundle,
           v0Plan: v0PlanBundle,
         });
-        const pid = created?.projectId ? `&projectId=${encodeURIComponent(created.projectId)}` : "";
-        navigate(`/project?source=build-new&phase=handoff${pid}`);
+        if (!created?.projectId) {
+          setStepBlockError(
+            "Could not save this project. Sign in with email or Google, then try again.",
+          );
+          return;
+        }
+        navigate(
+          `/project?source=build-new&phase=handoff&projectId=${encodeURIComponent(created.projectId)}`,
+        );
       } catch (err) {
         console.error("Failed to persist project from build flow:", err);
         setStepBlockError("Could not save this project to database yet. Please retry.");

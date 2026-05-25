@@ -40,7 +40,7 @@ export default function PortfolioPage() {
         const remote = await getPublicProfile(slug);
         setData(remote);
       } catch {
-        if (full && Object.keys(full).length > 0 && (full.slug === slug || full.published || full.full_name)) {
+        if (full?.published && full.slug === slug) {
           setData(full);
         } else {
           setNotFound(true);

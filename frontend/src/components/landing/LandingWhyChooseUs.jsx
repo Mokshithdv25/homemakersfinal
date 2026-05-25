@@ -25,7 +25,7 @@ const features = [
     id: 4,
     title: "Payment protection",
     description:
-      "Milestones and approvals for homeowners, and predictable payouts for pros, with financing and payment rails designed to stay in one place as the build advances.",
+      "Milestone approvals for homeowners and predictable payouts for pros — funds release when work is signed off (escrow-style protection, coming soon).",
   },
 ];
 

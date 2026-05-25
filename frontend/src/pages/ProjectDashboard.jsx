@@ -399,14 +399,14 @@ export default function ProjectDashboard() {
     return `?projectId=${encodeURIComponent(pid)}${src ? `&source=${encodeURIComponent(src)}` : ""}`;
   }, [searchParams, activeProjectId]);
 
-  const openProject = (project) => {
+  const openProject = (project, { preserveQuery = true } = {}) => {
     const src =
       project.source === "remodel" || project.flow_type === "remodel"
         ? "remodel"
         : project.source === "build-new" || project.flow_type === "new_home"
           ? "build-new"
           : project.source || "";
-    const q = new URLSearchParams();
+    const q = preserveQuery ? new URLSearchParams(searchParams) : new URLSearchParams();
     q.set("projectId", project.id);
     if (src) q.set("source", src);
     navigate(`/project?${q.toString()}`);
@@ -425,12 +425,12 @@ export default function ProjectDashboard() {
         const rows = await listUserProjects();
         if (cancelled) return;
         setUserProjects(rows);
-        if (!activeProjectId && rows.length > 0) {
+        if (!activeProjectId && rows.length > 0 && searchParams.get("phase") !== "handoff") {
           const remembered = getRememberedProject(userId);
           const pick =
             rows.find((p) => p.id === remembered?.projectId) ||
             rows[0];
-          if (pick) openProject(pick);
+          if (pick) openProject(pick, { preserveQuery: false });
         }
       } catch (err) {
         console.error("Failed to list user projects:", err);
@@ -536,20 +536,29 @@ export default function ProjectDashboard() {
   const fundingSnapshot = useMemo(() => {
     if (!isLiveProject) return PROJECT_FUNDING;
     const totalLabel =
-      briefData?.budgetUnit && briefData?.budgetAmount
+      briefData?.budgetLabel ||
+      (briefData?.budgetUnit && briefData?.budgetAmount
         ? `₹${briefData.budgetAmount} ${briefData.budgetUnit === "Crores" ? "Cr" : "L"}`
-        : "TBD";
+        : "TBD");
+    const indicative = v0Pack?.estimate?.total_indicative_inr;
     return {
-      ...PROJECT_FUNDING,
       totalBudget: totalLabel,
-      spentToDate: "Planning stage",
+      spentToDate: indicative ? `Indicative v0: ${formatInrShort(indicative)}` : "Planning stage",
       pctOfTotalSpent: 5,
+      ownEquityBudgeted: totalLabel,
+      bankLoanSanctioned: null,
+      spentFromOwnPocket: "—",
+      spentFromLoanDisbursements: null,
+      loanTrancheReleasedPct: null,
       monthlyBurnPlanned: "To be planned",
       monthlyBurnActual: "To be planned",
-      runwayNote:
-        "Live project just initialized from brief. Budget drawdown will appear as execution data is added.",
+      runwayNote: "Milestone payment protection coming soon — budget from your AI v0 estimate.",
     };
-  }, [isLiveProject, briefData]);
+  }, [isLiveProject, briefData, v0Pack]);
+
+  const needsProjectPick = Boolean(hmSession?.supabaseUserId) && !activeProjectId;
+  const handoffMissingProject =
+    searchParams.get("phase") === "handoff" && !activeProjectId && !projectsLoading;
 
   const allTasksSorted = useMemo(() => {
     return [...tasks].sort((a, b) => {
@@ -807,6 +816,23 @@ export default function ProjectDashboard() {
       </aside>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {handoffMissingProject && (
+          <div
+            className="px-5 md:px-10"
+            style={{
+              background: "#FEF2F2",
+              borderBottom: "1px solid #FECACA",
+              paddingTop: 12,
+              paddingBottom: 12,
+              fontSize: 13,
+              color: "#991B1B",
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Project not saved yet.</strong> Sign in, complete the wizard, and try handoff again — or pick a
+            saved project from the left.
+          </div>
+        )}
         {showHandoffBanner && (
           <div
             className="px-5 md:px-10"
@@ -854,7 +880,31 @@ export default function ProjectDashboard() {
         )}
 
         <div className="px-5 md:px-10" style={{ flex: 1, paddingTop: 20, paddingBottom: 32, overflowY: "auto" }}>
-          {activeNav === "Overview" && (
+          {needsProjectPick ? (
+            <div style={{ ...panel, padding: 28, maxWidth: 520, margin: "24px auto", textAlign: "center" }}>
+              <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Select a project</div>
+              <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55, margin: "0 0 16px" }}>
+                Choose a saved project in the sidebar, or start a new home or remodel flow.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate("/build")}
+                style={{
+                  background: OR,
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "10px 18px",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: "pointer",
+                }}
+              >
+                Start a build
+              </button>
+            </div>
+          ) : null}
+          {!needsProjectPick && activeNav === "Overview" && (
           <>
           {/* Phase progress — clickable stages */}
           <div style={{ ...panel, padding: "18px 20px 14px", marginBottom: 14 }}>
@@ -1144,7 +1194,7 @@ export default function ProjectDashboard() {
           </>
           )}
 
-          {activeNav === "Timeline" && (
+          {!needsProjectPick && activeNav === "Timeline" && (
             <div style={{ maxWidth: 800 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Timeline</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
@@ -1195,7 +1245,7 @@ export default function ProjectDashboard() {
             </div>
           )}
 
-          {activeNav === "Tasks" && (
+          {!needsProjectPick && activeNav === "Tasks" && (
             <div style={{ maxWidth: 900 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>All tasks</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 18px", lineHeight: 1.55 }}>
@@ -1306,7 +1356,7 @@ export default function ProjectDashboard() {
             </div>
           )}
 
-          {activeNav === "Budget" && (
+          {!needsProjectPick && activeNav === "Budget" && (
             <div style={{ maxWidth: 820 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Budget</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
@@ -1379,7 +1429,7 @@ export default function ProjectDashboard() {
             </div>
           )}
 
-          {activeNav === "Site Feed" && (
+          {!needsProjectPick && activeNav === "Site Feed" && (
             <div style={{ maxWidth: 900 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Site feed</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
@@ -1405,7 +1455,7 @@ export default function ProjectDashboard() {
             </div>
           )}
 
-          {activeNav === "Settings" && (
+          {!needsProjectPick && activeNav === "Settings" && (
             <div style={{ maxWidth: 720 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Settings</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>

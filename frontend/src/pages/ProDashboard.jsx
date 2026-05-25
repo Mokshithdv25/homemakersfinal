@@ -4,15 +4,15 @@ import LandingNavbar from "../components/landing/LandingNavbar";
 import HmUserMenu from "../components/HmUserMenu";
 import { HM_FIXED_NAV_OFFSET_CLASS } from "../lib/hmBrand";
 import { useHmSession } from "../hooks/useHmSession";
-import { getProOnboardingResumePath, readProPortfolioState } from "../lib/hmAuth";
+import { getProOnboardingResumePath, getProPublicProfilePath, readProPortfolioState } from "../lib/hmAuth";
 
 const OR = "#C85F2B";
 
 const cards = [
-  { title: "Leads in pipeline", value: "14", sub: "5 new this week" },
-  { title: "Active homeowner projects", value: "8", sub: "3 in design, 5 on site" },
-  { title: "Pending quote requests", value: "6", sub: "Avg response time: 2.3h" },
-  { title: "Upcoming meetings", value: "4", sub: "Today + tomorrow" },
+  { title: "Leads in pipeline (sample)", value: "14", sub: "5 new this week" },
+  { title: "Active projects (sample)", value: "8", sub: "3 in design, 5 on site" },
+  { title: "Quote requests (sample)", value: "6", sub: "Avg response time: 2.3h" },
+  { title: "Meetings (sample)", value: "4", sub: "Today + tomorrow" },
 ];
 
 const tasks = [
@@ -79,14 +79,7 @@ export default function ProDashboard() {
   const session = useHmSession();
   const portfolioState = readProPortfolioState();
   const firstName = (session?.profile?.name || session?.profile?.email?.split("@")[0] || "there").split(" ")[0];
-  const portfolioSlug = (() => {
-    try {
-      const p = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
-      return p.slug || null;
-    } catch {
-      return null;
-    }
-  })();
+  const livePortfolioPath = getProPublicProfilePath();
 
   return (
     <div className={HM_FIXED_NAV_OFFSET_CLASS} style={{ minHeight: "100vh", background: "#FBF7F2", color: "#1C1917", fontFamily: "'DM Sans', Inter, system-ui, sans-serif" }}>
@@ -210,20 +203,23 @@ export default function ProDashboard() {
               >
                 Open project management hub
               </button>
-              <button
-                type="button"
-                onClick={() => navigate("/build/new-home")}
-                className="text-left rounded-lg border border-[#E7D4C4] bg-[#FFFBF7] px-3 py-2 text-sm font-semibold text-[#1C1917] hover:bg-[#FDF5EE] cursor-pointer"
-              >
-                Open homeowner v0 flow (demo)
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate("/profile/demo-pro")}
-                className="text-left rounded-lg border border-[#E7D4C4] bg-[#FFFBF7] px-3 py-2 text-sm font-semibold text-[#1C1917] hover:bg-[#FDF5EE] cursor-pointer"
-              >
-                View public profile page
-              </button>
+              {livePortfolioPath ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(livePortfolioPath)}
+                  className="text-left rounded-lg border border-[#E7D4C4] bg-[#FFFBF7] px-3 py-2 text-sm font-semibold text-[#1C1917] hover:bg-[#FDF5EE] cursor-pointer"
+                >
+                  View your live portfolio
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate(getProOnboardingResumePath())}
+                  className="text-left rounded-lg border border-[#E7D4C4] bg-[#FFFBF7] px-3 py-2 text-sm font-semibold text-[#1C1917] hover:bg-[#FDF5EE] cursor-pointer"
+                >
+                  Finish portfolio to get a public link
+                </button>
+              )}
             </div>
           </div>
         </section>

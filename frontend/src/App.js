@@ -73,10 +73,38 @@ function DesktopRoutes() {
       <Route path="/account" element={<AccountPage />} />
       <Route path="/account/settings" element={<AccountPage />} />
       <Route path="/subscriptions" element={<SubscriptionsPage />} />
-      <Route path="/craft" element={<CraftSelection />} />
-      <Route path="/details" element={<YourDetails />} />
-      <Route path="/portfolio" element={<YourPortfolio />} />
-      <Route path="/live" element={<GoLive />} />
+      <Route
+        path="/craft"
+        element={
+          <ProOnboardingGuard>
+            <CraftSelection />
+          </ProOnboardingGuard>
+        }
+      />
+      <Route
+        path="/details"
+        element={
+          <ProOnboardingGuard>
+            <YourDetails />
+          </ProOnboardingGuard>
+        }
+      />
+      <Route
+        path="/portfolio"
+        element={
+          <ProOnboardingGuard>
+            <YourPortfolio />
+          </ProOnboardingGuard>
+        }
+      />
+      <Route
+        path="/live"
+        element={
+          <ProOnboardingGuard>
+            <GoLive />
+          </ProOnboardingGuard>
+        }
+      />
       <Route path="/profile/:slug" element={<PortfolioPage />} />
       <Route path="/build" element={<WhatAreYouBuilding />} />
       <Route
@@ -96,7 +124,14 @@ function DesktopRoutes() {
         }
       />
       <Route path="/pro" element={<Navigate to="/pro/dashboard" replace />} />
-      <Route path="/project" element={<ProjectDashboard />} />
+      <Route
+        path="/project"
+        element={
+          <SignInErrorBoundary>
+            <ProjectDashboard />
+          </SignInErrorBoundary>
+        }
+      />
       <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/browse" element={<Marketplace />} />
       <Route path="/project/browse" element={<Marketplace />} />

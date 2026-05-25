@@ -34,7 +34,7 @@ export default function SignInPage() {
   const [step, setStep] = useState("entry");
   const [mode, setMode] = useState(modeFromQuery);
   const [accountRole, setAccountRole] = useState(roleFromQuery);
-  const [authMethod, setAuthMethod] = useState("phone");
+  const [authMethod, setAuthMethod] = useState("email");
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [name, setName] = useState("");
@@ -48,6 +48,7 @@ export default function SignInPage() {
   const [authError, setAuthError] = useState("");
 
   const isSignUp = mode === "signup";
+  const showPhoneOtp = process.env.NODE_ENV === "development";
   const supabaseConfigured = isSupabaseConfigured();
   const supabaseInitError = getSupabaseInitError();
 
@@ -512,36 +513,37 @@ export default function SignInPage() {
                     </div>
                   </div>
 
-                  {/* Auth Method Tabs */}
-                  <div className="flex rounded-xl border-2 border-border overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setAuthMethod("phone")}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 font-body text-sm font-medium transition-all ${
-                        authMethod === "phone"
-                          ? "bg-accent/10 text-copper border-r-2 border-border"
-                          : "text-muted-foreground hover:bg-muted/30 border-r-2 border-border"
-                      }`}
-                    >
-                      <Phone className="w-4 h-4" />
-                      Phone
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAuthMethod("email")}
-                      className={`flex-1 flex items-center justify-center gap-2 py-3 font-body text-sm font-medium transition-all ${
-                        authMethod === "email"
-                          ? "bg-accent/10 text-copper"
-                          : "text-muted-foreground hover:bg-muted/30"
-                      }`}
-                    >
-                      <Mail className="w-4 h-4" />
-                      Email
-                    </button>
-                  </div>
+                  {showPhoneOtp ? (
+                    <div className="flex rounded-xl border-2 border-border overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => setAuthMethod("phone")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 font-body text-sm font-medium transition-all ${
+                          authMethod === "phone"
+                            ? "bg-accent/10 text-copper border-r-2 border-border"
+                            : "text-muted-foreground hover:bg-muted/30 border-r-2 border-border"
+                        }`}
+                      >
+                        <Phone className="w-4 h-4" />
+                        Phone
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAuthMethod("email")}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 font-body text-sm font-medium transition-all ${
+                          authMethod === "email"
+                            ? "bg-accent/10 text-copper"
+                            : "text-muted-foreground hover:bg-muted/30"
+                        }`}
+                      >
+                        <Mail className="w-4 h-4" />
+                        Email
+                      </button>
+                    </div>
+                  ) : null}
 
                   {/* Phone Input */}
-                  {authMethod === "phone" && (
+                  {showPhoneOtp && authMethod === "phone" && (
                     <>
                       <div className="space-y-3">
                         <Label className="font-body text-sm font-semibold block">
@@ -583,7 +585,7 @@ export default function SignInPage() {
                   )}
 
                   {/* Email Input */}
-                  {authMethod === "email" && (
+                  {(!showPhoneOtp || authMethod === "email") && (
                     <>
                       {getSupabase() ? (
                         <p className="text-[11px] leading-relaxed text-muted-foreground font-body text-center">

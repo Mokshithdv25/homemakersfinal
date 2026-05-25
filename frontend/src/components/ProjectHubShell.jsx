@@ -41,9 +41,17 @@ export default function ProjectHubShell({ children, hubQuery: hubQueryProp }) {
         <aside style={hmProjectSidebarAsideStyle} className="hm-project-sidebar hm-desktop-only">
           <div style={{ padding: "14px 20px 8px", fontSize: 10, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.08em" }}>PROJECTS</div>
           <div style={{ padding: "0 10px 8px" }}>
-            <div style={hmProjectSidebarProjectCardStyle} onClick={() => navigate("/project")}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: OR }}>Shanti Nagar Residence</div>
-              <div style={{ fontSize: 11, color: "#9A8F87" }}>Sharma Project</div>
+            <div
+              style={hmProjectSidebarProjectCardStyle}
+              onClick={() => navigate(`/project${hubQuery || ""}`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") navigate(`/project${hubQuery || ""}`);
+              }}
+              role="button"
+              tabIndex={0}
+            >
+              <div style={{ fontWeight: 700, fontSize: 13, color: OR }}>Active project</div>
+              <div style={{ fontSize: 11, color: "#9A8F87" }}>Open project hub overview</div>
             </div>
           </div>
           <nav style={hmProjectSidebarNavScrollStyle}>
