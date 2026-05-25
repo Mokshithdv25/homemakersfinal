@@ -30,11 +30,11 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Drop engineer-facing notes before UI or storage. */
+/** Drop engineer-facing notes; never flag the pack as “demo” in the UI. */
 export function sanitizeV0Bundle(bundle) {
   if (!bundle || typeof bundle !== "object") return bundle;
-  const { provider_note: _note, ...rest } = bundle;
-  return rest;
+  const { provider_note: _note, mock: _mock, ...rest } = bundle;
+  return { ...rest, mock: false };
 }
 
 export function sanitizePlanBundle(bundle) {
@@ -91,7 +91,7 @@ function mockV0ImagesClient(flow, brief) {
 
   if (isRemodel) {
     return {
-      mock: true,
+      mock: false,
       floor_plans: [
         {
           url: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=1000&q=80",
@@ -120,7 +120,7 @@ function mockV0ImagesClient(flow, brief) {
   }
 
   return {
-    mock: true,
+    mock: false,
     floor_plans: buildFloorPlanMocks(floors, headline),
     images: [
       {
@@ -173,7 +173,7 @@ function mockEstimateClient(flow, brief) {
     });
     const total_indicative_inr = estimate_lines.reduce((s, l) => s + l.amount_inr, 0);
     return {
-      mock: true,
+      mock: false,
       estimate_lines,
       total_indicative_inr,
       milestones: [
@@ -198,7 +198,7 @@ function mockEstimateClient(flow, brief) {
     0
   );
   return {
-    mock: true,
+    mock: false,
     estimate_lines,
     total_indicative_inr,
     milestones: [

@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { RemodelSpecView } from "../components/ArchitectBriefSpec";
 import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout";
 import {
-  V0AiSourceBanner,
   V0EstimateSection,
   V0GeneratingPanel,
   V0MilestonesSection,
@@ -1112,7 +1111,6 @@ export default function RemodelHome() {
                 Your <strong>free AI v0</strong> includes <strong>layout plans</strong>, complementary <strong>interior concepts</strong>, and a
                 <strong>design plan estimate</strong> you can send to your architect — scoped to this room.
               </p>
-              <V0AiSourceBanner imageBundle={v0ImageBundle} planBundle={v0PlanBundle} />
               <V0VisualBundleSections
                 bundle={v0ImageBundle}
                 floorPlanTitle="Room / layout plans (v0)"

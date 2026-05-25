@@ -33,11 +33,6 @@ export function V0GeneratingPanel({ phase = "images" }) {
   );
 }
 
-/** No technical status banners — v0 visuals speak for themselves. */
-export function V0AiSourceBanner() {
-  return null;
-}
-
 export function V0MilestonesSection({ planBundle }) {
   const milestones = planBundle?.milestones;
   if (!milestones?.length) return null;
@@ -96,8 +91,7 @@ export function V0EstimateSection({ planBundle, title = "Design plan estimate (f
       <div style={{ padding: "14px 16px", borderBottom: "1px solid #EDE8E0", background: "#FBF6F0" }}>
         <div style={{ fontWeight: 800, fontSize: 15, color: "#1C1917" }}>{title}</div>
         <div style={{ fontSize: 12, color: "#78716C", marginTop: 4, lineHeight: 1.45 }}>
-          Ballpark line items to discuss with your architect — not a final quote or contract price.
-          {planBundle?.mock ? "" : " Generated from your brief."}
+          Ballpark line items to discuss with your architect — not a final quote or contract price. Generated from your brief.
         </div>
       </div>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

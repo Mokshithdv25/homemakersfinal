@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { BuildNewHomeSpecView } from "../components/ArchitectBriefSpec";
 import ArchitectEngagementCallout from "../components/ArchitectEngagementCallout";
 import {
-  V0AiSourceBanner,
   V0EstimateSection,
   V0GeneratingPanel,
   V0MilestonesSection,
@@ -1735,7 +1734,6 @@ export default function BuildNewHome() {
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 14px" }}>
                   AI floor plans (by storey), complementary design images, and a line-item estimate you can send to your architect — not sanction-grade drawings.
                 </p>
-                <V0AiSourceBanner imageBundle={v0ImageBundle} planBundle={v0PlanBundle} />
                 <V0VisualBundleSections bundle={v0ImageBundle} />
                 <V0EstimateSection planBundle={v0PlanBundle} />
                 <V0MilestonesSection planBundle={v0PlanBundle} />
