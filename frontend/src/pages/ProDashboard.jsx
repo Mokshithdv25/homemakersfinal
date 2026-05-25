@@ -109,10 +109,10 @@ export default function ProDashboard() {
             >
               Continue portfolio setup
             </button>
-          ) : portfolioSlug ? (
+          ) : livePortfolioPath ? (
             <button
               type="button"
-              onClick={() => window.open(`/profile/${portfolioSlug}`, "_blank")}
+              onClick={() => window.open(livePortfolioPath, "_blank")}
               className="mt-3 rounded-lg border border-[#E7D4C4] bg-white px-4 py-2 text-sm font-semibold text-[#1C1917] hover:bg-[#FDF8F3] cursor-pointer"
             >
               View live portfolio
