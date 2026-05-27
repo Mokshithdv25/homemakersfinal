@@ -217,7 +217,9 @@ export async function signOutHm() {
 
   const sb = getSupabase();
   if (sb) {
-    void sb.auth.signOut({ scope: "local" }).catch(() => {});
+    // Do not block navigation on a slow sign-out; best-effort with a short timeout.
+    const signOutPromise = sb.auth.signOut({ scope: "local" }).catch(() => {});
+    await Promise.race([signOutPromise, new Promise((r) => setTimeout(r, 2500))]);
   }
-  notifySessionCleared();
+  notifySessionCleared(); // ensure listeners refresh after Supabase clears its session
 }
