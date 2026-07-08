@@ -1,0 +1,209 @@
+.hm-assistant-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 90;
+  width: 58px;
+  height: 58px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  background: linear-gradient(145deg, #e88b4a 0%, #c85f2b 55%, #a34d1f 100%);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(200, 95, 43, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hm-assistant-fab:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 32px rgba(200, 95, 43, 0.5);
+}
+
+.hm-assistant-fab.open {
+  transform: rotate(0deg) scale(0.95);
+}
+
+.hm-assistant-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 92px;
+  z-index: 89;
+  width: min(380px, calc(100vw - 32px));
+  max-height: min(520px, calc(100dvh - 120px));
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  border: 1px solid #e8e4de;
+  background: linear-gradient(180deg, #fffdfb 0%, #faf8f5 100%);
+  box-shadow: 0 20px 50px rgba(28, 25, 23, 0.18);
+  overflow: hidden;
+  animation: hm-assistant-in 0.22s ease;
+}
+
+@keyframes hm-assistant-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.hm-assistant-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #fff7ed, #fbe5d4);
+  border-bottom: 1px solid #f0dcc8;
+}
+
+.hm-assistant-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #fff;
+  border: 2px solid #f4d2b2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.hm-assistant-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1c1917;
+}
+
+.hm-assistant-head p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: #78716c;
+  font-weight: 600;
+}
+
+.hm-assistant-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 10px 12px 4px;
+}
+
+.hm-assistant-chip {
+  border: 1px solid #e8e4de;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #57534e;
+  cursor: pointer;
+}
+
+.hm-assistant-chip:hover {
+  border-color: #c85f2b;
+  color: #c85f2b;
+  background: #fdf4ef;
+}
+
+.hm-assistant-msgs {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 120px;
+}
+
+.hm-assistant-bubble {
+  max-width: 92%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.hm-assistant-bubble.user {
+  align-self: flex-end;
+  background: #c85f2b;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.hm-assistant-bubble.homi {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid #ede8e4;
+  color: #1c1917;
+  border-bottom-left-radius: 4px;
+}
+
+.hm-assistant-bubble.homi strong {
+  color: #9a3412;
+  font-weight: 700;
+}
+
+.hm-assistant-bubble.typing {
+  color: #78716c;
+  font-style: italic;
+}
+
+.hm-assistant-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid #ede8e4;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.hm-assistant-input-row input {
+  flex: 1;
+  border: 1px solid #e7e5e4;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  min-width: 0;
+}
+
+.hm-assistant-input-row input:focus {
+  border-color: #c85f2b;
+  box-shadow: 0 0 0 3px rgba(200, 95, 43, 0.12);
+}
+
+.hm-assistant-send {
+  border: none;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: #c85f2b;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.hm-assistant-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hm-mobile-app .hm-assistant-fab {
+  bottom: calc(var(--m-tab-h, 72px) + 12px);
+}
+
+.hm-mobile-app .hm-assistant-panel {
+  bottom: calc(var(--m-tab-h, 72px) + 80px);
+  right: 12px;
+}

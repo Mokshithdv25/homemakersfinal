@@ -1,0 +1,12 @@
+{
+  "installCommand": "npm install --legacy-peer-deps",
+  "buildCommand": "DISABLE_ESLINT_PLUGIN=true npm run build",
+  "outputDirectory": "build",
+  "env": {
+    "PUBLIC_URL": "",
+    "GENERATE_SOURCEMAP": "false"
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

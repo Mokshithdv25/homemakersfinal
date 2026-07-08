@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: homemakers-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: XAI_API_KEY
+        sync: false
+      - key: HM_AI_IMAGE_API_KEY
+        sync: false
+      - key: HM_AI_PLAN_API_KEY
+        sync: false
+      - key: GROK_IMAGE_MODEL
+        value: grok-imagine-image
+      - key: GROK_CHAT_MODEL
+        value: grok-3-mini
+      - key: GROK_V0_NEW_HOME_IMAGES
+        value: "1"
+      - key: GROK_V0_REMODEL_IMAGES
+        value: "2"
+      - key: GROK_IMAGE_TIMEOUT
+        value: "90"
+      - key: GROK_INLINE_IMAGES
+        value: "0"
+      - key: GROK_V0_FLOOR_PLANS
+        value: "1"
+      - key: GROK_V0_REMODEL_FLOOR_PLANS
+        value: "0"
+      - key: GROK_V0_MAX_FLOOR_PLANS
+        value: "4"
+      - key: MONGO_URL
+        sync: false
+      - key: DB_NAME
+        value: homemaker
+      - key: CORS_ORIGINS
+        value: "*"
