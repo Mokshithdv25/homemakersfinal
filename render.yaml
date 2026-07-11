@@ -39,4 +39,6 @@ services:
       - key: DB_NAME
         value: homemaker
       - key: CORS_ORIGINS
-        value: "*"
+        value: "https://www.homemakers.online,https://homemakers.online,http://localhost:3000,http://127.0.0.1:3000"
+      - key: CORS_ORIGIN_REGEX
+        value: "https://.*\\.vercel\\.app"

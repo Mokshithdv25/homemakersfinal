@@ -1,4 +1,8 @@
 {
+  "env": {
+    "PUBLIC_URL": "",
+    "GENERATE_SOURCEMAP": "false"
+  },
   "rewrites": [
     {
       "source": "/(.*)",

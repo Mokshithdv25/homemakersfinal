@@ -59,6 +59,11 @@ def _repo_mode() -> str:
     return "supabase" if _supabase is not None else "mongo"
 
 
+def _csv_env(name: str, fallback: str = "") -> list[str]:
+    raw = os.getenv(name, fallback)
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
 def _load_portfolio(portfolio_id: str) -> dict | None:
     if _repo_mode() == "supabase":
         res = _supabase.table("portfolios").select("*").eq("id", portfolio_id).limit(1).execute()
@@ -1632,6 +1637,10 @@ async def ai_status():
         "grok_configured": bool(_xai_api_key("plan") or _xai_api_key("image")),
         "image_model": os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image"),
         "chat_model": os.getenv("GROK_CHAT_MODEL", "grok-3-mini"),
+        "hub_assistant": True,
+        "repo_mode": _repo_mode(),
+        "render_service": os.getenv("RENDER_SERVICE_NAME") or None,
+        "render_git_commit": os.getenv("RENDER_GIT_COMMIT") or None,
     }
 
 
@@ -1686,7 +1695,11 @@ app.include_router(api_router)
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=_csv_env(
+        "CORS_ORIGINS",
+        "https://www.homemakers.online,https://homemakers.online,http://localhost:3000,http://127.0.0.1:3000",
+    ),
+    allow_origin_regex=os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app"),
     allow_methods=["*"],
     allow_headers=["*"],
 )
