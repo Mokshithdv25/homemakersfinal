@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { MapPin, Calendar, Building2, Mail, Phone, MessageCircle } from "lucide-react";
 import { findCraft } from "../lib/crafts";
 import {
   getPortfolioBase,
@@ -9,21 +10,16 @@ import {
 import { getPublicProfile } from "../lib/api";
 import { formatLocationLabel } from "../lib/formatLocation";
 import { getPortfolioThemeFromRecord, portfolioThemeCssVars } from "../lib/portfolioThemes";
-
-/* ── Specialty SVG icons ── */
-const SPEC_SVG = {
-  "House Wiring":        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><path d="M16 4L4 14v14h8V20h8v8h8V14Z"/></svg>,
-  "Fuse Box / DB Setup": <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><rect x="4" y="6" width="24" height="20" rx="2"/><line x1="11" y1="6" x2="11" y2="26"/><rect x="14" y="10" width="4" height="3" rx="0.5"/><rect x="14" y="17" width="4" height="3" rx="0.5"/></svg>,
-  "Lighting Solutions":  <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><circle cx="16" cy="13" r="6"/><path d="M13 19l1 5h4l1-5"/><line x1="16" y1="4" x2="16" y2="2"/><line x1="24" y1="13" x2="26" y2="13"/><line x1="6" y1="13" x2="8" y2="13"/></svg>,
-  "Ceiling Fans":        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><circle cx="16" cy="16" r="2.5"/><ellipse cx="9" cy="11" rx="6" ry="2.5" transform="rotate(-30 9 11)"/><ellipse cx="23" cy="11" rx="6" ry="2.5" transform="rotate(30 23 11)"/><ellipse cx="9" cy="21" rx="6" ry="2.5" transform="rotate(30 9 21)"/><ellipse cx="23" cy="21" rx="6" ry="2.5" transform="rotate(-30 23 21)"/></svg>,
-  "Appliance Repair":    <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><path d="M22 8s2 4 0 8l-6 8-6-8c-2-4 0-8 4-8"/><circle cx="16" cy="12" r="2.5"/></svg>,
-  "Residential":         <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><path d="M16 4L4 14v14h8V20h8v8h8V14Z"/></svg>,
-  "Commercial":          <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><rect x="6" y="8" width="20" height="20" rx="1"/><rect x="10" y="12" width="4" height="4"/><rect x="18" y="12" width="4" height="4"/><rect x="12" y="22" width="8" height="6"/><line x1="6" y1="8" x2="16" y2="2"/><line x1="26" y1="8" x2="16" y2="2"/></svg>,
-  "Sustainable":         <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><path d="M16 28C16 28 6 22 6 14a10 10 0 0 1 20 0c0 8-10 14-10 14Z"/><path d="M16 14v6M13 17l3-3 3 3"/></svg>,
-  default:               <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.6" width="28" height="28"><circle cx="16" cy="16" r="10"/><path d="M12 16l3 3 5-5"/></svg>,
-};
+import "./PortfolioPage.css";
 
 const FALLBACK_HERO = `${process.env.PUBLIC_URL || ""}/landing-hero.png`;
+
+function waLink(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return null;
+  const full = digits.length === 10 ? `91${digits}` : digits;
+  return `https://wa.me/${full}`;
+}
 
 export default function PortfolioPage() {
   const { slug } = useParams();
@@ -72,184 +68,166 @@ export default function PortfolioPage() {
 
   if (!data) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Sans',sans-serif" }}>Loading…</div>;
 
-  const craft      = findCraft(data.craft);
+  const craft = findCraft(data.craft);
   const craftLabel = craft?.name || data.craft || "Professional";
-  const photos     = Array.isArray(data.photos) ? data.photos.filter(Boolean) : [];
-  const hero       = data.cover_photo || photos[0] || craft?.hero || FALLBACK_HERO;
-  const name       = data.full_name || "Your Name";
-  const city       = data.city || "";
-  const exp        = data.years_experience ? `${data.years_experience} yrs experience` : "";
-  const business   = data.business_name || "";
-  const bio        = data.short_bio || "";
-  const specs      = data.specialties?.length > 0 ? data.specialties : (craft?.specialties?.slice(0, 5) || []);
-
+  const photos = Array.isArray(data.photos) ? data.photos.filter(Boolean) : [];
+  const hero = data.cover_photo || photos[0] || craft?.hero || FALLBACK_HERO;
+  const name = data.full_name || "Your Name";
+  const city = formatLocationLabel(data.city) || data.city || "";
+  const years = String(data.years_experience || "").replace(/\D/g, "");
+  const business = data.business_name || "";
+  const bio = data.short_bio || "";
+  const specs = data.specialties?.length > 0 ? data.specialties : (craft?.specialties?.slice(0, 5) || []);
   const email = data.email || "";
+  const phone = data.phone || "";
+  const wa = waLink(phone);
+
   const theme = getPortfolioThemeFromRecord(data);
   const themeVars = portfolioThemeCssVars(theme);
-  const heroMinHeight = theme.layout === "compact" ? "48vh" : theme.layout === "editorial" ? "68vh" : "62vh";
+  const isEditorial = theme.layout === "editorial";
 
-  const metaItems = [
-    formatLocationLabel(city) && { icon: "📍", text: formatLocationLabel(city) },
-    exp && { icon: "🗓", text: exp },
-    business && { icon: "🏢", text: business },
-    email && { icon: "✉️", text: email },
-    data.phone && { icon: "📞", text: data.phone },
+  const heroMeta = [
+    city && { Icon: MapPin, text: city },
+    years && { Icon: Calendar, text: `${years}+ years` },
+    business && { Icon: Building2, text: business },
   ].filter(Boolean);
 
+  const stats = [
+    years && { value: `${years}+`, label: "Years of craft" },
+    photos.length > 0 && { value: String(photos.length), label: "Projects shown" },
+    specs.length > 0 && { value: String(specs.length), label: "Specialties" },
+    city && { value: city.split(",")[0], label: "Based in" },
+  ].filter(Boolean);
+
+  const gallery = photos.slice(0, 9);
+
   return (
-    <div
-      style={{
-        fontFamily: "'DM Sans','Inter',sans-serif",
-        background: "#fff",
-        color: "#111",
-        minHeight: "100vh",
-        ...themeVars,
-      }}
-    >
+    <div className="hm-pf" style={themeVars}>
+      {/* ══ Hero ══ */}
+      <div className={`hm-pf-hero hm-pf-hero--${theme.layout}`}>
+        <div className="hm-pf-hero-bg" style={{ backgroundImage: `url(${hero})` }} />
+        <div className="hm-pf-hero-overlay" />
 
-      {/* ══ HERO with overlay ══ */}
-      <div style={{ position: "relative", minHeight: heroMinHeight, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-        {/* Background image */}
-        <div style={{
-          position: "absolute", inset: 0,
-          backgroundImage: `url(${hero})`,
-          backgroundSize: "cover", backgroundPosition: "center",
-          zIndex: 0,
-        }} />
-        {/* Gradient overlay */}
-        <div style={{
-          position: "absolute", inset: 0, zIndex: 1,
-          background: theme.heroOverlay,
-        }} />
+        <button type="button" className="hm-pf-cta" onClick={() => navigate("/build?source=portfolio")}>
+          Work With Me
+        </button>
 
-        {/* Top-right Work With Me */}
-        <div style={{ position: "absolute", top: 20, right: 24, zIndex: 10 }}>
-          <button
-            onClick={() => navigate("/build?source=portfolio")}
-            style={{
-              background: theme.accent, color: "#fff", fontWeight: 700,
-              fontSize: 15, padding: "11px 26px", borderRadius: 9,
-              border: "none", cursor: "pointer",
-              boxShadow: `0 4px 20px ${theme.accent}66`,
-            }}
-          >
-            Work With Me
-          </button>
-        </div>
-
-        {/* Profile info — overlaid on hero bottom */}
-        <div style={{ position: "relative", zIndex: 2, padding: "0 32px 28px" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 20, flexWrap: "wrap" }}>
-            {/* Avatar */}
-            <div style={{
-              width: 90, height: 90, borderRadius: "50%",
-              background: "rgba(255,255,255,0.15)",
-              border: "3px solid rgba(255,255,255,0.7)",
-              backdropFilter: "blur(8px)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              flexShrink: 0, overflow: "hidden",
-            }}>
+        <div className="hm-pf-hero-content">
+          <div className="hm-pf-hero-row">
+            <div className="hm-pf-avatar">
               {data.profile_photo ? (
-                <img
-                  src={data.profile_photo}
-                  alt={name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
+                <img src={data.profile_photo} alt={name} />
               ) : (
                 <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.4">
-                  <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                  <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
                 </svg>
               )}
             </div>
-
-            {/* Name + craft + bio + meta */}
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ color: "#fff", fontWeight: 800, fontSize: 30, lineHeight: 1.15, textShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>{name}</div>
-              <div style={{ color: theme.accentSoft, fontWeight: 700, fontSize: 15, marginTop: 3, marginBottom: 8, filter: "brightness(1.15)" }}>Licensed {craftLabel}</div>
-              {bio && <p style={{ color: "rgba(255,255,255,0.85)", fontSize: 14, lineHeight: 1.6, maxWidth: 480, marginBottom: 10 }}>{bio}</p>}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 20px" }}>
-                {metaItems.map((m, i) => (
-                  <span key={i} style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, display: "flex", alignItems: "center", gap: 5 }}>
-                    <span>{m.icon}</span>{m.text}
-                  </span>
-                ))}
-              </div>
+            <div style={{ minWidth: 220 }}>
+              <div className="hm-pf-craft">Licensed {craftLabel}</div>
+              <h1 className={`hm-pf-name${isEditorial ? " hm-pf-serif" : ""}`}>{name}</h1>
+              {heroMeta.length > 0 && (
+                <div className="hm-pf-hero-meta">
+                  {heroMeta.map((m, i) => {
+                    const Icon = m.Icon;
+                    return (
+                      <span key={i}><Icon size={15} /> {m.text}</span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Specialties chips — on the hero */}
+      {/* ══ Stats band ══ */}
+      {stats.length >= 2 && (
+        <div className="hm-pf-stats">
+          {stats.map((s) => (
+            <div key={s.label} className="hm-pf-stat">
+              <b>{s.value}</b>
+              <span>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ══ About ══ */}
+      {(bio || specs.length > 0) && (
+        <section className="hm-pf-section">
+          <div className="hm-pf-kicker">About</div>
+          <h2 className={`hm-pf-h2${isEditorial ? " hm-pf-serif" : ""}`}>
+            {business ? business : `Meet ${name.split(" ")[0]}`}
+          </h2>
+          {bio && <p className="hm-pf-bio">{bio}</p>}
           {specs.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
-              {specs.slice(0, 6).map(s => (
-                <span key={s} style={{
-                  background: "rgba(255,255,255,0.15)", backdropFilter: "blur(8px)",
-                  border: "1px solid rgba(255,255,255,0.35)",
-                  color: "#fff", fontSize: 12, fontWeight: 600,
-                  padding: "5px 14px", borderRadius: 20,
-                  display: "flex", alignItems: "center", gap: 6,
-                }}>
-                  <span style={{ opacity: 0.85 }}>{SPEC_SVG[s] || SPEC_SVG.default}</span>
-                  {s}
-                </span>
+            <div className="hm-pf-chips">
+              {specs.slice(0, 8).map((s) => (
+                <span key={s} className="hm-pf-chip">{s}</span>
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </section>
+      )}
 
-      {/* ══ MY WORK ══ */}
-      <div style={{ padding: "28px 32px 24px", background: "#fff" }}>
-        <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 16, color: "#111", letterSpacing: "-0.3px" }}>My Work</div>
-        {photos.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8 }}>
-            {photos.slice(0, 6).map((src, i) => {
-              const alt = `Portfolio photo ${i + 1}`;
-              return (
-                <div key={`${src}-${i}`} style={{ borderRadius: 8, overflow: "hidden", boxShadow: "0 2px 10px rgba(0,0,0,0.08)" }}>
-                  <img src={src} alt={alt} style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", display: "block" }} />
-                </div>
-              );
-            })}
+      {/* ══ Work ══ */}
+      <section className="hm-pf-section">
+        <div className="hm-pf-kicker">Portfolio</div>
+        <h2 className={`hm-pf-h2${isEditorial ? " hm-pf-serif" : ""}`}>Selected work</h2>
+        {gallery.length > 0 ? (
+          <div className="hm-pf-gallery">
+            {gallery.map((src, i) => (
+              <div key={`${src}-${i}`} className={`hm-pf-shot${i === 0 && gallery.length >= 3 ? " hm-pf-shot--feature" : ""}`}>
+                <img src={src} alt={`${name} project ${i + 1}`} loading={i > 1 ? "lazy" : undefined} />
+              </div>
+            ))}
           </div>
         ) : (
-          <div
-            style={{
-              border: "1px solid #E7E5E4",
-              borderRadius: 12,
-              padding: "18px 16px",
-              fontSize: 13,
-              color: "#7A6E62",
-              background: "#FAFAF9",
-            }}
-          >
-            No work photos uploaded yet.
+          <div style={{ border: "1px dashed var(--hm-portfolio-border)", borderRadius: 14, padding: "26px 20px", fontSize: 14, color: "#7A6E62", background: "#FAFAF9", marginTop: 18 }}>
+            Work photos coming soon.
           </div>
         )}
-      </div>
+      </section>
 
-      {/* ══ BOTTOM CTA ══ */}
-      <div style={{
-        background: "linear-gradient(135deg, #1C1917 0%, #3D2B1F 100%)",
-        padding: "28px 32px",
-        display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16,
-      }}>
-        <div>
-          <div style={{ color: "#fff", fontWeight: 800, fontSize: 20, marginBottom: 4 }}>Want a portfolio like this?</div>
-          <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Showcase your work and get discovered by clients.</div>
+      {/* ══ Contact ══ */}
+      <section className="hm-pf-contact">
+        <div className="hm-pf-contact-card">
+          <div>
+            <h3 className={isEditorial ? "hm-pf-serif" : undefined}>Let&apos;s build something together</h3>
+            <p>
+              Share your plot, room, or brief — {name.split(" ")[0]} will get back with how they&apos;d approach it.
+            </p>
+          </div>
+          <div className="hm-pf-contact-actions">
+            {phone && (
+              <a className="hm-pf-contact-btn hm-pf-contact-btn--solid" href={`tel:${String(phone).replace(/\s/g, "")}`}>
+                <Phone size={17} /> Call
+              </a>
+            )}
+            {wa && (
+              <a className="hm-pf-contact-btn hm-pf-contact-btn--ghost" href={wa} target="_blank" rel="noreferrer">
+                <MessageCircle size={17} /> WhatsApp
+              </a>
+            )}
+            {email && (
+              <a className="hm-pf-contact-btn hm-pf-contact-btn--ghost" href={`mailto:${email}`}>
+                <Mail size={17} /> Email
+              </a>
+            )}
+          </div>
         </div>
-        <Link
-          to="/craft"
-          style={{
-            background: "#E05A20", color: "#fff", fontWeight: 700, fontSize: 15,
-            padding: "13px 36px", borderRadius: 10, textDecoration: "none",
-            display: "inline-block", whiteSpace: "nowrap",
-            boxShadow: "0 4px 20px rgba(224,90,32,0.4)",
-          }}
-        >
-          Get It Here →
-        </Link>
-      </div>
+      </section>
 
+      {/* ══ Footer ══ */}
+      <footer className="hm-pf-footer">
+        <span>
+          {name} · {craftLabel}{city ? ` · ${city}` : ""}
+        </span>
+        <span>
+          Built on HomeMakers — <Link to="/craft">create your portfolio</Link>
+        </span>
+      </footer>
     </div>
   );
 }

@@ -124,14 +124,33 @@ export default function MobileProProfilePage() {
           <p style={{ fontSize: 14, lineHeight: 1.6, color: "#44403C", margin: "0 0 16px" }}>{bio}</p>
         ) : null}
 
-        {pro.phone ? (
-          <a
-            href={`tel:${String(pro.phone).replace(/\s/g, "")}`}
-            className="hm-m-btn-primary"
-            style={{ textDecoration: "none", marginBottom: 18, background: theme.accent, borderColor: theme.accent }}
-          >
-            <Phone size={18} /> Contact
-          </a>
+        {pro.phone || email ? (
+          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
+            {pro.phone ? (
+              <a
+                href={`tel:${String(pro.phone).replace(/\s/g, "")}`}
+                className="hm-m-btn-primary"
+                style={{ textDecoration: "none", flex: 1, background: theme.accent, borderColor: theme.accent }}
+              >
+                <Phone size={18} /> Call
+              </a>
+            ) : null}
+            {pro.phone ? (
+              <a
+                href={`https://wa.me/${(() => { const d = String(pro.phone).replace(/\D/g, ""); return d.length === 10 ? `91${d}` : d; })()}`}
+                target="_blank"
+                rel="noreferrer"
+                className="hm-m-btn-secondary"
+                style={{ textDecoration: "none", flex: 1 }}
+              >
+                WhatsApp
+              </a>
+            ) : email ? (
+              <a href={`mailto:${email}`} className="hm-m-btn-secondary" style={{ textDecoration: "none", flex: 1 }}>
+                <Mail size={18} /> Email
+              </a>
+            ) : null}
+          </div>
         ) : null}
 
         {specialties.length > 0 ? (
