@@ -661,19 +661,30 @@ export async function loadProjectBoard({ projectId, source }) {
     };
   });
 
+  const shortDate = (iso) => {
+    if (!iso) return null;
+    try {
+      return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+    } catch {
+      return null;
+    }
+  };
+
   const taskRows = (tasks || []).map((t) => ({
+    id: t.id,
     done: t.status === "done",
     name: t.title,
     phase: stageById[t.stage_id] || "Design & Approval",
-    date: "Planned",
+    date: shortDate(t.due_date) || shortDate(t.created_at) || "Planned",
     assignee: "Team",
   }));
 
   const messageRows = (messages || []).map((m) => ({
+    id: m.id,
     phase: stageById[m.stage_id] || "Design & Approval",
     role: m.author_role || "Team",
     name: m.author_role || "Team",
-    time: "Recent",
+    time: shortDate(m.created_at) || "Recent",
     text: m.message,
     color: "#2A6496",
   }));
@@ -687,4 +698,68 @@ export async function loadProjectBoard({ projectId, source }) {
     tasks: taskRows,
     messages: messageRows,
   };
+}
+
+/** Persist a new task on the board; returns the inserted row id (or null offline). */
+export async function addProjectTask({ projectId, title, phaseName }) {
+  if (!supabase || !projectId || !title?.trim()) return null;
+  let stageId = null;
+  try {
+    if (phaseName) {
+      const { data: stages } = await supabase
+        .from("project_stages")
+        .select("id, name")
+        .eq("project_id", projectId);
+      stageId = (stages || []).find((s) => s.name === phaseName)?.id || null;
+    }
+    const { data, error } = await supabase
+      .from("project_tasks")
+      .insert({ project_id: projectId, stage_id: stageId, title: title.trim() })
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    return data?.id || null;
+  } catch (err) {
+    console.warn("addProjectTask:", err?.message || err);
+    return null;
+  }
+}
+
+/** Persist a site-feed message; returns inserted row id (or null offline). */
+export async function addProjectMessage({ projectId, text, phaseName, authorRole = "Homeowner" }) {
+  if (!supabase || !projectId || !text?.trim()) return null;
+  try {
+    let stageId = null;
+    if (phaseName) {
+      const { data: stages } = await supabase
+        .from("project_stages")
+        .select("id, name")
+        .eq("project_id", projectId);
+      stageId = (stages || []).find((s) => s.name === phaseName)?.id || null;
+    }
+    const { data, error } = await supabase
+      .from("project_messages")
+      .insert({ project_id: projectId, stage_id: stageId, author_role: authorRole, message: text.trim() })
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    return data?.id || null;
+  } catch (err) {
+    console.warn("addProjectMessage:", err?.message || err);
+    return null;
+  }
+}
+
+/** Persist a task done/todo toggle. */
+export async function setProjectTaskDone(taskId, done) {
+  if (!supabase || !taskId) return;
+  try {
+    const { error } = await supabase
+      .from("project_tasks")
+      .update({ status: done ? "done" : "todo", updated_at: new Date().toISOString() })
+      .eq("id", taskId);
+    if (error) throw error;
+  } catch (err) {
+    console.warn("setProjectTaskDone:", err?.message || err);
+  }
 }

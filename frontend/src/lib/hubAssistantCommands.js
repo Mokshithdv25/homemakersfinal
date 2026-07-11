@@ -23,6 +23,31 @@ function normalize(text) {
     .replace(/[^\w\s]/g, " ");
 }
 
+function formatTaskList(tasks, { limit = 6, openOnly = false } = {}) {
+  const rows = (tasks || []).filter((t) => (openOnly ? !t.done : true));
+  if (!rows.length) return openOnly ? "No open tasks on the board." : "No tasks tracked yet.";
+  return rows
+    .slice(0, limit)
+    .map((t) => {
+      const mark = t.done ? "✓" : "○";
+      const phase = t.phase ? ` (${t.phase})` : "";
+      return `${mark} ${t.title || t.name}${phase}`;
+    })
+    .join("\n");
+}
+
+function formatMessageDigest(messages, limit = 5) {
+  const rows = (messages || []).slice(-limit);
+  if (!rows.length) return "No site-feed messages yet.";
+  return rows
+    .map((m) => {
+      const who = m.name || m.role || "Team";
+      const phase = m.phase ? ` · ${m.phase}` : "";
+      return `**${who}**${phase}: ${m.text}`;
+    })
+    .join("\n");
+}
+
 export function buildLatestBriefing(ctx) {
   const lines = [];
   const name = ctx.userFirstName ? `${ctx.userFirstName}, ` : "";
@@ -44,6 +69,15 @@ export function buildLatestBriefing(ctx) {
   }
   if (ctx.budgetLabel) lines.push(`Budget band: **${ctx.budgetLabel}**.`);
   if (ctx.hasV0) lines.push("Your **AI v0** pack is saved on this project.");
+  if (ctx.v0Summary?.totalInr) {
+    lines.push(`V0 estimate ballpark: **${ctx.v0Summary.totalInr}** INR (indicative).`);
+  }
+  if (ctx.pendingTasks?.length) {
+    lines.push(`Open tasks:\n${formatTaskList(ctx.pendingTasks, { limit: 4, openOnly: true })}`);
+  }
+  if (ctx.recentMessages?.length) {
+    lines.push(`Recent site feed:\n${formatMessageDigest(ctx.recentMessages, 3)}`);
+  }
   if (ctx.postedBanner) {
     lines.push(
       ctx.wantsMarketplaceQuotes === false
@@ -91,6 +125,30 @@ export function parseHubCommand(message, ctx) {
   }
   if (/\b(latest|what'?s new|update|status|briefing|summary)\b/.test(t)) {
     return { kind: "reply", text: buildLatestBriefing(ctx) };
+  }
+  if (/\b(open\s*tasks?|todo|to[\s-]?do|pending\s*tasks?)\b/.test(t)) {
+    return {
+      kind: "reply",
+      text: `**Open tasks** on ${ctx.projectTitle || "your project"}:\n${formatTaskList(ctx.pendingTasks || ctx.tasks, { openOnly: true })}`,
+    };
+  }
+  if (/\b(all\s*tasks?|task\s*list|my\s*tasks?)\b/.test(t)) {
+    return {
+      kind: "reply",
+      text: `**Tasks** (${ctx.taskCount ?? ctx.tasks?.length ?? 0} total):\n${formatTaskList(ctx.tasks)}`,
+    };
+  }
+  if (/\b(messages?|site\s*feed|feed|updates?\s*from\s*site)\b/.test(t)) {
+    return {
+      kind: "reply",
+      text: `**Site feed** (latest):\n${formatMessageDigest(ctx.recentMessages || ctx.messages)}`,
+    };
+  }
+  if (/\b(phase|stage|timeline|progress)\b/.test(t) && ctx.phases?.length) {
+    const phaseLines = ctx.phases
+      .map((p) => `**${p.name}** — ${p.pct ?? 0}%${p.status ? ` (${p.status})` : ""}`)
+      .join("\n");
+    return { kind: "reply", text: `Project phases:\n${phaseLines}` };
   }
 
   for (const [key, nav] of Object.entries(NAV_ALIASES)) {

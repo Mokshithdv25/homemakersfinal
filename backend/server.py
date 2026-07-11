@@ -1546,6 +1546,26 @@ def _hub_assistant_local(message: str, ctx: dict) -> dict:
                 "action": {"type": "nav", "nav": label},
                 "source": "local",
             }
+    tasks = ctx.get("tasks") or ctx.get("pendingTasks") or []
+    messages = ctx.get("recentMessages") or ctx.get("messages") or []
+    if "task" in t or "todo" in t:
+        open_tasks = [x for x in tasks if not x.get("done")]
+        if open_tasks:
+            lines = [f"- {x.get('title') or x.get('name')}" for x in open_tasks[:8]]
+            return {
+                "reply": "Open tasks:\n" + "\n".join(lines),
+                "action": None,
+                "source": "local",
+            }
+        return {"reply": "No open tasks on this project right now.", "action": None, "source": "local"}
+    if "message" in t or "feed" in t:
+        if messages:
+            lines = [
+                f"{m.get('name') or m.get('role')}: {m.get('text', '')[:120]}"
+                for m in messages[-5:]
+            ]
+            return {"reply": "Recent site feed:\n" + "\n".join(lines), "action": None, "source": "local"}
+        return {"reply": "No site-feed messages saved yet.", "action": None, "source": "local"}
     if "latest" in t or "status" in t or "update" in t:
         title = ctx.get("projectTitle") or "your project"
         pending = ctx.get("pendingTaskCount") or 0
@@ -1555,6 +1575,9 @@ def _hub_assistant_local(message: str, ctx: dict) -> dict:
             reply += f" {pending} open task(s)."
         if ctx.get("hasV0"):
             reply += " AI v0 pack is saved."
+        if messages:
+            last = messages[-1]
+            reply += f" Last feed note from {last.get('name') or 'team'}."
         return {"reply": reply, "action": None, "source": "local"}
     return {
         "reply": (
@@ -1571,11 +1594,18 @@ def _grok_hub_assistant(message: str, ctx: dict) -> Optional[dict]:
     if not key:
         return None
     model = os.getenv("GROK_CHAT_MODEL", "grok-3-mini").strip() or "grok-3-mini"
-    ctx_json = json.dumps(ctx or {}, ensure_ascii=False)[:6000]
+    ctx_json = json.dumps(ctx or {}, ensure_ascii=False)[:12000]
+    role = (ctx.get("role") or "homeowner").strip()
+    surface = (ctx.get("surface") or "project-hub").strip()
     system = (
         "You are Homi, a warm concise agentic assistant inside HomeMakers project management. "
+        "Answer using ONLY the Project context JSON as ground truth for tasks, messages, phases, budget, and v0 status. "
+        "Do not invent tasks, messages, or progress that are not in the context. "
+        "If data is missing, say what is missing and suggest the next step. "
+        f"User role: {role}. Surface: {surface}. "
         "Help homeowners manage build/remodel projects: tasks, timeline, budget, v0 designs, handoff. "
-        "Reply in 2-4 short sentences. Use plain text (no markdown headers). "
+        "Reply in 2-4 short sentences unless the user asks for a list (then use short bullet lines). "
+        "Use plain text (no markdown headers). "
         "If the user wants navigation, include JSON action on its own line as: "
         'ACTION:{"type":"nav","nav":"Tasks"} OR ACTION:{"type":"path","path":"/build/new-home"} '
         'OR ACTION:{"type":"addTask","title":"..."}. Valid nav: Overview, Timeline, Tasks, Budget, Site Feed, Settings.'

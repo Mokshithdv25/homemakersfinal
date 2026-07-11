@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileHeader from "../MobileHeader";
 import { useMobileHub } from "../hooks/useMobileHub";
 import { flowTypeLabel, projectStatusLabel } from "../mobileIA";
 import { AUTH_UI_ENABLED, PROJECT_HUB_DEMO_MODE } from "../../lib/authMode";
-import { formatInrShort } from "../../lib/projectFlowApi";
+import { formatInrShort, loadProjectBoard } from "../../lib/projectFlowApi";
 import { buildSignInRedirect } from "../../lib/requireHomeownerAuth";
+import { buildHubAssistantContext } from "../../lib/hubAssistantContext";
 import HmProjectAssistant from "../../components/HmProjectAssistant";
 import HmCommandCenter from "../../components/HmCommandCenter";
 import HmMorningBriefing from "../../components/HmMorningBriefing";
@@ -50,22 +51,68 @@ export default function MobileProjectPage() {
       ? formatInrShort(project.budget_max || project.budget_min)
       : null;
 
+  const [board, setBoard] = useState(null);
+
+  useEffect(() => {
+    if (!project?.id) {
+      setBoard(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const data = await loadProjectBoard({ projectId: project.id, source: project.source });
+      if (!cancelled) setBoard(data);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [project?.id, project?.source]);
+
   const hubQuery = project?.id ? `?projectId=${encodeURIComponent(project.id)}` : "";
-  const assistantContext = {
-    signedIn: AUTH_UI_ENABLED ? Boolean(session?.supabaseUserId) : true,
-    isDemoHub,
-    userFirstName: (session?.name || "").split(/\s+/)[0] || "",
-    projectId: project?.id || "",
-    projectTitle: title,
-    flowLabel: project ? flowTypeLabel(project.flow_type, project.source) : "",
-    activePhase: "Design & approval",
-    phasePct: 8,
-    pendingTaskCount: 0,
-    budgetLabel: budget,
-    hasV0: false,
-    hubQuery,
-    signInPath: buildSignInRedirect("/project"),
-  };
+  const boardTasks = board?.tasks || [];
+  const boardMsgs = board?.messages || [];
+  const boardPhases = board?.phases || DEFAULT_PHASES;
+  const activePhase = boardPhases.find((p) => p.status === "In Progress")?.name || boardPhases[0]?.name || "Design & approval";
+
+  const assistantContext = useMemo(
+    () =>
+      buildHubAssistantContext({
+        signedIn: AUTH_UI_ENABLED ? Boolean(session?.supabaseUserId) : true,
+        isDemoHub,
+        userFirstName: (session?.name || "").split(/\s+/)[0] || "",
+        projectId: project?.id || "",
+        projectTitle: title,
+        projectStatus: project?.status || "",
+        flowLabel: project ? flowTypeLabel(project.flow_type, project.source) : "",
+        activePhase,
+        phasePct: boardPhases.find((p) => p.name === activePhase)?.pct ?? 0,
+        tasks: boardTasks,
+        messages: boardMsgs,
+        phases: boardPhases,
+        pendingTaskCount: boardTasks.filter((t) => !t.done).length,
+        budgetLabel: budget,
+        hasV0: Boolean(board?.v0Pack?.images || board?.v0Pack?.estimate),
+        v0Pack: board?.v0Pack,
+        location: project?.location || project?.city || "",
+        timeline: project?.timeline_completion || "",
+        hubQuery,
+        signInPath: buildSignInRedirect("/project"),
+      }),
+    [
+      session?.supabaseUserId,
+      session?.name,
+      isDemoHub,
+      project,
+      title,
+      activePhase,
+      boardTasks,
+      boardMsgs,
+      boardPhases,
+      board?.v0Pack,
+      budget,
+      hubQuery,
+    ],
+  );
 
   return (
     <>

@@ -19,8 +19,12 @@ import {
   listLocalFlowProjects,
   claimAndListUserProjects,
   loadProjectBoard,
+  addProjectTask,
+  addProjectMessage,
+  setProjectTaskDone,
 } from "../lib/projectFlowApi";
 import { buildSignInRedirect } from "../lib/requireHomeownerAuth";
+import { buildHubAssistantContext } from "../lib/hubAssistantContext";
 import HmFormDialog from "../components/HmFormDialog";
 import HmProjectAssistant from "../components/HmProjectAssistant";
 import HmCommandCenter from "../components/HmCommandCenter";
@@ -626,30 +630,38 @@ export default function ProjectDashboard() {
   const nextOpenTask = pendingTasks[0]?.name || null;
 
   const assistantContext = useMemo(
-    () => ({
-      signedIn: isSignedIn,
-      isDemoHub,
-      userFirstName: (hmSession?.name || hmSession?.email || "").split(/\s+/)[0] || "",
-      projectId: activeProjectId,
-      projectTitle:
-        activeProjectMeta?.title || briefData?.title || (isDemoHub ? HM_HUB_DEMO_PROJECT.line2 : "Your project"),
-      flowLabel: isDemoHub
-        ? HM_HUB_DEMO_PROJECT.meta
-        : flowSourceLabel(activeProjectMeta?.flow_type, activeProjectMeta?.source),
-      activePhase: selectedPhase,
-      phasePct: phaseRows.find((p) => p.name === selectedPhase)?.pct ?? 0,
-      taskCount: tasks.length,
-      pendingTaskCount: pendingTasks.length,
-      nextTask: nextOpenTask,
-      budgetLabel:
-        briefData?.budgetLabel ||
-        (activeProjectMeta?.budget_max ? formatInrShort(activeProjectMeta.budget_max) : null),
-      hasV0: Boolean(v0Pack?.images || v0Pack?.estimate),
-      postedBanner: showPostedBanner,
-      wantsMarketplaceQuotes: !briefHasOwnPros,
-      hubQuery,
-      signInPath: signInRedirectPath,
-    }),
+    () =>
+      buildHubAssistantContext({
+        signedIn: isSignedIn,
+        isDemoHub,
+        userFirstName: (hmSession?.name || hmSession?.email || "").split(/\s+/)[0] || "",
+        projectId: activeProjectId,
+        projectTitle:
+          activeProjectMeta?.title || briefData?.title || (isDemoHub ? HM_HUB_DEMO_PROJECT.line2 : "Your project"),
+        projectStatus: activeProjectMeta?.status || "",
+        flowLabel: isDemoHub
+          ? HM_HUB_DEMO_PROJECT.meta
+          : flowSourceLabel(activeProjectMeta?.flow_type, activeProjectMeta?.source),
+        activePhase: selectedPhase,
+        phasePct: phaseRows.find((p) => p.name === selectedPhase)?.pct ?? 0,
+        tasks,
+        messages: msgs,
+        phases: phaseRows,
+        taskCount: tasks.length,
+        pendingTaskCount: pendingTasks.length,
+        nextTask: nextOpenTask,
+        budgetLabel:
+          briefData?.budgetLabel ||
+          (activeProjectMeta?.budget_max ? formatInrShort(activeProjectMeta.budget_max) : null),
+        hasV0: Boolean(v0Pack?.images || v0Pack?.estimate),
+        v0Pack,
+        location: activeProjectMeta?.location || briefData?.location || briefData?.city || "",
+        timeline: activeProjectMeta?.timeline_completion || briefData?.timeline || "",
+        postedBanner: showPostedBanner,
+        wantsMarketplaceQuotes: !briefHasOwnPros,
+        hubQuery,
+        signInPath: signInRedirectPath,
+      }),
     [
       isSignedIn,
       hmSession,
@@ -659,7 +671,8 @@ export default function ProjectDashboard() {
       briefData,
       selectedPhase,
       phaseRows,
-      tasks.length,
+      tasks,
+      msgs,
       pendingTasks.length,
       nextOpenTask,
       v0Pack,
@@ -672,8 +685,7 @@ export default function ProjectDashboard() {
 
   const addAssistantTask = (title, phase = selectedPhase) => {
     if (!title?.trim()) return;
-    const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-    setTasks((prev) => [...prev, { done: false, name: title.trim(), phase, date: today, assignee: "You" }]);
+    createTask(title, phase);
     setActiveNav("Tasks");
   };
 
@@ -715,8 +727,36 @@ export default function ProjectDashboard() {
 
   const sendMsg = () => {
     if (!msg.trim()) return;
-    setMsgs((prev) => [...prev, { phase: selectedPhase, role: "Homeowner", name: "You", time: "Just now", text: msg.trim(), color: OR }]);
+    const text = msg.trim();
+    setMsgs((prev) => [...prev, { phase: selectedPhase, role: "Homeowner", name: "You", time: "Just now", text, color: OR }]);
     setMsg("");
+    if (isLiveProject && activeProjectId) {
+      addProjectMessage({ projectId: activeProjectId, text, phaseName: selectedPhase });
+    }
+  };
+
+  /** Add task to board state and persist to Supabase (id patched in when saved). */
+  const createTask = (name, phase) => {
+    const title = String(name || "").trim();
+    if (!title) return;
+    const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    const localKey = `local-${Date.now()}`;
+    setTasks((prev) => [...prev, { id: localKey, done: false, name: title, phase, date: today, assignee: "You" }]);
+    if (isLiveProject && activeProjectId) {
+      addProjectTask({ projectId: activeProjectId, title, phaseName: phase }).then((rowId) => {
+        if (rowId) {
+          setTasks((prev) => prev.map((t) => (t.id === localKey ? { ...t, id: rowId } : t)));
+        }
+      });
+    }
+  };
+
+  const toggleTaskDone = (task) => {
+    const nextDone = !task.done;
+    setTasks((prev) => prev.map((x) => (x === task ? { ...x, done: nextDone } : x)));
+    if (isLiveProject && task.id && !String(task.id).startsWith("local-")) {
+      setProjectTaskDone(task.id, nextDone);
+    }
   };
 
   const addTask = () => {
@@ -725,15 +765,13 @@ export default function ProjectDashboard() {
 
   const submitNewTask = ({ value: name }) => {
     if (!name) return;
-    const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-    setTasks((prev) => [...prev, { done: false, name, phase: selectedPhase, date: today, assignee: "You" }]);
+    createTask(name, selectedPhase);
     setTaskDialogOpen(false);
   };
 
   const commitNewTaskForTab = () => {
     if (!newTaskTitle.trim()) return;
-    const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-    setTasks((prev) => [...prev, { done: false, name: newTaskTitle.trim(), phase: newTaskStage, date: today, assignee: "You" }]);
+    createTask(newTaskTitle, newTaskStage);
     setNewTaskTitle("");
     setTaskAddOpen(false);
   };
