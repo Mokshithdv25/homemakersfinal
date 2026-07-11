@@ -150,6 +150,84 @@ export default function SignInPage() {
     setStep("details");
   };
 
+  // Finish Google OAuth: after redirect back, pick up the session and continue.
+  useEffect(() => {
+    let pending = null;
+    try {
+      pending = localStorage.getItem("hm_oauth_pending");
+    } catch (_) {
+      /* ignore */
+    }
+    if (!pending) return undefined;
+    const sb = getSupabase();
+    if (!sb) return undefined;
+
+    let cancelled = false;
+    const finish = async (session) => {
+      if (cancelled || !session?.user) return;
+      try {
+        localStorage.removeItem("hm_oauth_pending");
+      } catch (_) {
+        /* ignore */
+      }
+      setLoading(true);
+      try {
+        await tryFinishEmailAuth(session);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) finish(session);
+    });
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((_event, session) => {
+      if (session) finish(session);
+    });
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    const sb = getSupabase();
+    if (!sb) {
+      setAuthError("Sign-in is not available on this deployment.");
+      return;
+    }
+    setAuthError("");
+    setLoading(true);
+    try {
+      try {
+        localStorage.setItem("hm_oauth_pending", "1");
+      } catch (_) {
+        /* ignore */
+      }
+      const params = new URLSearchParams({ role: accountRole });
+      if (redirectFromQuery) params.set("redirect", redirectFromQuery);
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/sign-in?${params.toString()}`,
+        },
+      });
+      if (error) throw error;
+      // Browser is navigating to Google — leave loading on.
+    } catch (err) {
+      try {
+        localStorage.removeItem("hm_oauth_pending");
+      } catch (_) {
+        /* ignore */
+      }
+      setLoading(false);
+      setAuthError(err?.message || "Google sign-in failed. Try email instead.");
+    }
+  };
+
   const handleForgotPassword = async () => {
     const email = authEmail.trim();
     if (!email) {
@@ -620,14 +698,39 @@ export default function SignInPage() {
                           ? (isSignUp ? "Creating account..." : "Signing in...")
                           : (isSignUp ? "Create Account" : "Sign In with Email")}
                       </Button>
+
+                      {supabaseConfigured ? (
+                        <>
+                          <div className="flex items-center gap-3">
+                            <div className="h-px flex-1 bg-border" />
+                            <span className="font-body text-xs text-muted-foreground">or</span>
+                            <div className="h-px flex-1 bg-border" />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={handleGoogleSignIn}
+                            disabled={loading}
+                            className="w-full rounded-xl py-6 font-body text-sm font-semibold gap-2 border-2"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
+                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+                              <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z" />
+                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.16-3.16A10.96 10.96 0 0 0 12 1 11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z" />
+                            </svg>
+                            Continue with Google
+                          </Button>
+                        </>
+                      ) : null}
                     </>
                   )}
 
                   <p className="text-muted-foreground font-body text-[11px] text-center leading-relaxed">
                     By continuing, you agree to HomeMakers&apos;{" "}
-                    <button type="button" className="text-copper hover:underline">Terms of Service</button>
+                    <button type="button" onClick={() => navigate("/terms")} className="text-copper hover:underline">Terms of Service</button>
                     {" "}and{" "}
-                    <button type="button" className="text-copper hover:underline">Privacy Policy</button>
+                    <button type="button" onClick={() => navigate("/privacy")} className="text-copper hover:underline">Privacy Policy</button>
                   </p>
 
                   {/* Mode Toggle */}

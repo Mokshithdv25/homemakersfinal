@@ -31,6 +31,14 @@ export function isAiBackendConfigured() {
   return Boolean(aiClient);
 }
 
+/** Fire-and-forget warm-up so the free-tier backend wakes before first AI use. */
+export function warmAiBackend() {
+  if (!aiClient) return;
+  aiClient.get("/ai/status", { timeout: 120000 }).catch(() => {
+    /* cold start or offline — the generate flow has its own wake retries */
+  });
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

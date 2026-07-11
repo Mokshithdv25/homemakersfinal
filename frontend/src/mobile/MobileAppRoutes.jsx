@@ -26,6 +26,7 @@ import GoLive from "../pages/GoLive";
 import ProDashboard from "../pages/ProDashboard";
 import SubscriptionsPage from "../pages/SubscriptionsPage";
 import AccountPage from "../pages/AccountPage";
+import LegalPage from "../pages/LegalPage";
 import { AUTH_UI_ENABLED } from "../lib/authMode";
 import HomeownerFlowGuard from "../components/HomeownerFlowGuard";
 import ProOnboardingGuard from "../components/ProOnboardingGuard";
@@ -108,6 +109,8 @@ export default function MobileAppRoutes() {
       <Route path="/live" element={<ProOnboardingGuard><MobileWizardLayout title="Go live" subtitle="Publish to marketplace" backTo="/portfolio"><GoLive /></MobileWizardLayout></ProOnboardingGuard>} />
       <Route path="/pro" element={<ProDashboardGuard>{withShell(ProDashboard)}</ProDashboardGuard>} />
       <Route path="/pro/dashboard" element={<ProDashboardGuard>{withShell(ProDashboard)}</ProDashboardGuard>} />
+      <Route path="/terms" element={<MobileShell hideTabs><LegalPage kind="terms" /></MobileShell>} />
+      <Route path="/privacy" element={<MobileShell hideTabs><LegalPage kind="privacy" /></MobileShell>} />
       <Route path="*" element={withShell(MobileHomePage)} />
     </Routes>
   );

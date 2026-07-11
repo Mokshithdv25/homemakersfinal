@@ -8,6 +8,7 @@ import { fetchUserProfile } from "./lib/userProfileApi";
 import { claimAnonymousProjects } from "./lib/projectFlowApi";
 import { AUTH_UI_ENABLED } from "./lib/authMode";
 import { establishHmSession } from "./lib/hmAuth";
+import { warmAiBackend } from "./lib/aiApi";
 import { useMobileNative } from "./hooks/useMobileNative";
 import MobileAppRoutes from "./mobile/MobileAppRoutes";
 import HomePage from "./pages/HomePage";
@@ -32,6 +33,7 @@ import ProjectDesignJourney from "./pages/ProjectDesignJourney";
 import TeamPage from "./pages/TeamPage";
 import StageDashboard from "./pages/StageDashboard";
 import ProDashboard from "./pages/ProDashboard";
+import LegalPage from "./pages/LegalPage";
 import ProOnboardingGuard from "./components/ProOnboardingGuard";
 import ProDashboardGuard from "./components/ProDashboardGuard";
 import HomeownerFlowGuard from "./components/HomeownerFlowGuard";
@@ -178,6 +180,8 @@ function DesktopRoutes() {
           </ProDashboardGuard>
         }
       />
+      <Route path="/terms" element={<LegalPage kind="terms" />} />
+      <Route path="/privacy" element={<LegalPage kind="privacy" />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -190,6 +194,10 @@ function AppRoutes() {
 }
 
 function App() {
+  useEffect(() => {
+    warmAiBackend();
+  }, []);
+
   useEffect(() => {
     if (!AUTH_UI_ENABLED) return undefined;
     const sb = getSupabase();
