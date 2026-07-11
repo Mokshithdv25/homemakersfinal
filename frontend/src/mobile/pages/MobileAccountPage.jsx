@@ -33,7 +33,11 @@ export default function MobileAccountPage() {
             <button type="button" className="hm-m-btn-primary" onClick={() => navigate("/sign-in")}>
               Sign in
             </button>
-            <button type="button" className="hm-m-btn-secondary" onClick={() => navigate("/portfolio")}>
+            <button
+              type="button"
+              className="hm-m-btn-secondary"
+              onClick={() => navigate("/sign-in?mode=signup&role=pro&redirect=%2Fcraft")}
+            >
               Join as a pro
             </button>
           </>

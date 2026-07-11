@@ -47,6 +47,7 @@ export default function SignInPage() {
   const [resendTimer, setResendTimer] = useState(0);
   const [authError, setAuthError] = useState("");
   const [authNotice, setAuthNotice] = useState("");
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState("");
 
   const isSignUp = mode === "signup";
   const showPhoneOtp = process.env.NODE_ENV === "development";
@@ -72,6 +73,39 @@ export default function SignInPage() {
       return () => clearTimeout(t);
     }
   }, [resendTimer]);
+
+  const authEmailRedirectTo = () => {
+    const redirect = redirectFromQuery || (accountRole === "pro" ? "/pro/dashboard" : "/project");
+    return `${window.location.origin}/sign-in?mode=signin&redirect=${encodeURIComponent(redirect)}`;
+  };
+
+  const handleResendConfirmation = async () => {
+    const email = (pendingConfirmationEmail || authEmail).trim();
+    if (!email) return;
+    const sb = getSupabase();
+    if (!sb) {
+      setAuthError("Sign-in is not available on this deployment.");
+      return;
+    }
+    if (resendTimer > 0) return;
+    setAuthError("");
+    setLoading(true);
+    try {
+      const { error } = await sb.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: authEmailRedirectTo() },
+      });
+      if (error) throw error;
+      setPendingConfirmationEmail(email);
+      setAuthNotice(`Confirmation email resent to ${email}. Check spam and promotions folders.`);
+      setResendTimer(60);
+    } catch (err) {
+      setAuthError(err?.message || "Could not resend confirmation email. Try again in a minute.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSendOTP = async () => {
     if (phone.length < 10) return;
@@ -133,7 +167,7 @@ export default function SignInPage() {
     setLoading(true);
     try {
       const { error } = await sb.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/sign-in?mode=signin`,
+        redirectTo: authEmailRedirectTo(),
       });
       if (error) throw error;
       setAuthNotice("If that email is registered, we sent a reset link. Check your inbox.");
@@ -152,6 +186,7 @@ export default function SignInPage() {
       return;
     }
     setAuthError("");
+    setAuthNotice("");
     setLoading(true);
     try {
       const sb = getSupabase();
@@ -162,14 +197,17 @@ export default function SignInPage() {
             password: authPassword,
             options: {
               data: { role: accountRole },
-              emailRedirectTo: `${window.location.origin}/`,
+              emailRedirectTo: authEmailRedirectTo(),
             },
           });
           if (error) throw error;
           if (!data.session) {
-            setAuthError(
-              "Check your email to confirm this address (if confirmation is enabled), then sign in here.",
+            const email = authEmail.trim();
+            setPendingConfirmationEmail(email);
+            setAuthNotice(
+              `Account created for ${email}. Open the confirmation link we emailed you (check spam), then sign in here.`,
             );
+            setMode("signin");
             return;
           }
           await tryFinishEmailAuth(data.session);
@@ -187,7 +225,15 @@ export default function SignInPage() {
         setStep("details");
       }
     } catch (err) {
-      setAuthError(err?.message || "Something went wrong. Try again.");
+      const msg = String(err?.message || "");
+      if (/not confirmed|confirm your email/i.test(msg)) {
+        setPendingConfirmationEmail(authEmail.trim());
+        setAuthNotice(
+          "This email is registered but not confirmed yet. Resend the confirmation link below, or ask your admin to disable email confirmation in Supabase.",
+        );
+      } else {
+        setAuthError(msg || "Something went wrong. Try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -402,6 +448,22 @@ export default function SignInPage() {
                     <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 font-body text-sm text-emerald-900">
                       {authNotice}
                     </p>
+                  ) : null}
+
+                  {pendingConfirmationEmail && step === "entry" ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 font-body text-sm text-amber-950 space-y-2">
+                      <p className="m-0">
+                        Waiting on <strong>{pendingConfirmationEmail}</strong>. Supabase&apos;s default mail often lands in spam or is delayed.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleResendConfirmation}
+                        disabled={loading || resendTimer > 0}
+                        className="text-copper font-semibold hover:underline disabled:opacity-50"
+                      >
+                        {resendTimer > 0 ? `Resend confirmation in ${resendTimer}s` : "Resend confirmation email"}
+                      </button>
+                    </div>
                   ) : null}
 
                   {showPhoneOtp ? (

@@ -28,6 +28,8 @@ import SubscriptionsPage from "../pages/SubscriptionsPage";
 import AccountPage from "../pages/AccountPage";
 import { AUTH_UI_ENABLED } from "../lib/authMode";
 import HomeownerFlowGuard from "../components/HomeownerFlowGuard";
+import ProOnboardingGuard from "../components/ProOnboardingGuard";
+import ProDashboardGuard from "../components/ProDashboardGuard";
 
 function withShell(Page) {
   return (
@@ -99,12 +101,13 @@ export default function MobileAppRoutes() {
       <Route path="/team" element={withShell(MobileTeamPage)} />
       <Route path="/project/journey" element={withShell(MobileDesignJourneyPage)} />
       <Route path="/profile/:slug" element={withShell(MobileProProfilePage)} />
-      <Route path="/craft" element={<MobileWizardLayout title="Your craft" subtitle="Pro portfolio onboarding" backTo="/account"><CraftSelection /></MobileWizardLayout>} />
-      <Route path="/details" element={<MobileWizardLayout title="Your details" subtitle="Business & contact" backTo="/craft"><YourDetails /></MobileWizardLayout>} />
-      <Route path="/portfolio-theme" element={<MobileWizardLayout title="Look & feel" subtitle="Theme & layout" backTo="/details"><PortfolioThemeStep /></MobileWizardLayout>} />
-      <Route path="/portfolio" element={<MobileWizardLayout title="Portfolio" subtitle="Photos & specialties" backTo="/portfolio-theme"><YourPortfolio /></MobileWizardLayout>} />
-      <Route path="/live" element={<MobileWizardLayout title="Go live" subtitle="Publish to marketplace" backTo="/portfolio"><GoLive /></MobileWizardLayout>} />
-      <Route path="/pro" element={withShell(ProDashboard)} />
+      <Route path="/craft" element={<ProOnboardingGuard><MobileWizardLayout title="Your craft" subtitle="Pro portfolio onboarding" backTo="/account"><CraftSelection /></MobileWizardLayout></ProOnboardingGuard>} />
+      <Route path="/details" element={<ProOnboardingGuard><MobileWizardLayout title="Your details" subtitle="Business & contact" backTo="/craft"><YourDetails /></MobileWizardLayout></ProOnboardingGuard>} />
+      <Route path="/portfolio-theme" element={<ProOnboardingGuard><MobileWizardLayout title="Look & feel" subtitle="Theme & layout" backTo="/details"><PortfolioThemeStep /></MobileWizardLayout></ProOnboardingGuard>} />
+      <Route path="/portfolio" element={<ProOnboardingGuard><MobileWizardLayout title="Portfolio" subtitle="Photos & specialties" backTo="/portfolio-theme"><YourPortfolio /></MobileWizardLayout></ProOnboardingGuard>} />
+      <Route path="/live" element={<ProOnboardingGuard><MobileWizardLayout title="Go live" subtitle="Publish to marketplace" backTo="/portfolio"><GoLive /></MobileWizardLayout></ProOnboardingGuard>} />
+      <Route path="/pro" element={<ProDashboardGuard>{withShell(ProDashboard)}</ProDashboardGuard>} />
+      <Route path="/pro/dashboard" element={<ProDashboardGuard>{withShell(ProDashboard)}</ProDashboardGuard>} />
       <Route path="*" element={withShell(MobileHomePage)} />
     </Routes>
   );

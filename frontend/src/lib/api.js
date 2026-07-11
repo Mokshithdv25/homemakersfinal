@@ -102,7 +102,7 @@ async function publishPortfolioSupabase(id) {
     .update({
       slug,
       published: true,
-      step: 4,
+      step: 5,
       profile_strength: 100,
       updated_at: nowIso(),
     })

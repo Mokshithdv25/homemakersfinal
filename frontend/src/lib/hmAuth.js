@@ -99,7 +99,7 @@ export function readProPortfolioState() {
     const raw = localStorage.getItem("hm_portfolio");
     const parsed = raw ? JSON.parse(raw) : null;
     const hasId = Boolean(localStorage.getItem("hm_portfolio_id"));
-    if (parsed?.published) return { status: "published", step: 4 };
+    if (parsed?.published) return { status: "published", step: 5 };
     if (parsed?.step) return { status: "draft", step: Number(parsed.step) || 1 };
     if (hasId) return { status: "draft", step: 1 };
     return { status: "none", step: 0 };
@@ -159,13 +159,13 @@ export function getProPublicProfilePath() {
   return null;
 }
 
-/** Resume portfolio wizard at the right step, or dashboard when live. */
+/** Resume portfolio wizard at the next step (step = steps completed), or dashboard when live. */
 export function getProOnboardingResumePath() {
   const { status, step } = readProPortfolioState();
   if (status === "published") return "/pro/dashboard";
-  if (step >= 4) return "/portfolio";
-  if (step >= 3) return "/portfolio-theme";
-  if (step >= 2) return "/details";
+  if (step >= 4) return "/live";
+  if (step >= 3) return "/portfolio";
+  if (step >= 2) return "/portfolio-theme";
   if (step >= 1 || status === "draft") return "/details";
   return "/craft";
 }
