@@ -1,6 +1,7 @@
 import { fetchOwnedPortfolio } from "./api";
-import { getSupabase } from "./supabaseClient";
+import { clearSupabaseLocalSession, getSupabase } from "./supabaseClient";
 import { persistHmSessionFromSupabase } from "./userProfileApi";
+import { clearAllPortfolioMediaCaches, setPortfolioMedia } from "./portfolioStorage";
 
 const LAST_AUTH_USER_KEY = "hm_last_auth_user_id";
 export const HM_SESSION_CLEARED_EVENT = "hm-session-cleared";
@@ -58,6 +59,28 @@ export function clearHmUserDeviceCaches() {
       /* ignore */
     }
   });
+  clearAllPortfolioMediaCaches();
+  try {
+    const perUserKeys = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key?.startsWith("hm_last_project_")) perUserKeys.push(key);
+    }
+    perUserKeys.forEach((key) => localStorage.removeItem(key));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Clear every local identity cache when Supabase reports no active session. */
+export function clearHmSessionState() {
+  clearHmUserDeviceCaches();
+  try {
+    localStorage.removeItem(LAST_AUTH_USER_KEY);
+  } catch {
+    /* ignore */
+  }
+  notifySessionCleared();
 }
 
 export function ensureUserDeviceIsolation(userId) {
@@ -79,17 +102,18 @@ export function ensureUserDeviceIsolation(userId) {
 }
 
 /**
- * Role for this session: explicit sign-in intent (homeowner vs pro) wins over DB default.
+ * Role for this session: persisted server profile is authoritative for existing users.
+ * Signup intent is only a fallback until the profile row has been created.
  */
 export function resolveSessionRole({ profile, user, signInIntent }) {
+  if (profile?.role === "pro" || profile?.role === "homeowner") return profile.role;
+  const meta = user?.user_metadata?.role;
+  if (meta === "pro" || meta === "homeowner") return meta;
   if (signInIntent === "pro" || signInIntent === "homeowner") return signInIntent;
   const existing = readHmSession();
   if (existing?.supabaseUserId === user?.id && (existing.role === "pro" || existing.role === "homeowner")) {
     return existing.role;
   }
-  if (profile?.role === "pro" || profile?.role === "homeowner") return profile.role;
-  const meta = user?.user_metadata?.role;
-  if (meta === "pro" || meta === "homeowner") return meta;
   return "homeowner";
 }
 
@@ -99,7 +123,12 @@ export function readProPortfolioState() {
     const raw = localStorage.getItem("hm_portfolio");
     const parsed = raw ? JSON.parse(raw) : null;
     const hasId = Boolean(localStorage.getItem("hm_portfolio_id"));
-    if (parsed?.published) return { status: "published", step: 5 };
+    if (parsed?.published) {
+      return {
+        status: parsed.moderation_status === "approved" ? "published" : "review",
+        step: 5,
+      };
+    }
     if (parsed?.step) return { status: "draft", step: Number(parsed.step) || 1 };
     if (hasId) return { status: "draft", step: 1 };
     return { status: "none", step: 0 };
@@ -113,20 +142,14 @@ export function persistProPortfolioCache(row) {
   if (!row?.id) return;
   try {
     localStorage.setItem("hm_portfolio_id", row.id);
-    localStorage.setItem(
-      "hm_portfolio",
-      JSON.stringify({
-        id: row.id,
-        craft: row.craft,
-        step: row.step ?? 1,
-        published: Boolean(row.published),
-        slug: row.slug || null,
-        full_name: row.full_name || "",
-        business_name: row.business_name || "",
-        city: row.city || "",
-        profile_strength: row.profile_strength,
-      }),
-    );
+    const { photos, cover_photo, profile_photo, ...base } = row;
+    localStorage.setItem("hm_portfolio", JSON.stringify({ ...base, published: Boolean(row.published) }));
+    localStorage.setItem("hm_craft", row.craft || "");
+    setPortfolioMedia(row.id, {
+      photos: Array.isArray(photos) ? photos : [],
+      cover_photo: cover_photo || "",
+      profile_photo: profile_photo || "",
+    });
   } catch {
     /* ignore */
   }
@@ -152,7 +175,9 @@ export function getProPublicProfilePath() {
   try {
     const raw = localStorage.getItem("hm_portfolio");
     const parsed = raw ? JSON.parse(raw) : null;
-    if (parsed?.published && parsed?.slug) return `/profile/${parsed.slug}`;
+    if (parsed?.published && parsed?.moderation_status === "approved" && parsed?.slug) {
+      return `/profile/${parsed.slug}`;
+    }
   } catch {
     /* ignore */
   }
@@ -162,7 +187,7 @@ export function getProPublicProfilePath() {
 /** Resume portfolio wizard at the next step (step = steps completed), or dashboard when live. */
 export function getProOnboardingResumePath() {
   const { status, step } = readProPortfolioState();
-  if (status === "published") return "/pro/dashboard";
+  if (status === "published" || status === "review") return "/pro/dashboard";
   if (step >= 4) return "/live";
   if (step >= 3) return "/portfolio";
   if (step >= 2) return "/portfolio-theme";
@@ -208,19 +233,19 @@ export async function establishHmSession(user, profile, { signInIntent } = {}) {
 
 /** Clear local session and Supabase auth. Call after navigating away from guarded pages. */
 export async function signOutHm() {
-  try {
-    clearHmUserDeviceCaches();
-    localStorage.removeItem(LAST_AUTH_USER_KEY);
-  } catch (_) {
-    /* ignore */
-  }
-  notifySessionCleared();
+  clearHmSessionState();
 
   const sb = getSupabase();
   if (sb) {
-    // Do not block navigation on a slow sign-out; best-effort with a short timeout.
-    const signOutPromise = sb.auth.signOut({ scope: "local" }).catch(() => {});
+    // Attempt remote revocation, but never let a network failure preserve a local token.
+    const signOutPromise = sb.auth.signOut({ scope: "local" }).catch((error) => {
+      console.warn("Supabase sign-out could not reach the auth service:", error?.message || error);
+    });
     await Promise.race([signOutPromise, new Promise((r) => setTimeout(r, 2500))]);
   }
+  clearSupabaseLocalSession();
   notifySessionCleared(); // ensure listeners refresh after Supabase clears its session
+  // Several data modules hold the original Supabase client singleton. A hard
+  // navigation destroys that in-memory client so a later sign-in starts cleanly.
+  if (typeof window !== "undefined") window.location.replace("/");
 }

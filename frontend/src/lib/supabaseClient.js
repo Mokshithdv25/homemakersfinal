@@ -5,6 +5,39 @@ const key = (process.env.REACT_APP_SUPABASE_ANON_KEY || "").trim();
 
 let client = null;
 let initError = null;
+export const SUPABASE_AUTH_STORAGE_KEY = "hm-supabase-auth";
+
+function authStoragePrefixes() {
+  const prefixes = [SUPABASE_AUTH_STORAGE_KEY];
+  try {
+    const projectRef = new URL(url).hostname.split(".")[0];
+    if (projectRef) prefixes.push(`sb-${projectRef}-auth-token`);
+  } catch (_) {
+    /* invalid URL is handled by isConfigured */
+  }
+  return prefixes;
+}
+
+/** Remove both the explicit key and the legacy Supabase default, including PKCE helpers. */
+export function clearSupabaseLocalSession() {
+  try {
+    const prefixes = authStoragePrefixes();
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const keyName = localStorage.key(i);
+      if (keyName && prefixes.some((prefix) => keyName.startsWith(prefix))) keys.push(keyName);
+    }
+    keys.forEach((keyName) => localStorage.removeItem(keyName));
+  } catch (_) {
+    /* localStorage can be unavailable in hardened browser contexts */
+  }
+  try {
+    client?.auth?.stopAutoRefresh?.();
+  } catch (_) {
+    /* ignore */
+  }
+  client = null;
+}
 
 function isConfigured() {
   if (!url || !key) return false;
@@ -32,6 +65,8 @@ export function getSupabase() {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
+        storageKey: SUPABASE_AUTH_STORAGE_KEY,
+        flowType: "pkce",
       },
     });
     return client;

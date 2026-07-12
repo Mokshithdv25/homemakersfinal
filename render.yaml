@@ -5,11 +5,25 @@ services:
     rootDir: backend
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health/ready
+    autoDeployTrigger: checksPass
     envVars:
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: BILLING_ENABLED
+        value: "false"
+      - key: ALLOW_LIVE_BILLING
+        value: "false"
       - key: XAI_API_KEY
         sync: false
       - key: HM_AI_IMAGE_API_KEY
@@ -33,12 +47,30 @@ services:
       - key: GROK_V0_REMODEL_FLOOR_PLANS
         value: "0"
       - key: GROK_V0_MAX_FLOOR_PLANS
-        value: "4"
+        value: "1"
       - key: MONGO_URL
         sync: false
       - key: DB_NAME
         value: homemaker
+      - key: ALLOW_MONGO_FALLBACK
+        value: "false"
       - key: CORS_ORIGINS
-        value: "https://www.homemakers.online,https://homemakers.online,http://localhost:3000,http://127.0.0.1:3000"
+        value: "https://www.homemakers.online,https://homemakers.online,https://localhost,capacitor://localhost,http://localhost:3000,http://127.0.0.1:3000"
       - key: CORS_ORIGIN_REGEX
-        value: "https://.*\\.vercel\\.app"
+        value: "https://(homemakers(-1|final)?|frontend)(-[a-z0-9-]+)?\\.vercel\\.app"
+      - key: ALLOW_AI_MOCKS
+        value: "false"
+      - key: AI_RATE_LIMIT_REQUESTS
+        value: "12"
+      - key: AI_RATE_LIMIT_WINDOW_SECONDS
+        value: "60"
+      - key: AI_MAX_CONCURRENT_REQUESTS
+        value: "4"
+      - key: AI_MAX_CONCURRENT_PER_USER
+        value: "2"
+      - key: AI_DAILY_IMAGE_PACKS
+        value: "3"
+      - key: MAX_REQUEST_BODY_BYTES
+        value: "5242880"
+      - key: AI_BRIEF_MAX_BYTES
+        value: "2097152"

@@ -1,28 +1,39 @@
 import { useEffect, useState } from "react";
 import { getSupabase } from "../lib/supabaseClient";
-import { HM_SESSION_CLEARED_EVENT, readHmSession } from "../lib/hmAuth";
+import { clearHmSessionState, HM_SESSION_CLEARED_EVENT, readHmSession } from "../lib/hmAuth";
 import { fetchUserProfile } from "../lib/userProfileApi";
 import { establishHmSession } from "../lib/hmAuth";
 
 /** Reactive homeowner/pro session from localStorage + Supabase auth events. */
 export function useHmSession() {
-  const [session, setSession] = useState(() => readHmSession());
+  // undefined means auth is still hydrating; null means confirmed signed out.
+  const [session, setSession] = useState(undefined);
 
   useEffect(() => {
     const refresh = () => setSession(readHmSession());
-    refresh();
 
     let cancelled = false;
 
     // If Supabase has a session but our local cache is missing/stale, restore it.
     const hydrateFromSupabase = async () => {
       const sb = getSupabase();
-      if (!sb) return;
+      if (!sb) {
+        if (!cancelled) refresh();
+        return;
+      }
       try {
         const { data: { session: sbSession } } = await sb.auth.getSession();
-        if (!sbSession?.user || cancelled) return;
+        if (cancelled) return;
+        if (!sbSession?.user) {
+          clearHmSessionState();
+          if (!cancelled) setSession(null);
+          return;
+        }
         const cached = readHmSession();
-        if (cached?.supabaseUserId === sbSession.user.id) return;
+        if (cached?.supabaseUserId === sbSession.user.id) {
+          if (!cancelled) setSession(cached);
+          return;
+        }
         let profile = null;
         try {
           profile = await fetchUserProfile(sbSession.user.id);
@@ -32,7 +43,7 @@ export function useHmSession() {
         await establishHmSession(sbSession.user, profile);
         if (!cancelled) refresh();
       } catch (_) {
-        /* ignore */
+        if (!cancelled) setSession(readHmSession());
       }
     };
     void hydrateFromSupabase();
@@ -45,8 +56,13 @@ export function useHmSession() {
 
     const sb = getSupabase();
     const subscription = sb
-      ? sb.auth.onAuthStateChange(() => {
-          refresh();
+      ? sb.auth.onAuthStateChange((_event, sbSession) => {
+          if (!sbSession) {
+            clearHmSessionState();
+            if (!cancelled) setSession(null);
+            return;
+          }
+          void hydrateFromSupabase();
         }).data.subscription
       : null;
 

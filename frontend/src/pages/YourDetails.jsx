@@ -201,31 +201,21 @@ export default function YourDetails() {
         profile_photo: form.profile_photo || "",
         photos: getPortfolioMedia(portfolioId).photos || [],
       };
-      let mediaForDb = mediaPayload;
-      try {
-        const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
-        mediaForDb = await syncPortfolioMediaForSave(portfolioId, mediaPayload);
-        setPortfolioMedia(portfolioId, mediaForDb);
-      } catch (uploadErr) {
-        console.warn("Portfolio storage upload:", uploadErr);
-        setPortfolioMedia(portfolioId, mediaPayload);
-      }
+      const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
+      const mediaForDb = await syncPortfolioMediaForSave(portfolioId, mediaPayload);
+      setPortfolioMedia(portfolioId, mediaForDb);
 
       const { cover_photo, profile_photo, photos, ...nonMediaForm } = form;
       const { photos: _p, cover_photo: _c, profile_photo: _pp, ...savedNoMedia } = saved;
       const updated = { ...savedNoMedia, ...nonMediaForm, step: 2, profile_strength: 50 };
       
       setPortfolioBase(updated);
-      try {
-        await updatePortfolio(portfolioId, {
-          ...nonMediaForm,
-          ...mediaForDb,
-          step: 2,
-          profile_strength: 50,
-        });
-      } catch (apiErr) {
-        console.error("Backend save failed on details step:", apiErr);
-      }
+      await updatePortfolio(portfolioId, {
+        ...nonMediaForm,
+        ...mediaForDb,
+        step: 2,
+        profile_strength: 50,
+      });
       setError(null);
       
       if (nextRoute) {
@@ -235,7 +225,7 @@ export default function YourDetails() {
       }
     } catch (err) {
       console.error(err);
-      setError("Storage is full in this browser. Remove some photos or use smaller images and try again.");
+      setError(err?.message || "Could not save your details. Check your connection and try again.");
     }
   };
 

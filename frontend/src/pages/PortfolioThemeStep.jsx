@@ -103,16 +103,12 @@ export default function PortfolioThemeStep() {
         profile_strength: 55,
       };
       setPortfolioBase(updated);
-      try {
-        await updatePortfolio(portfolioId, {
-          portfolio_theme: themeId,
-          portfolio_layout: layoutId,
-          step: 3,
-          profile_strength: 55,
-        });
-      } catch (apiErr) {
-        console.warn("Theme save API:", apiErr);
-      }
+      await updatePortfolio(portfolioId, {
+        portfolio_theme: themeId,
+        portfolio_layout: layoutId,
+        step: 3,
+        profile_strength: 55,
+      });
       navigate("/portfolio");
     } catch (err) {
       setError(err?.message || "Could not save theme.");

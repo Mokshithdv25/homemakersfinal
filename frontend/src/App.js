@@ -5,9 +5,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { getSupabase } from "./lib/supabaseClient";
 import { fetchUserProfile } from "./lib/userProfileApi";
-import { claimAnonymousProjects } from "./lib/projectFlowApi";
 import { AUTH_UI_ENABLED } from "./lib/authMode";
-import { establishHmSession } from "./lib/hmAuth";
+import { clearHmSessionState, establishHmSession } from "./lib/hmAuth";
 import { warmAiBackend } from "./lib/aiApi";
 import { useMobileNative } from "./hooks/useMobileNative";
 import MobileAppRoutes from "./mobile/MobileAppRoutes";
@@ -31,6 +30,7 @@ import ShopPage from "./pages/ShopPage";
 import DocumentVault from "./pages/DocumentVault";
 import ProjectDesignJourney from "./pages/ProjectDesignJourney";
 import TeamPage from "./pages/TeamPage";
+import ProjectPayments from "./pages/ProjectPayments";
 import StageDashboard from "./pages/StageDashboard";
 import ProDashboard from "./pages/ProDashboard";
 import LegalPage from "./pages/LegalPage";
@@ -163,7 +163,8 @@ function DesktopRoutes() {
           </HomeownerFlowGuard>
         }
       />
-      <Route path="/team" element={<TeamPage />} />
+      <Route path="/team" element={<HomeownerFlowGuard><TeamPage /></HomeownerFlowGuard>} />
+      <Route path="/project/payments" element={<HomeownerFlowGuard><ProjectPayments /></HomeownerFlowGuard>} />
       <Route
         path="/stage"
         element={
@@ -212,24 +213,18 @@ function App() {
         /* table missing or RLS — still keep auth session */
       }
       await establishHmSession(session.user, profile);
-      try {
-        await claimAnonymousProjects(session.user.id);
-      } catch (_) {
-        /* projects table / RLS may not be ready yet */
-      }
     };
 
     sb.auth.getSession().then(({ data: { session } }) => {
       if (session) syncSession(session);
+      else clearHmSessionState();
     });
 
     const {
       data: { subscription },
     } = sb.auth.onAuthStateChange((event, session) => {
       if (session) syncSession(session);
-      else if (event === "SIGNED_OUT") {
-        /* HmUserMenu / AccountPage already cleared local session; avoid guard redirect races. */
-      }
+      else clearHmSessionState();
     });
 
     return () => subscription.unsubscribe();

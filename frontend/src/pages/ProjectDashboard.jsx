@@ -21,6 +21,8 @@ import {
   loadProjectBoard,
   addProjectTask,
   addProjectMessage,
+  derivePhaseProgress,
+  setProjectStageStatus,
   setProjectTaskDone,
 } from "../lib/projectFlowApi";
 import { buildSignInRedirect } from "../lib/requireHomeownerAuth";
@@ -249,10 +251,10 @@ const NAV = [
   { icon: "📅", label: "Timeline", path: null },
   { icon: "✓", label: "Tasks", path: null },
   { icon: "₹", label: "Budget", path: null },
+  { icon: "💳", label: "Payments", path: "/project/payments" },
   { icon: "📸", label: "Site Feed", path: null },
   { icon: "📄", label: "Documents", path: "/documents" },
   { icon: "🧭", label: "Design journey", path: "/project/journey" },
-  { icon: "🛒", label: "Shop", path: "/project/shop" },
   { icon: "👷", label: "Find Pros", path: "/project/browse" },
   { icon: "👥", label: "Team", path: "/team" },
   { icon: "⚙️", label: "Settings", path: null },
@@ -394,13 +396,16 @@ export default function ProjectDashboard() {
   const [msg, setMsg] = useState("");
   const [msgs, setMsgs] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [boardError, setBoardError] = useState("");
   const [budgetDetailOpen, setBudgetDetailOpen] = useState(false);
   const [budgetDetailScope, setBudgetDetailScope] = useState("stage");
   const [taskAddOpen, setTaskAddOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [newTaskStage, setNewTaskStage] = useState("Structure");
   const [milestonesByPhase, setMilestonesByPhase] = useState(() =>
-    Object.fromEntries(Object.entries(MILESTONE_SEED).map(([phase, rows]) => [phase, rows.map((m) => ({ ...m }))]))
+    PROJECT_HUB_DEMO_MODE
+      ? Object.fromEntries(Object.entries(MILESTONE_SEED).map(([phase, rows]) => [phase, rows.map((m) => ({ ...m }))]))
+      : {}
   );
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [milestoneDialog, setMilestoneDialog] = useState({
@@ -491,7 +496,7 @@ export default function ProjectDashboard() {
       line?.amount_inr != null ? formatInrShort(line.amount_inr) : "TBD",
     ]);
     return {
-      siteImage: v0Images[0] || "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=640&q=75",
+      siteImage: v0Images[0] || "",
       siteCaption:
         (estimate?.project_summary ? String(estimate.project_summary).slice(0, 120) : null) ||
         `AI v0 saved for ${selectedPhase}.` +
@@ -529,52 +534,49 @@ export default function ProjectDashboard() {
         setTasks([]);
         setMsgs([]);
         setSelectedPhase("Design & Approval");
-        setMilestonesByPhase(
-          Object.fromEntries(Object.entries(MILESTONE_SEED).map(([phase, rows]) => [phase, rows.map((m) => ({ ...m }))]))
-        );
+        setMilestonesByPhase({});
       }
       setBriefData(null);
       setV0Pack(null);
       return;
     }
     const run = async () => {
+      setBoardError("");
+      setPhaseRows([]);
+      setTasks([]);
+      setMsgs([]);
+      setBriefData(null);
+      setV0Pack(null);
+      setMilestonesByPhase({});
       try {
         const source = searchParams.get("source") || "";
         const projectId = searchParams.get("projectId") || "";
         const board = await loadProjectBoard({ source, projectId });
-        if (!board) return;
-        if (Array.isArray(board.phases) && board.phases.length) {
+        if (!board) throw new Error("This project could not be loaded for the signed-in account.");
+        if (Array.isArray(board.phases)) {
           setPhaseRows(board.phases);
           setSelectedPhase((prev) =>
-            board.phases.some((p) => p.name === prev) ? prev : board.phases[0].name
+            board.phases.some((p) => p.name === prev) ? prev : (board.phases[0]?.name || "")
           );
         }
-        if (Array.isArray(board.tasks) && board.tasks.length) {
-          setTasks(board.tasks);
-        }
-        if (Array.isArray(board.messages) && board.messages.length) {
-          setMsgs(board.messages);
-        }
-        if (board.brief) {
-          setBriefData(board.brief);
-        }
-        if (board.v0Pack) {
-          setV0Pack(board.v0Pack);
-          const ms = board.v0Pack?.estimate?.milestones;
-          if (Array.isArray(ms) && ms.length) {
-            setMilestonesByPhase((prev) => ({
-              ...prev,
+        setTasks(Array.isArray(board.tasks) ? board.tasks : []);
+        setMsgs(Array.isArray(board.messages) ? board.messages : []);
+        setBriefData(board.brief || null);
+        setV0Pack(board.v0Pack || null);
+        const ms = board.v0Pack?.estimate?.milestones;
+        if (Array.isArray(ms) && ms.length) {
+          setMilestonesByPhase({
               "Design & Approval": ms.map((m, i) => ({
                 id: `v0-ms-${i}`,
                 icon: "📐",
                 name: String(m?.title || `Milestone ${i + 1}`),
                 date: String(m?.timeframe || "Planned"),
               })),
-            }));
-          }
+          });
         }
       } catch (err) {
         console.error("Failed to load project board from Supabase:", err);
+        setBoardError(err?.message || "Could not load the saved project.");
       }
     };
     run();
@@ -596,8 +598,8 @@ export default function ProjectDashboard() {
     const indicative = v0Pack?.estimate?.total_indicative_inr;
     return {
       totalBudget: totalLabel,
-      spentToDate: indicative ? `Indicative v0: ${formatInrShort(indicative)}` : "Planning stage",
-      pctOfTotalSpent: 5,
+      spentToDate: "Not recorded",
+      pctOfTotalSpent: 0,
       ownEquityBudgeted: totalLabel,
       bankLoanSanctioned: null,
       spentFromOwnPocket: "—",
@@ -605,7 +607,9 @@ export default function ProjectDashboard() {
       loanTrancheReleasedPct: null,
       monthlyBurnPlanned: "To be planned",
       monthlyBurnActual: "To be planned",
-      runwayNote: "Milestone payment protection coming soon — budget from your AI v0 estimate.",
+      runwayNote: indicative
+        ? `Saved AI v0 estimate: ${formatInrShort(indicative)}. This is an estimate, not recorded spend.`
+        : "No spend has been recorded for this project.",
     };
   }, [isLiveProject, briefData, v0Pack]);
 
@@ -699,12 +703,23 @@ export default function ProjectDashboard() {
   }, [tasks, phaseRank]);
 
   const siteFeedEntries = useMemo(
-    () =>
-      phaseOrder.map((name) => {
+    () => {
+      if (isLiveProject) {
+        const images = (v0Pack?.images?.images || []).map((image) => image?.url).filter(Boolean);
+        if (!images.length) return [];
+        return images.map((image, index) => ({
+          phase: "Design & Approval",
+          image,
+          caption: index === 0 ? (v0Pack?.estimate?.project_summary || "Saved AI v0 concept") : `Saved concept ${index + 1}`,
+          time: "Saved with this project",
+        }));
+      }
+      return phaseOrder.map((name) => {
         const d = STAGE_DETAILS[name];
         return { phase: name, image: d.siteImage, caption: d.siteCaption, time: d.siteTime };
-      }),
-    [phaseOrder]
+      });
+    },
+    [phaseOrder, isLiveProject, v0Pack]
   );
 
   const allBudgetLines = useMemo(() => {
@@ -725,37 +740,84 @@ export default function ProjectDashboard() {
     return rows;
   }, [phaseOrder, isLiveProject, v0Pack]);
 
-  const sendMsg = () => {
+  const sendMsg = async () => {
     if (!msg.trim()) return;
     const text = msg.trim();
-    setMsgs((prev) => [...prev, { phase: selectedPhase, role: "Homeowner", name: "You", time: "Just now", text, color: OR }]);
-    setMsg("");
-    if (isLiveProject && activeProjectId) {
-      addProjectMessage({ projectId: activeProjectId, text, phaseName: selectedPhase });
+    setBoardError("");
+    try {
+      let id = `demo-${Date.now()}`;
+      if (isLiveProject && activeProjectId) {
+        id = await addProjectMessage({ projectId: activeProjectId, text, phaseName: selectedPhase });
+      }
+      setMsgs((prev) => [...prev, { id, phase: selectedPhase, role: "Homeowner", name: "You", time: "Just now", text, color: OR }]);
+      setMsg("");
+    } catch (err) {
+      setBoardError(err?.message || "Could not save the message.");
     }
   };
 
   /** Add task to board state and persist to Supabase (id patched in when saved). */
-  const createTask = (name, phase) => {
+  const createTask = async (name, phase) => {
     const title = String(name || "").trim();
     if (!title) return;
     const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-    const localKey = `local-${Date.now()}`;
-    setTasks((prev) => [...prev, { id: localKey, done: false, name: title, phase, date: today, assignee: "You" }]);
-    if (isLiveProject && activeProjectId) {
-      addProjectTask({ projectId: activeProjectId, title, phaseName: phase }).then((rowId) => {
-        if (rowId) {
-          setTasks((prev) => prev.map((t) => (t.id === localKey ? { ...t, id: rowId } : t)));
-        }
+    setBoardError("");
+    try {
+      let id = `demo-${Date.now()}`;
+      if (isLiveProject && activeProjectId) {
+        id = await addProjectTask({ projectId: activeProjectId, title, phaseName: phase });
+      }
+      setTasks((prev) => {
+        const next = [...prev, { id, done: false, name: title, phase, date: today, assignee: "You" }];
+        setPhaseRows((rows) => derivePhaseProgress(rows, next));
+        return next;
       });
+    } catch (err) {
+      setBoardError(err?.message || "Could not save the task.");
     }
   };
 
-  const toggleTaskDone = (task) => {
+  const toggleTaskDone = async (task) => {
     const nextDone = !task.done;
-    setTasks((prev) => prev.map((x) => (x === task ? { ...x, done: nextDone } : x)));
-    if (isLiveProject && task.id && !String(task.id).startsWith("local-")) {
-      setProjectTaskDone(task.id, nextDone);
+    setBoardError("");
+    try {
+      if (isLiveProject) await setProjectTaskDone(task.id, nextDone);
+      setTasks((prev) => {
+        const next = prev.map((x) => (x.id === task.id ? { ...x, done: nextDone } : x));
+        setPhaseRows((rows) => derivePhaseProgress(rows, next));
+        return next;
+      });
+    } catch (err) {
+      setBoardError(err?.message || "Could not update the task.");
+    }
+  };
+
+  const updateSelectedStageStatus = async (event) => {
+    const status = event.target.value;
+    const stage = phaseRows.find((row) => row.name === selectedPhase);
+    if (!stage?.id || !activeProjectId) return;
+    if (status === "done" && stage.pct < 100) {
+      setBoardError("Complete every checklist task before marking this stage done.");
+      return;
+    }
+    setBoardError("");
+    try {
+      await setProjectStageStatus(stage.id, activeProjectId, status);
+      const pill = status === "done"
+        ? { label: "Done", color: "#22A36B" }
+        : status === "blocked"
+          ? { label: "Blocked", color: "#DC2626" }
+          : status === "in_progress"
+            ? { label: "In Progress", color: "#F59E0B" }
+            : { label: "Upcoming", color: "#9A8F87" };
+      setPhaseRows((rows) => rows.map((row) => row.id === stage.id ? {
+        ...row,
+        status: pill.label,
+        statusColor: pill.color,
+        pct: status === "done" ? 100 : row.pct,
+      } : row));
+    } catch (err) {
+      setBoardError(err?.message || "Could not update the stage status.");
     }
   };
 
@@ -1321,6 +1383,11 @@ export default function ProjectDashboard() {
               onNavigatePath={(path) => navigate(path)}
             />
             <HmCommandCenter />
+            {boardError ? (
+              <div role="alert" style={{ margin: "12px 0", padding: "11px 14px", borderRadius: 10, background: "#FEF3F2", color: "#B42318", fontSize: 13 }}>
+                {boardError}
+              </div>
+            ) : null}
           </div>
           {/* Phase progress — clickable stages */}
           <div style={{ ...panel, padding: "18px 20px 14px", marginBottom: 14 }}>
@@ -1367,7 +1434,7 @@ export default function ProjectDashboard() {
                 );
               })}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #EDEAE6", paddingTop: 12, marginTop: 2 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderTop: "1px solid #EDEAE6", paddingTop: 12, marginTop: 2 }}>
               <button
                 type="button"
                 onClick={() => setActiveNav("Timeline")}
@@ -1387,7 +1454,22 @@ export default function ProjectDashboard() {
               >
                 📅 View Timeline
               </button>
-              <span style={{ fontSize: 12, color: "#9A8F87" }}>Project started on 14 Jun 2024 · Tap a stage to focus this board</span>
+              {isLiveProject ? (
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#57534E", fontWeight: 700 }}>
+                  {selectedPhase} status
+                  <select
+                    value={phaseRows.find((row) => row.name === selectedPhase)?.status === "Done" ? "done" : phaseRows.find((row) => row.name === selectedPhase)?.status === "Blocked" ? "blocked" : phaseRows.find((row) => row.name === selectedPhase)?.status === "In Progress" ? "in_progress" : "upcoming"}
+                    onChange={updateSelectedStageStatus}
+                    style={{ border: "1px solid #D4CEC6", borderRadius: 8, background: "#fff", padding: "7px 9px", fontSize: 12 }}
+                  >
+                    <option value="upcoming">Upcoming</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="done" disabled={(phaseRows.find((row) => row.name === selectedPhase)?.pct || 0) < 100}>Done — checklist complete</option>
+                  </select>
+                </label>
+              ) : null}
+              <span style={{ fontSize: 12, color: "#9A8F87" }}>Stage percentage is calculated from completed checklist tasks.</span>
             </div>
           </div>
 
@@ -1455,7 +1537,9 @@ export default function ProjectDashboard() {
                 <div style={{ ...panel, padding: "22px 24px", display: "flex", flexDirection: "column", minHeight: 320, minWidth: 0 }}>
                   <div style={{ flexShrink: 0, marginBottom: 14 }}>
                     <div style={{ fontWeight: 700, fontSize: 18 }}>Docs / media</div>
-                    <div style={{ fontSize: 13, color: "#9A8F87", marginTop: 4, lineHeight: 1.45 }}>Sample files and photos for this stage.</div>
+                    <div style={{ fontSize: 13, color: "#9A8F87", marginTop: 4, lineHeight: 1.45 }}>
+                      {isLiveProject ? "Files saved with this project's AI v0 pack." : "Sample files and photos for this stage."}
+                    </div>
                   </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14, flexShrink: 0 }}>
                     {(stageDetail.miniGallery || []).slice(0, 2).map((src, idx) => (
@@ -1473,18 +1557,24 @@ export default function ProjectDashboard() {
                     ))}
                     {(stageDetail.docs || []).length > 3 ? <div style={{ fontSize: 12, color: "#9A8F87" }}>+{(stageDetail.docs || []).length - 3} more</div> : null}
                   </div>
-                  <button type="button" onClick={openVaultForStage} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1.5px solid ${OR}`, background: "#fff", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0, marginBottom: 16 }}>
-                    All documents →
-                  </button>
+                  {!isLiveProject ? (
+                    <button type="button" onClick={openVaultForStage} style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: `1.5px solid ${OR}`, background: "#fff", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer", flexShrink: 0, marginBottom: 16 }}>
+                      All documents →
+                    </button>
+                  ) : null}
                   <div style={{ borderTop: "1px solid #EDEAE6", paddingTop: 14, flex: 1, minHeight: 140, display: "flex", flexDirection: "column" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexShrink: 0 }}>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 16 }}>Milestones & reminders</div>
-                        <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 4 }}>Editable for this stage in this session</div>
+                        <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 4 }}>
+                          {isLiveProject ? "Saved from this project's estimate" : "Editable for this demo stage"}
+                        </div>
                       </div>
-                      <button type="button" onClick={addMilestone} style={{ background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer", padding: "4px 0" }}>
-                        + Add
-                      </button>
+                      {!isLiveProject ? (
+                        <button type="button" onClick={addMilestone} style={{ background: "none", border: "none", color: OR, fontWeight: 700, fontSize: 14, cursor: "pointer", padding: "4px 0" }}>
+                          + Add
+                        </button>
+                      ) : null}
                     </div>
                     <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
                       {phaseMilestones.length === 0 ? <div style={{ fontSize: 14, color: "#9A8F87" }}>No milestones yet.</div> : null}
@@ -1495,12 +1585,16 @@ export default function ProjectDashboard() {
                             <div style={{ fontWeight: 600, fontSize: 15, lineHeight: 1.35 }}>{m.name}</div>
                             <div style={{ fontSize: 13, color: OR, fontWeight: 700, marginTop: 4 }}>{m.date}</div>
                           </div>
-                          <button type="button" onClick={() => editMilestone(m.id)} style={{ border: "none", background: "none", color: "#7A6E62", cursor: "pointer", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
-                            Edit
-                          </button>
-                          <button type="button" onClick={() => removeMilestone(m.id)} style={{ border: "none", background: "none", color: "#B91C1C", cursor: "pointer", fontSize: 14, flexShrink: 0 }} aria-label="Remove">
-                            ✕
-                          </button>
+                          {!isLiveProject ? (
+                            <>
+                              <button type="button" onClick={() => editMilestone(m.id)} style={{ border: "none", background: "none", color: "#7A6E62", cursor: "pointer", fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+                                Edit
+                              </button>
+                              <button type="button" onClick={() => removeMilestone(m.id)} style={{ border: "none", background: "none", color: "#B91C1C", cursor: "pointer", fontSize: 14, flexShrink: 0 }} aria-label="Remove">
+                                ✕
+                              </button>
+                            </>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -1570,10 +1664,16 @@ export default function ProjectDashboard() {
                     View All
                   </button>
                 </div>
-                <div style={{ borderRadius: 12, overflow: "hidden", position: "relative", marginBottom: 10 }}>
-                  <img src={stageDetail.siteImage} alt="" style={{ width: "100%", height: 168, objectFit: "cover", display: "block" }} />
-                  <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(28,25,23,0.72)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>Latest</div>
-                </div>
+                {stageDetail.siteImage ? (
+                  <div style={{ borderRadius: 12, overflow: "hidden", position: "relative", marginBottom: 10 }}>
+                    <img src={stageDetail.siteImage} alt="" style={{ width: "100%", height: 168, objectFit: "cover", display: "block" }} />
+                    <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(28,25,23,0.72)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 20 }}>Latest</div>
+                  </div>
+                ) : (
+                  <div style={{ borderRadius: 12, marginBottom: 10, padding: 18, background: "#F3F1EE", color: "#7A6E62", fontSize: 13 }}>
+                    No saved site media yet.
+                  </div>
+                )}
                 <div style={{ fontSize: 12, color: "#9A8F87", marginBottom: 4 }}>{stageDetail.siteTime}</div>
                 <div style={{ fontSize: 15, fontWeight: 600, lineHeight: 1.45 }}>{stageDetail.siteCaption}</div>
               </div>
@@ -1603,10 +1703,6 @@ export default function ProjectDashboard() {
             </div>
           </div>
 
-          <p style={{ fontSize: 11, color: "#A8A29E", marginTop: 20, marginBottom: 0, lineHeight: 1.5 }}>
-            Deeper features (to-do, scheduling, marketplace, APIs, mandatory fields) are tracked in{" "}
-            <code style={{ fontSize: 11, background: "#EDEAE6", padding: "2px 6px", borderRadius: 4 }}>docs/PROJECT_MANAGEMENT_ROADMAP.md</code>.
-          </p>
           </>
           )}
 
@@ -1645,12 +1741,16 @@ export default function ProjectDashboard() {
                               <div style={{ fontWeight: 700, fontSize: 15 }}>{m.name}</div>
                               <div style={{ fontSize: 13, color: OR, fontWeight: 700, marginTop: 4 }}>{m.date}</div>
                             </div>
-                            <button type="button" onClick={() => editMilestoneFromPhase(ph, m.id)} style={{ border: "none", background: "none", color: "#7A6E62", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
-                              Edit
-                            </button>
-                            <button type="button" onClick={() => removeMilestoneFromPhase(ph, m.id)} style={{ border: "none", background: "none", color: "#B91C1C", cursor: "pointer", fontSize: 14 }} aria-label="Remove">
-                              ✕
-                            </button>
+                            {!isLiveProject ? (
+                              <>
+                                <button type="button" onClick={() => editMilestoneFromPhase(ph, m.id)} style={{ border: "none", background: "none", color: "#7A6E62", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                                  Edit
+                                </button>
+                                <button type="button" onClick={() => removeMilestoneFromPhase(ph, m.id)} style={{ border: "none", background: "none", color: "#B91C1C", cursor: "pointer", fontSize: 14 }} aria-label="Remove">
+                                  ✕
+                                </button>
+                              </>
+                            ) : null}
                           </div>
                         ))
                       )}
@@ -1786,7 +1886,9 @@ export default function ProjectDashboard() {
                   <div style={{ height: 10, background: "#E8E6E3", borderRadius: 6, marginTop: 14, overflow: "hidden" }}>
                     <div style={{ width: `${fundingSnapshot.pctOfTotalSpent}%`, height: "100%", background: `linear-gradient(90deg,#22A36B,${OR})`, borderRadius: 6 }} />
                   </div>
-                  <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 6 }}>{fundingSnapshot.pctOfTotalSpent}% of total budget used (illustrative)</div>
+                  <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 6 }}>
+                    {isLiveProject ? "No spend ledger entries recorded" : `${fundingSnapshot.pctOfTotalSpent}% of total budget used (illustrative)`}
+                  </div>
                 </div>
                 <div style={{ ...panel, padding: "18px 20px" }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#9A8F87", letterSpacing: "0.06em" }}>PACING</div>
@@ -1795,6 +1897,7 @@ export default function ProjectDashboard() {
                   <p style={{ fontSize: 13, color: "#57534E", margin: "14px 0 0", lineHeight: 1.5 }}>{fundingSnapshot.runwayNote}</p>
                 </div>
               </div>
+              {!isLiveProject ? (
               <div style={{ ...panel, padding: "22px 24px", marginBottom: 18 }}>
                 <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Funding mix &amp; sources</div>
                 <p style={{ fontSize: 13, color: "#7A6E62", margin: "0 0 18px", lineHeight: 1.5 }}>
@@ -1842,6 +1945,14 @@ export default function ProjectDashboard() {
                   View all line items (every stage) →
                 </button>
               </div>
+              ) : (
+                <div style={{ ...panel, padding: "22px 24px", marginBottom: 18 }}>
+                  <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Recorded payments</div>
+                  <p style={{ fontSize: 13, color: "#7A6E62", margin: 0, lineHeight: 1.5 }}>
+                    No owner payments, loan disbursements, or vendor transactions have been recorded for this project.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -1852,6 +1963,11 @@ export default function ProjectDashboard() {
                 Latest site photos and notes from each stage, newest updates first within this project.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                {siteFeedEntries.length === 0 ? (
+                  <div style={{ ...panel, padding: "20px 22px", color: "#7A6E62", fontSize: 14 }}>
+                    No saved site photos or concept images yet.
+                  </div>
+                ) : null}
                 {[...siteFeedEntries].reverse().map((entry) => (
                   <div key={entry.phase} style={{ ...panel, padding: 0, overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(200px, 1fr) minmax(0, 1.2fr)", gap: 0 }} className="project-site-feed-card">
                     <div style={{ position: "relative", minHeight: 200, background: "#E8E6E3" }}>

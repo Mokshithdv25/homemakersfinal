@@ -19,6 +19,7 @@ node_modules/
 
 # Testing
 /coverage
+/test_reports/
 
 # Next.js
 /.next/
@@ -85,12 +86,14 @@ memory/test_credentials.md
 
 # Mobile development
 android-sdk/-e 
+/store/screenshots/
 # Environment and credential files
 .env
 .env.*
 !.env.example
 !**/.env.example
 *.env
+!frontend/.env.production
 credentials.json
 *.pem
 *.key

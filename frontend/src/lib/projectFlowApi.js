@@ -1,5 +1,5 @@
 import { getSupabase } from "./supabaseClient";
-import { persistV0ImagesToStorage } from "./supabaseStorage";
+import { persistV0ImagesToStorage, refreshV0ImagesFromStorage } from "./supabaseStorage";
 
 const supabase = getSupabase();
 
@@ -15,6 +15,76 @@ function stagePill(status) {
   if (status === "in_progress") return { label: "In Progress", color: "#F59E0B" };
   if (status === "blocked") return { label: "Blocked", color: "#DC2626" };
   return { label: "Upcoming", color: "#9A8F87" };
+}
+
+/** Derive visible stage progress from the saved checklist for that stage. */
+export function derivePhaseProgress(phases = [], tasks = []) {
+  return phases.map((phase) => {
+    const phaseTasks = tasks.filter((task) => task.phase === phase.name);
+    if (!phaseTasks.length) return phase;
+    const completed = phaseTasks.filter((task) => task.done).length;
+    const pct = Math.round((completed / phaseTasks.length) * 100);
+    const status = phase.status === "Blocked"
+      ? "Blocked"
+      : pct === 100
+        ? "Done"
+        : pct > 0 || phase.status === "In Progress"
+          ? "In Progress"
+          : "Upcoming";
+    const statusCode = status === "Done" ? "done" : status === "Blocked" ? "blocked" : status === "In Progress" ? "in_progress" : "upcoming";
+    return { ...phase, pct, color: stageColor(statusCode), status, statusColor: stagePill(statusCode).color };
+  });
+}
+
+/** Persist checklist-derived stage percentages and overall project state. */
+export async function syncProjectProgress(projectId) {
+  if (!supabase || !projectId) throw new Error("A saved project is required.");
+  const [{ data: stages, error: stagesError }, { data: tasks, error: tasksError }, { data: project, error: projectError }] = await Promise.all([
+    supabase.from("project_stages").select("id, status").eq("project_id", projectId),
+    supabase.from("project_tasks").select("id, stage_id, status").eq("project_id", projectId),
+    supabase.from("projects").select("status").eq("id", projectId).maybeSingle(),
+  ]);
+  if (stagesError) throw stagesError;
+  if (tasksError) throw tasksError;
+  if (projectError) throw projectError;
+
+  await Promise.all((stages || []).map(async (stage) => {
+    const checklist = (tasks || []).filter((task) => task.stage_id === stage.id);
+    if (!checklist.length) return;
+    const completed = checklist.filter((task) => task.status === "done").length;
+    const progress = Math.round((completed / checklist.length) * 100);
+    const status = stage.status === "blocked"
+      ? "blocked"
+      : progress === 100
+        ? "done"
+        : progress > 0 || stage.status === "in_progress"
+          ? "in_progress"
+          : "upcoming";
+    const { error } = await supabase
+      .from("project_stages")
+      .update({ progress_percent: progress, status })
+      .eq("id", stage.id)
+      .eq("project_id", projectId);
+    if (error) throw error;
+  }));
+
+  const checklist = tasks || [];
+  const allDone = checklist.length > 0 && checklist.every((task) => task.status === "done");
+  const protectedStatus = project?.status === "archived" || project?.status === "on_hold";
+  const nextStatus = protectedStatus ? project.status : allDone ? "completed" : "active";
+  const { error: projectUpdateError } = await supabase
+    .from("projects")
+    .update({ status: nextStatus, last_active_at: new Date().toISOString() })
+    .eq("id", projectId);
+  if (projectUpdateError) throw projectUpdateError;
+}
+
+export async function setProjectStageStatus(stageId, projectId, status) {
+  const allowed = ["upcoming", "in_progress", "blocked", "done"];
+  if (!supabase || !stageId || !projectId || !allowed.includes(status)) throw new Error("Choose a valid saved stage status.");
+  const patch = status === "done" ? { status, progress_percent: 100 } : { status };
+  const { error } = await supabase.from("project_stages").update(patch).eq("id", stageId).eq("project_id", projectId);
+  if (error) throw error;
 }
 
 function mapFlowType(source) {
@@ -83,51 +153,9 @@ export function getRememberedProject(userId) {
   }
 }
 
-const ANON_PROJECT_IDS_KEY = "hm_anon_project_ids";
-
-/** After sign-in: attach projects created on this device before login. */
-export async function claimAnonymousProjects(userId) {
-  if (!supabase || !userId) return [];
-  const ids = new Set();
-  try {
-    const build = JSON.parse(localStorage.getItem("hm_build_new_flow") || "{}");
-    const remodel = JSON.parse(localStorage.getItem("hm_remodel_flow") || "{}");
-    if (build?.projectId) ids.add(build.projectId);
-    if (remodel?.projectId) ids.add(remodel.projectId);
-    const extra = JSON.parse(localStorage.getItem(ANON_PROJECT_IDS_KEY) || "[]");
-    if (Array.isArray(extra)) extra.forEach((id) => ids.add(id));
-  } catch (_) {
-    /* ignore */
-  }
-  if (!ids.size) return [];
-  const claimed = [];
-  for (const id of ids) {
-    const { data, error } = await supabase
-      .from("projects")
-      .update({ owner_user_id: userId })
-      .eq("id", id)
-      .is("owner_user_id", null)
-      .select("id")
-      .maybeSingle();
-    if (!error && data?.id) claimed.push(data.id);
-  }
-  if (claimed.length) {
-    try {
-      const remaining = JSON.parse(localStorage.getItem(ANON_PROJECT_IDS_KEY) || "[]").filter(
-        (id) => !claimed.includes(id),
-      );
-      localStorage.setItem(ANON_PROJECT_IDS_KEY, JSON.stringify(remaining));
-    } catch (_) {
-      /* ignore */
-    }
-  }
-  return claimed;
-}
-
-/** Claim device drafts, then list projects for the signed-in user. */
+/** Compatibility wrapper: launch mode creates and lists only authenticated projects. */
 export async function claimAndListUserProjects(userId) {
   if (!userId) return [];
-  await claimAnonymousProjects(userId);
   return listUserProjects();
 }
 
@@ -142,8 +170,7 @@ export async function listUserProjects() {
     .eq("owner_user_id", userId)
     .order("updated_at", { ascending: false });
   if (error) {
-    console.warn("listUserProjects:", error.message);
-    return [];
+    throw new Error(`Could not load your saved projects: ${error.message}`);
   }
   return data || [];
 }
@@ -306,41 +333,43 @@ async function saveProjectV0Pack(projectId, v0Images, v0Plan) {
     updated_at: new Date().toISOString(),
   };
   const { error } = await supabase.from("project_v0_packs").upsert(row, { onConflict: "project_id" });
-  if (error) {
-    console.warn("project_v0_packs upsert failed (run db/homemakers_supabase_align.sql?):", error.message);
-  }
+  if (error) throw new Error(`Could not save the project design and estimate: ${error.message}`);
 
   if (v0Images) {
-    await supabase.from("project_ai_runs").insert({
+    const { error: imageRunError } = await supabase.from("project_ai_runs").insert({
       project_id: projectId,
       run_type: "v0_images",
       provider: v0Images?.provider || "grok",
       status: "completed",
       output_json: v0Images,
     });
+    if (imageRunError) throw new Error(`Could not record the image generation: ${imageRunError.message}`);
   }
   if (v0Plan) {
-    await supabase.from("project_ai_runs").insert({
+    const { error: planRunError } = await supabase.from("project_ai_runs").insert({
       project_id: projectId,
       run_type: "estimate_plan",
       provider: v0Plan?.provider || "grok",
       status: "completed",
       output_json: v0Plan,
     });
+    if (planRunError) throw new Error(`Could not record the estimate generation: ${planRunError.message}`);
   }
 }
 
 async function ensureProjectStagesAndTasks(projectId, brief, flowType, aiPlan) {
-  const { data: existingStages } = await supabase
+  const { data: existingStages, error: stagesCheckError } = await supabase
     .from("project_stages")
     .select("id")
     .eq("project_id", projectId)
     .limit(1);
-  const { data: existingTasks } = await supabase
+  if (stagesCheckError) throw stagesCheckError;
+  const { data: existingTasks, error: tasksCheckError } = await supabase
     .from("project_tasks")
     .select("id")
     .eq("project_id", projectId)
     .limit(1);
+  if (tasksCheckError) throw tasksCheckError;
 
   if (existingStages?.length && existingTasks?.length) return;
 
@@ -355,18 +384,20 @@ async function ensureProjectStagesAndTasks(projectId, brief, flowType, aiPlan) {
       status: p.status === "Done" ? "done" : p.status === "In Progress" ? "in_progress" : "upcoming",
       progress_percent: p.pct,
     }));
-    const { data: stages } = await supabase.from("project_stages").insert(stageRows).select("*");
+    const { data: stages, error: stageInsertError } = await supabase.from("project_stages").insert(stageRows).select("*");
+    if (stageInsertError) throw stageInsertError;
     stageIdByName = Object.fromEntries((stages || []).map((s) => [s.name, s.id]));
   } else {
-    const { data: stages } = await supabase
+    const { data: stages, error: stageLoadError } = await supabase
       .from("project_stages")
       .select("*")
       .eq("project_id", projectId);
+    if (stageLoadError) throw stageLoadError;
     stageIdByName = Object.fromEntries((stages || []).map((s) => [s.name, s.id]));
   }
 
   if (!existingTasks?.length) {
-    await supabase.from("project_tasks").insert(
+    const { error: taskInsertError } = await supabase.from("project_tasks").insert(
       seeded.tasks.map((t) => ({
         project_id: projectId,
         stage_id: stageIdByName[t.phase] || null,
@@ -376,15 +407,17 @@ async function ensureProjectStagesAndTasks(projectId, brief, flowType, aiPlan) {
         priority: "medium",
       }))
     );
+    if (taskInsertError) throw taskInsertError;
   }
 
-  const { data: existingMsgs } = await supabase
+  const { data: existingMsgs, error: messageCheckError } = await supabase
     .from("project_messages")
     .select("id")
     .eq("project_id", projectId)
     .limit(1);
+  if (messageCheckError) throw messageCheckError;
   if (!existingMsgs?.length) {
-    await supabase.from("project_messages").insert(
+    const { error: messageInsertError } = await supabase.from("project_messages").insert(
       seeded.messages.map((m) => ({
         project_id: projectId,
         stage_id: stageIdByName[m.phase] || null,
@@ -392,6 +425,7 @@ async function ensureProjectStagesAndTasks(projectId, brief, flowType, aiPlan) {
         message: m.text,
       }))
     );
+    if (messageInsertError) throw messageInsertError;
   }
 }
 
@@ -482,15 +516,11 @@ export async function upsertFlowProject({
   const plan = v0Plan || aiPlan;
   let imagesForStore = v0Images;
   if (v0Images && ownerUserId) {
-    try {
-      imagesForStore = await persistV0ImagesToStorage({
-        userId: ownerUserId,
-        projectId,
-        imageBundle: v0Images,
-      });
-    } catch (err) {
-      console.warn("v0 image storage mirror failed:", err?.message || err);
-    }
+    imagesForStore = await persistV0ImagesToStorage({
+      userId: ownerUserId,
+      projectId,
+      imageBundle: v0Images,
+    });
   }
   await saveProjectV0Pack(projectId, imagesForStore, plan);
   await ensureProjectStagesAndTasks(projectId, briefPayload, flowType, plan);
@@ -543,9 +573,10 @@ async function loadV0Pack(projectId) {
     .limit(1);
   if (!error && data?.[0]) {
     const row = data[0];
+    const images = await refreshV0ImagesFromStorage(row.images_json);
     return {
-      images: row.images_json,
-      floorPlans: row.floor_plans_json,
+      images,
+      floorPlans: images?.floorPlans || images?.floor_plans || row.floor_plans_json,
       estimate: row.estimate_json,
       mock: row.is_mock,
       generatedAt: row.generated_at,
@@ -566,9 +597,10 @@ async function loadV0Pack(projectId) {
 
   const imagesRun = runs.find((r) => r.run_type === "v0_images");
   const planRun = runs.find((r) => r.run_type === "estimate_plan");
+  const images = await refreshV0ImagesFromStorage(imagesRun?.output_json || null);
   return {
-    images: imagesRun?.output_json || null,
-    floorPlans: imagesRun?.output_json?.floorPlans || imagesRun?.output_json?.floor_plans || null,
+    images,
+    floorPlans: images?.floorPlans || images?.floor_plans || null,
     estimate: planRun?.output_json || null,
     mock: Boolean(imagesRun?.output_json?.mock || planRun?.output_json?.mock),
     generatedAt: imagesRun?.created_at || planRun?.created_at,
@@ -576,10 +608,10 @@ async function loadV0Pack(projectId) {
 }
 
 export async function loadProjectBoard({ projectId, source }) {
-  if (!supabase) return null;
+  if (!supabase) throw new Error("Project storage is not configured.");
 
   const ownerUserId = await getCurrentUserId();
-  if (!ownerUserId) return null;
+  if (!ownerUserId) throw new Error("Sign in to load your saved project.");
 
   let resolvedProjectId = projectId || "";
   let project = null;
@@ -594,7 +626,8 @@ export async function loadProjectBoard({ projectId, source }) {
         .order("created_at", { ascending: false })
         .limit(1);
       q = q.eq("owner_user_id", ownerUserId);
-      const { data } = await q;
+      const { data, error } = await q;
+      if (error) throw error;
       project = data?.[0] || null;
       resolvedProjectId = project?.id || "";
     }
@@ -605,7 +638,8 @@ export async function loadProjectBoard({ projectId, source }) {
   if (!project) {
     let q = supabase.from("projects").select("*").eq("id", resolvedProjectId);
     q = q.eq("owner_user_id", ownerUserId);
-    const { data } = await q.limit(1);
+    const { data, error } = await q.limit(1);
+    if (error) throw error;
     project = data?.[0] || null;
   }
 
@@ -619,40 +653,39 @@ export async function loadProjectBoard({ projectId, source }) {
     rememberActiveProject(ownerUserId, project.id, source || project.source);
   }
 
-  const { data: briefRows } = await supabase
+  const { data: briefRows, error: briefError } = await supabase
     .from("project_briefs")
     .select("*")
     .eq("project_id", resolvedProjectId)
     .limit(1);
+  if (briefError) throw briefError;
   const brief = briefRows?.[0]?.brief_json || {};
-  const flowType = project?.flow_type || mapFlowType(source) || "new_home";
   const v0Pack = await loadV0Pack(resolvedProjectId);
 
-  const { data: stages } = await supabase
+  const { data: stages, error: stagesError } = await supabase
     .from("project_stages")
     .select("*")
     .eq("project_id", resolvedProjectId)
     .order("sort_order", { ascending: true });
-  const { data: tasks } = await supabase
+  if (stagesError) throw stagesError;
+  const { data: tasks, error: tasksError } = await supabase
     .from("project_tasks")
     .select("*")
     .eq("project_id", resolvedProjectId)
     .order("created_at", { ascending: true });
-  const { data: messages } = await supabase
+  if (tasksError) throw tasksError;
+  const { data: messages, error: messagesError } = await supabase
     .from("project_messages")
     .select("*")
     .eq("project_id", resolvedProjectId)
     .order("created_at", { ascending: true });
+  if (messagesError) throw messagesError;
 
-  if (!stages?.length) {
-    const seeded = seedFromBrief(brief, flowType, v0Pack?.estimate);
-    return { projectId: resolvedProjectId, project, brief, v0Pack, ...seeded };
-  }
-
-  const stageById = Object.fromEntries(stages.map((s) => [s.id, s.name]));
-  const phaseRows = stages.map((s) => {
+  const stageById = Object.fromEntries((stages || []).map((s) => [s.id, s.name]));
+  let phaseRows = (stages || []).map((s) => {
     const pill = stagePill(s.status);
     return {
+      id: s.id,
       name: s.name,
       pct: Number(s.progress_percent || 0),
       color: stageColor(s.status),
@@ -678,6 +711,7 @@ export async function loadProjectBoard({ projectId, source }) {
     date: shortDate(t.due_date) || shortDate(t.created_at) || "Planned",
     assignee: "Team",
   }));
+  phaseRows = derivePhaseProgress(phaseRows, taskRows);
 
   const messageRows = (messages || []).map((m) => ({
     id: m.id,
@@ -702,39 +736,39 @@ export async function loadProjectBoard({ projectId, source }) {
 
 /** Persist a new task on the board; returns the inserted row id (or null offline). */
 export async function addProjectTask({ projectId, title, phaseName }) {
-  if (!supabase || !projectId || !title?.trim()) return null;
+  if (!supabase) throw new Error("Project storage is not configured.");
+  if (!projectId || !title?.trim()) throw new Error("A project and task title are required.");
   let stageId = null;
-  try {
-    if (phaseName) {
-      const { data: stages } = await supabase
+  if (phaseName) {
+      const { data: stages, error: stageError } = await supabase
         .from("project_stages")
         .select("id, name")
         .eq("project_id", projectId);
+      if (stageError) throw stageError;
       stageId = (stages || []).find((s) => s.name === phaseName)?.id || null;
-    }
+  }
     const { data, error } = await supabase
       .from("project_tasks")
       .insert({ project_id: projectId, stage_id: stageId, title: title.trim() })
       .select("id")
       .maybeSingle();
-    if (error) throw error;
-    return data?.id || null;
-  } catch (err) {
-    console.warn("addProjectTask:", err?.message || err);
-    return null;
-  }
+  if (error) throw error;
+  if (!data?.id) throw new Error("The task was not saved.");
+  await syncProjectProgress(projectId);
+  return data.id;
 }
 
 /** Persist a site-feed message; returns inserted row id (or null offline). */
 export async function addProjectMessage({ projectId, text, phaseName, authorRole = "Homeowner" }) {
-  if (!supabase || !projectId || !text?.trim()) return null;
-  try {
+  if (!supabase) throw new Error("Project storage is not configured.");
+  if (!projectId || !text?.trim()) throw new Error("A project and message are required.");
     let stageId = null;
     if (phaseName) {
-      const { data: stages } = await supabase
+      const { data: stages, error: stageError } = await supabase
         .from("project_stages")
         .select("id, name")
         .eq("project_id", projectId);
+      if (stageError) throw stageError;
       stageId = (stages || []).find((s) => s.name === phaseName)?.id || null;
     }
     const { data, error } = await supabase
@@ -742,24 +776,22 @@ export async function addProjectMessage({ projectId, text, phaseName, authorRole
       .insert({ project_id: projectId, stage_id: stageId, author_role: authorRole, message: text.trim() })
       .select("id")
       .maybeSingle();
-    if (error) throw error;
-    return data?.id || null;
-  } catch (err) {
-    console.warn("addProjectMessage:", err?.message || err);
-    return null;
-  }
+  if (error) throw error;
+  if (!data?.id) throw new Error("The message was not saved.");
+  return data.id;
 }
 
 /** Persist a task done/todo toggle. */
 export async function setProjectTaskDone(taskId, done) {
-  if (!supabase || !taskId) return;
-  try {
-    const { error } = await supabase
+  if (!supabase) throw new Error("Project storage is not configured.");
+  if (!taskId) throw new Error("A saved task is required.");
+  const { data, error } = await supabase
       .from("project_tasks")
       .update({ status: done ? "done" : "todo", updated_at: new Date().toISOString() })
-      .eq("id", taskId);
-    if (error) throw error;
-  } catch (err) {
-    console.warn("setProjectTaskDone:", err?.message || err);
-  }
+      .eq("id", taskId)
+      .select("project_id")
+      .maybeSingle();
+  if (error) throw error;
+  if (!data?.project_id) throw new Error("The task was not found in this account.");
+  await syncProjectProgress(data.project_id);
 }

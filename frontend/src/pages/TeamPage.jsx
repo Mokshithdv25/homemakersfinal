@@ -1,345 +1,78 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ProjectHubShell from "../components/ProjectHubShell";
+import LandingNavbar from "../components/landing/LandingNavbar";
+import { HM_FIXED_NAV_OFFSET_CLASS } from "../lib/hmBrand";
+import { useProjectWorkspace } from "../hooks/useProjectWorkspace";
+import { addProjectTeamMember, listProjectTeam, removeProjectTeamMember, updateProjectTeamMember } from "../lib/projectWorkspaceApi";
 
 const OR = "#C85F2B";
-
-const ROLE_ORDER = ["architect", "contractor", "engineer", "onsite", "electrician", "plumber", "carpenter"];
-
-const ROLE_COPY = {
-  architect: { icon: "📐", title: "Architect" },
-  contractor: { icon: "🏗️", title: "Contractor" },
-  engineer: { icon: "⚙️", title: "Engineer" },
-  onsite: { icon: "👷", title: "On-site engineer" },
-  electrician: { icon: "⚡", title: "Electrician" },
-  plumber: { icon: "🔧", title: "Plumber" },
-  carpenter: { icon: "🪚", title: "Carpenter" },
-};
-
-/** Site execution & design roles only (demo contacts). */
-const SITE_TEAM = [
-  {
-    id: "t1",
-    roleKey: "architect",
-    name: "Neha Verma",
-    org: "Verma & Associates",
-    email: "neha.verma@vermaarch.in",
-    phone: "+91 80 4123 8899",
-    address: "100 Feet Road, Indiranagar, Bengaluru 560038",
-    notes: "Drawings, approvals, site sign-offs",
-  },
-  {
-    id: "t2",
-    roleKey: "contractor",
-    name: "Rajesh Kumar",
-    org: "Kumar Civil Contractors",
-    email: "rajesh@kumarbuild.in",
-    phone: "+91 98450 22110",
-    address: "Peenya Industrial Area, Bengaluru 560058",
-    notes: "Overall execution & subcontractors",
-  },
-  {
-    id: "t3",
-    roleKey: "engineer",
-    name: "Bharat Hegde",
-    org: "Hegde Structural Studio",
-    email: "bharat@hegdestruct.in",
-    phone: "+91 80 2660 1200",
-    address: "Jayanagar 4th Block, Bengaluru 560011",
-    notes: "Structural design, RCC, beams, slabs",
-  },
-  {
-    id: "t4",
-    roleKey: "onsite",
-    name: "Suresh Yadav",
-    org: "Kumar Civil Contractors",
-    email: "suresh.yadav@kumarbuild.in",
-    phone: "+91 98800 44551",
-    address: "Shanti Nagar site office, Bengaluru",
-    notes: "On-site engineer — daily coordination, checks, records",
-  },
-  {
-    id: "t5",
-    roleKey: "electrician",
-    name: "Arun Krishnan",
-    org: "BrightGrid Electricals",
-    email: "arun@brightgrid.in",
-    phone: "+91 98451 90221",
-    address: "HSR Layout, Bengaluru 560102",
-    notes: "Power, DB, earthing, fixtures coordination",
-  },
-  {
-    id: "t6",
-    roleKey: "plumber",
-    name: "Joseph Mathew",
-    org: "FlowRight Plumbing",
-    email: "joseph@flowright.in",
-    phone: "+91 98452 11880",
-    address: "Richmond Town, Bengaluru 560025",
-    notes: "Water lines, drainage, sanitary install",
-  },
-  {
-    id: "t7",
-    roleKey: "carpenter",
-    name: "Manjunath Gowda",
-    org: "WoodCraft Interiors",
-    email: "manjunath@woodcraft.in",
-    phone: "+91 98453 66771",
-    address: "Banashankari, Bengaluru 560050",
-    notes: "Doors, frames, wardrobes, woodwork",
-  },
-];
-
-const panel = {
-  background: "linear-gradient(180deg, #FDFCFB 0%, #FAF9F7 100%)",
-  borderRadius: 12,
-  border: "1px solid #E8E6E3",
-  boxShadow: "0 1px 2px rgba(28, 25, 23, 0.045)",
-};
-
-function Avatar({ name, size = 44 }) {
-  const cols = [OR, "#2A6496", "#22A36B", "#7A4FC0", "#D97706"];
-  const initials = name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2);
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: cols[name.charCodeAt(0) % cols.length],
-        color: "#fff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.34,
-        fontWeight: 700,
-        flexShrink: 0,
-      }}
-    >
-      {initials}
-    </div>
-  );
-}
-
-function copyText(text, showToast) {
-  if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(() => showToast("Copied to clipboard"));
-  } else {
-    showToast("Copy not supported in this browser");
-  }
-}
+const EMPTY = { name: "", role: "", email: "", phone: "", status: "active" };
 
 export default function TeamPage() {
   const navigate = useNavigate();
-  const [q, setQ] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
-  const [toast, setToast] = useState("");
+  const { projects, project, projectId, loading: projectsLoading, error: projectError, selectProject } = useProjectWorkspace();
+  const [members, setMembers] = useState([]);
+  const [form, setForm] = useState(EMPTY);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(""), 2200);
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true); setError("");
+      try { const rows = await listProjectTeam(projectId); if (!cancelled) setMembers(rows); }
+      catch (err) { if (!cancelled) setError(err?.message || "Could not load the project team."); }
+      finally { if (!cancelled) setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  const submit = async (event) => {
+    event.preventDefault(); setSaving(true); setError("");
+    try { const saved = await addProjectTeamMember(projectId, form); setMembers((rows) => [...rows, saved]); setForm(EMPTY); }
+    catch (err) { setError(err?.message || "Could not add the team member."); }
+    finally { setSaving(false); }
   };
 
-  const displayed = useMemo(() => {
-    let list = SITE_TEAM;
-    if (roleFilter !== "all") list = list.filter((c) => c.roleKey === roleFilter);
-    const s = q.trim().toLowerCase();
-    if (s) {
-      list = list.filter(
-        (c) =>
-          c.name.toLowerCase().includes(s) ||
-          ROLE_COPY[c.roleKey].title.toLowerCase().includes(s) ||
-          c.org.toLowerCase().includes(s) ||
-          c.email.toLowerCase().includes(s) ||
-          c.phone.replace(/\s/g, "").includes(s.replace(/\s/g, ""))
-      );
-    }
-    return [...list].sort(
-      (a, b) => ROLE_ORDER.indexOf(a.roleKey) - ROLE_ORDER.indexOf(b.roleKey) || a.name.localeCompare(b.name)
-    );
-  }, [q, roleFilter]);
+  const changeStatus = async (member, status) => {
+    setError("");
+    try { const updated = await updateProjectTeamMember(projectId, member.id, { status }); setMembers((rows) => rows.map((row) => row.id === member.id ? updated : row)); }
+    catch (err) { setError(err?.message || "Could not update the team member."); }
+  };
 
-  const renderContactTable = (rows, empty) => (
-    <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8E6E3", background: "#fff" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
-        <thead>
-          <tr style={{ background: "#FAFAF8", borderBottom: "1px solid #EDEAE6" }}>
-            {["Contact", "Role", "Email", "Phone", "Address", ""].map((h) => (
-              <th
-                key={h}
-                style={{
-                  textAlign: "left",
-                  padding: "12px 14px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#9A8F87",
-                  letterSpacing: "0.06em",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={6} style={{ padding: 28, textAlign: "center", color: "#9A8F87", fontSize: 14 }}>
-                {empty}
-              </td>
-            </tr>
-          ) : (
-            rows.map((c) => (
-              <tr key={c.id} style={{ borderBottom: "1px solid #F5F0EB" }}>
-                <td style={{ padding: "14px 14px", verticalAlign: "top" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <Avatar name={c.name} size={44} />
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: "#1C1917" }}>{c.name}</div>
-                      {c.notes ? <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 4, maxWidth: 220 }}>{c.notes}</div> : null}
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: "14px 14px", verticalAlign: "top", fontSize: 14, color: "#44403C", maxWidth: 220 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                    <span style={{ fontSize: 22, lineHeight: 1 }}>{ROLE_COPY[c.roleKey].icon}</span>
-                    <div>
-                      <div style={{ fontWeight: 800 }}>{ROLE_COPY[c.roleKey].title}</div>
-                      <div style={{ fontSize: 13, color: "#7A6E62", marginTop: 4 }}>{c.org}</div>
-                    </div>
-                  </div>
-                </td>
-                <td style={{ padding: "14px 14px", verticalAlign: "top" }}>
-                  <a href={`mailto:${c.email}`} style={{ color: OR, fontWeight: 600, fontSize: 14, wordBreak: "break-all" }}>
-                    {c.email}
-                  </a>
-                </td>
-                <td style={{ padding: "14px 14px", verticalAlign: "top", whiteSpace: "nowrap" }}>
-                  <a href={`tel:${c.phone.replace(/\s/g, "")}`} style={{ color: "#1C1917", fontWeight: 600, fontSize: 14 }}>
-                    {c.phone}
-                  </a>
-                </td>
-                <td style={{ padding: "14px 14px", verticalAlign: "top", fontSize: 13, color: "#57534E", lineHeight: 1.45, maxWidth: 260 }}>
-                  {c.address}
-                </td>
-                <td style={{ padding: "14px 10px", verticalAlign: "top", whiteSpace: "nowrap" }}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      copyText(
-                        `BEGIN:VCARD\nVERSION:3.0\nFN:${c.name}\nORG:${c.org}\nTITLE:${ROLE_COPY[c.roleKey].title}\nEMAIL:${c.email}\nTEL:${c.phone}\nADR:;;${c.address};;;;\nEND:VCARD`,
-                        showToast
-                      )
-                    }
-                    style={{
-                      border: `1px solid ${OR}`,
-                      background: "#fff",
-                      color: OR,
-                      borderRadius: 8,
-                      padding: "6px 10px",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Copy vCard
-                  </button>
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
+  const remove = async (member) => {
+    if (!window.confirm(`Remove ${member.name} from this project?`)) return;
+    try { await removeProjectTeamMember(projectId, member.id); setMembers((rows) => rows.filter((row) => row.id !== member.id)); }
+    catch (err) { setError(err?.message || "Could not remove the team member."); }
+  };
 
   return (
-    <ProjectHubShell>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, fontFamily: "'DM Sans','Inter',system-ui,sans-serif", color: "#1C1917" }}>
-        <div className="px-5 md:px-10" style={{ flex: 1, paddingTop: 24, paddingBottom: 40, overflowY: "auto" }}>
-          {toast ? (
-            <div role="status" style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8, background: "#F0F8EE", border: "1px solid #C3DEB8", fontSize: 13, color: "#166534" }}>
-              {toast}
-            </div>
-          ) : null}
-
-          <div style={{ marginBottom: 20 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Site team & contacts</h1>
-            <p style={{ fontSize: 14, color: "#7A6E62", marginTop: 8, maxWidth: 720, lineHeight: 1.5 }}>
-              Architect, contractor, engineer, on-site engineer, electrician, plumber, and carpenter — mail, phone, and address in one place. Tap{" "}
-              <strong>mailto</strong> / <strong>tel</strong> on your phone, or <strong>Copy vCard</strong> to import into your contacts app.
-            </p>
-          </div>
-
-          <div style={{ ...panel, padding: "14px 18px", marginBottom: 16, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <button
-              type="button"
-              onClick={() => setRoleFilter("all")}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: roleFilter === "all" ? `2px solid ${OR}` : "1.5px solid #D1C9BF",
-                background: roleFilter === "all" ? "#FDF4EF" : "#fff",
-                fontWeight: 700,
-                fontSize: 12,
-                cursor: "pointer",
-                color: "#44403C",
-              }}
-            >
-              All roles
-            </button>
-            {ROLE_ORDER.map((key) => {
-              const r = ROLE_COPY[key];
-              const on = roleFilter === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setRoleFilter(on ? "all" : key)}
-                  style={{
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: on ? `2px solid ${OR}` : "1.5px solid #D1C9BF",
-                    background: on ? "#FDF4EF" : "#fff",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    cursor: "pointer",
-                    color: "#44403C",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <span>{r.icon}</span>
-                  {r.title}
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={{ ...panel, padding: "14px 18px", marginBottom: 20, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, border: "1.5px solid #D1C9BF", borderRadius: 10, padding: "10px 14px", flex: "1 1 240px", minWidth: 0, background: "#fff" }}>
-              <span style={{ color: "#9A8F87" }}>🔍</span>
-              <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search name, company, email, phone…"
-                style={{ border: "none", outline: "none", fontSize: 14, background: "transparent", flex: 1, minWidth: 0 }}
-              />
-            </div>
-            <span style={{ fontSize: 13, color: "#9A8F87", fontWeight: 600 }}>{displayed.length} shown</span>
-          </div>
-
-          <section>
-            {renderContactTable(displayed, "No contacts match your search or role filter.")}
-          </section>
+    <div className={HM_FIXED_NAV_OFFSET_CLASS} style={{ minHeight: "100vh", background: "#FBF7F2" }}>
+      <LandingNavbar />
+      <main style={{ maxWidth: 980, margin: "0 auto", padding: "36px 24px" }}>
+        <button type="button" onClick={() => navigate(projectId ? `/project?projectId=${encodeURIComponent(projectId)}` : "/project")} style={{ border: 0, background: "none", color: OR, fontWeight: 700, cursor: "pointer", padding: 0 }}>← Project hub</button>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "end", flexWrap: "wrap", margin: "18px 0" }}>
+          <div><h1 style={{ margin: 0, fontSize: 28 }}>Project team</h1><p style={{ color: "#78716C", margin: "6px 0 0" }}>People and contact details saved to this project.</p></div>
+          {projects.length > 1 ? <select value={projectId} onChange={(event) => selectProject(event.target.value)} style={{ padding: "10px 12px", border: "1px solid #D7CEC5", borderRadius: 9 }}>{projects.map((row) => <option key={row.id} value={row.id}>{row.title || "Project"}</option>)}</select> : null}
         </div>
-      </div>
-    </ProjectHubShell>
+        {projectError || error ? <p role="alert" style={{ color: "#B42318" }}>{projectError || error}</p> : null}
+        {projectsLoading ? <p>Loading projects…</p> : !project ? <div style={{ background: "#fff", padding: 24, borderRadius: 14 }}>Create a project before adding a team.</div> : (
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, .8fr) minmax(0, 1.2fr)", gap: 16 }} className="project-team-grid">
+            <form onSubmit={submit} style={{ background: "#fff", border: "1px solid #E8E4DE", borderRadius: 14, padding: 20, alignSelf: "start" }}>
+              <h2 style={{ margin: "0 0 14px", fontSize: 18 }}>Add team member</h2>
+              {[['name','Name'],['role','Role'],['email','Email'],['phone','Phone']].map(([key,label]) => <label key={key} style={{ display: "block", fontSize: 12, fontWeight: 700, marginBottom: 11 }}>{label}<input value={form[key]} type={key === 'email' ? 'email' : 'text'} onChange={(event) => setForm((row) => ({ ...row, [key]: event.target.value }))} required={key === 'name' || key === 'role'} style={{ display: "block", width: "100%", boxSizing: "border-box", marginTop: 5, padding: "10px 11px", border: "1px solid #D7CEC5", borderRadius: 8 }} /></label>)}
+              <button type="submit" disabled={saving} style={{ width: "100%", border: 0, borderRadius: 9, background: OR, color: "#fff", padding: "11px 14px", fontWeight: 700, cursor: "pointer" }}>{saving ? "Saving…" : "Save member"}</button>
+              <p style={{ color: "#78716C", fontSize: 11, lineHeight: 1.5, marginBottom: 0 }}>This saves a contact record. It does not send an email invitation.</p>
+            </form>
+            <section style={{ background: "#fff", border: "1px solid #E8E4DE", borderRadius: 14, padding: 20 }}>
+              <h2 style={{ margin: "0 0 14px", fontSize: 18 }}>{project.title || "Project"} · {members.length} members</h2>
+              {loading ? <p>Loading team…</p> : members.length === 0 ? <p style={{ color: "#78716C" }}>No team members have been saved.</p> : members.map((member) => <div key={member.id} style={{ display: "flex", gap: 12, alignItems: "center", padding: "13px 0", borderTop: "1px solid #F0E8DF" }}><div style={{ width: 38, height: 38, borderRadius: "50%", background: "#FBE8DC", color: OR, display: "grid", placeItems: "center", fontWeight: 800 }}>{member.name.slice(0,2).toUpperCase()}</div><div style={{ flex: 1 }}><div style={{ fontWeight: 700 }}>{member.name}</div><div style={{ color: "#78716C", fontSize: 12, marginTop: 3 }}>{member.role}{member.email ? ` · ${member.email}` : ""}{member.phone ? ` · ${member.phone}` : ""}</div></div><select value={member.status} onChange={(event) => changeStatus(member, event.target.value)} style={{ border: "1px solid #D7CEC5", borderRadius: 8, padding: "7px" }}><option value="invited">Invited</option><option value="active">Active</option><option value="inactive">Inactive</option></select><button type="button" onClick={() => remove(member)} style={{ border: 0, background: "none", color: "#B42318", cursor: "pointer" }}>Remove</button></div>)}
+            </section>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

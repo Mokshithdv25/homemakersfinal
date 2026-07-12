@@ -12,7 +12,7 @@ function safeParse(raw, fallback) {
   }
 }
 
-function purgePortfolioMediaKeys() {
+export function clearAllPortfolioMediaCaches() {
   const keys = [];
   for (let i = 0; i < localStorage.length; i += 1) {
     const k = localStorage.key(i);
@@ -35,7 +35,7 @@ export function setPortfolioBase(base) {
     localStorage.setItem(K_PORTFOLIO, payload);
   } catch (err) {
     // Last-resort guard: clear heavy media blobs, then retry base save.
-    purgePortfolioMediaKeys();
+    clearAllPortfolioMediaCaches();
     try {
       localStorage.setItem(K_PORTFOLIO, payload);
     } catch (finalErr) {

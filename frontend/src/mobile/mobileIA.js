@@ -42,7 +42,7 @@ export const HM_CORE_FLOWS = [
   {
     id: "project",
     label: "Manage project",
-    sub: "Phases, docs, team & shop",
+    sub: "Saved phases, tasks & AI v0",
     path: "/project",
     icon: "project",
   },

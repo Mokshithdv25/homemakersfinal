@@ -34,6 +34,7 @@ export function useMobileHub() {
   const [projects, setProjects] = useState([]);
   const [proCount, setProCount] = useState(0);
   const [loadingProjects, setLoadingProjects] = useState(true);
+  const [projectError, setProjectError] = useState("");
 
   const build = useMemo(() => getBuildFlow(), []);
   const remodel = useMemo(() => getRemodelFlow(), []);
@@ -42,15 +43,22 @@ export function useMobileHub() {
     let cancelled = false;
     (async () => {
       setLoadingProjects(true);
-      const rows =
-        !AUTH_UI_ENABLED && !session?.supabaseUserId
-          ? listLocalFlowProjects()
-          : session?.supabaseUserId
-            ? await claimAndListUserProjects(session.supabaseUserId)
-            : [];
-      if (!cancelled) {
-        setProjects(rows || []);
-        setLoadingProjects(false);
+      setProjectError("");
+      try {
+        const rows =
+          !AUTH_UI_ENABLED && !session?.supabaseUserId
+            ? listLocalFlowProjects()
+            : session?.supabaseUserId
+              ? await claimAndListUserProjects(session.supabaseUserId)
+              : [];
+        if (!cancelled) setProjects(rows || []);
+      } catch (error) {
+        if (!cancelled) {
+          setProjects([]);
+          setProjectError(error?.message || "Could not load saved projects.");
+        }
+      } finally {
+        if (!cancelled) setLoadingProjects(false);
       }
     })();
     return () => {
@@ -61,8 +69,12 @@ export function useMobileHub() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const rows = await listPublishedPortfolios({ limit: 1 });
-      if (!cancelled) setProCount(rows?.length || 0);
+      try {
+        const rows = await listPublishedPortfolios({ limit: 1 });
+        if (!cancelled) setProCount(rows?.length || 0);
+      } catch {
+        if (!cancelled) setProCount(0);
+      }
     })();
     return () => {
       cancelled = true;
@@ -101,6 +113,7 @@ export function useMobileHub() {
     projects,
     activeProject,
     loadingProjects,
+    projectError,
     proCount,
     build,
     remodel,

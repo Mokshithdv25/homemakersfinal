@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { optimizeImageFileToDataUrl } from "../lib/imageDataUrl";
 
 /**
  * Free-text + optional voice capture — styled to match Homemakers craft flows (warm cream / terracotta).
@@ -106,19 +107,15 @@ export default function VisionCaptureStep({
     setInspirationErr("");
     try {
       const encoded = await Promise.all(
-        files.slice(0, 8).map(
-          (file) =>
-            new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve({ type: "image", value: String(reader.result || ""), label: file.name || "upload" });
-              reader.onerror = () => reject(new Error("read-failed"));
-              reader.readAsDataURL(file);
-            })
-        )
+        files.slice(0, 8).map(async (file) => ({
+          type: "image",
+          value: await optimizeImageFileToDataUrl(file),
+          label: file.name || "upload",
+        })),
       );
       onInspirationItemsChange([...(inspirationItems || []), ...encoded]);
     } catch {
-      setInspirationErr("Couldn’t read one of the images. Try a smaller JPG/PNG file.");
+      setInspirationErr("Couldn’t optimize one of the images. Try a smaller JPG, PNG, or WebP file.");
     }
   };
 

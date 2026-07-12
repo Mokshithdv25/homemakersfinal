@@ -35,9 +35,18 @@ export async function initNativeShell() {
     console.warn("SplashScreen:", e);
   }
 
-  if (Capacitor.getPlatform() === "android") {
-    try {
-      const { App } = await import("@capacitor/app");
+  try {
+    const { App } = await import("@capacitor/app");
+    const { handleNativeAuthCallback } = await import("./nativeAuth");
+    App.addListener("appUrlOpen", ({ url }) => {
+      void handleNativeAuthCallback(url).catch((error) => {
+        console.warn("Native auth callback:", error?.message || error);
+      });
+    });
+    const launch = await App.getLaunchUrl();
+    if (launch?.url) await handleNativeAuthCallback(launch.url);
+
+    if (Capacitor.getPlatform() === "android") {
       App.addListener("backButton", () => {
         if (window.history.length > 1) {
           window.history.back();
@@ -45,8 +54,8 @@ export async function initNativeShell() {
           App.minimizeApp();
         }
       });
-    } catch (e) {
-      console.warn("App backButton:", e);
     }
+  } catch (e) {
+    console.warn("App lifecycle:", e);
   }
 }

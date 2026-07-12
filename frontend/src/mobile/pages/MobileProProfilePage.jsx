@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Phone, MapPin, Mail, Calendar, Building2 } from "lucide-react";
+import { MapPin, Calendar, Building2 } from "lucide-react";
 import MobileHeader from "../MobileHeader";
 import { getPublicProfile } from "../../lib/api";
 import { craftLabel, proDisplayName } from "../../components/PublishedProsDirectory";
 import { getPortfolioThemeFromRecord } from "../../lib/portfolioThemes";
 import { findCraft } from "../../lib/crafts";
 import { formatLocationLabel } from "../../lib/formatLocation";
+import { blockPortfolio, reportPortfolio } from "../../lib/portfolioSafetyApi";
 
 const FALLBACK_HERO =
   "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=70";
@@ -17,6 +18,33 @@ export default function MobileProProfilePage() {
   const [pro, setPro] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const handleBlock = async () => {
+    if (!pro?.id || !window.confirm("Hide this professional from your app?")) return;
+    await blockPortfolio(pro.id);
+    navigate("/browse", { replace: true });
+  };
+
+  const handleReport = async () => {
+    if (!pro?.id) return;
+    const reason = window.prompt(
+      "Report reason: spam, harassment, sexual_content, hate_or_violence, impersonation, or other",
+      "spam",
+    );
+    if (!reason) return;
+    const details = window.prompt("Optional details for the moderation team", "") || "";
+    try {
+      await reportPortfolio(pro.id, reason.trim().toLowerCase(), details);
+      window.alert("Report received. Our moderation team may review it for safety.");
+      navigate("/browse", { replace: true });
+    } catch (error) {
+      if (/sign in/i.test(error?.message || "")) {
+        navigate(`/sign-in?mode=signin&redirect=${encodeURIComponent(`/profile/${slug}`)}`);
+      } else {
+        window.alert(error?.message || "Could not submit this report.");
+      }
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -68,7 +96,6 @@ export default function MobileProProfilePage() {
   const business = pro.business_name || "";
   const city = formatLocationLabel(pro.city) || pro.city || "";
   const exp = pro.years_experience ? `${pro.years_experience} yrs experience` : "";
-  const email = pro.email || "";
   const specialties =
     Array.isArray(pro.specialties) && pro.specialties.length > 0
       ? pro.specialties
@@ -78,7 +105,6 @@ export default function MobileProProfilePage() {
     city && { icon: MapPin, text: city },
     exp && { icon: Calendar, text: exp },
     business && { icon: Building2, text: business },
-    email && { icon: Mail, text: email },
   ].filter(Boolean);
 
   return (
@@ -100,7 +126,7 @@ export default function MobileProProfilePage() {
             </div>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 800, fontSize: 22, lineHeight: 1.15, textShadow: "0 2px 8px rgba(0,0,0,0.35)" }}>{name}</div>
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2, color: theme.accentSoft, filter: "brightness(1.1)" }}>Licensed {label}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2, color: theme.accentSoft, filter: "brightness(1.1)" }}>{label}</div>
             </div>
           </div>
         </div>
@@ -124,34 +150,14 @@ export default function MobileProProfilePage() {
           <p style={{ fontSize: 14, lineHeight: 1.6, color: "#44403C", margin: "0 0 16px" }}>{bio}</p>
         ) : null}
 
-        {pro.phone || email ? (
-          <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
-            {pro.phone ? (
-              <a
-                href={`tel:${String(pro.phone).replace(/\s/g, "")}`}
-                className="hm-m-btn-primary"
-                style={{ textDecoration: "none", flex: 1, background: theme.accent, borderColor: theme.accent }}
-              >
-                <Phone size={18} /> Call
-              </a>
-            ) : null}
-            {pro.phone ? (
-              <a
-                href={`https://wa.me/${(() => { const d = String(pro.phone).replace(/\D/g, ""); return d.length === 10 ? `91${d}` : d; })()}`}
-                target="_blank"
-                rel="noreferrer"
-                className="hm-m-btn-secondary"
-                style={{ textDecoration: "none", flex: 1 }}
-              >
-                WhatsApp
-              </a>
-            ) : email ? (
-              <a href={`mailto:${email}`} className="hm-m-btn-secondary" style={{ textDecoration: "none", flex: 1 }}>
-                <Mail size={18} /> Email
-              </a>
-            ) : null}
-          </div>
-        ) : null}
+        <button
+          type="button"
+          className="hm-m-btn-primary"
+          style={{ width: "100%", marginBottom: 18, background: theme.accent, borderColor: theme.accent }}
+          onClick={() => navigate("/build?source=portfolio")}
+        >
+          Start a project brief
+        </button>
 
         {specialties.length > 0 ? (
           <>
@@ -178,6 +184,11 @@ export default function MobileProProfilePage() {
             </div>
           </>
         ) : null}
+
+        <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 24, fontSize: 13 }}>
+          <button type="button" onClick={handleReport} style={{ border: 0, background: "transparent", color: "#78716C", textDecoration: "underline" }}>Report profile</button>
+          <button type="button" onClick={handleBlock} style={{ border: 0, background: "transparent", color: "#78716C", textDecoration: "underline" }}>Block profile</button>
+        </div>
       </div>
     </>
   );

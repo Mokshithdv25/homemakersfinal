@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
 import { Copy, Eye, LayoutGrid, CheckCircle2, Link2, QrCode, ShieldCheck } from "lucide-react";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
@@ -10,44 +10,13 @@ import {
   getPortfolioMedia,
   migrateLegacyPortfolioMedia,
   setPortfolioBase,
+  setPortfolioMedia,
 } from "../lib/portfolioStorage";
 import { publishPortfolio } from "../lib/api";
-
-/** One-shot local demo so `/live?demo=1` opens the “you’re live” + Preview as client without the wizard. */
-function seedGoLiveDemoIfNeeded() {
-  const id = "hm_livedemo1";
-  const base = {
-    id,
-    craft: "architect",
-    full_name: "Neha Verma",
-    business_name: "Verma & Associates",
-    city: "Bengaluru, Karnataka",
-    address: "Indiranagar",
-    years_experience: "8",
-    phone: "+91 80 4123 8899",
-    email: "neha@vermaarch.in",
-    license_number: "",
-    short_bio: "Residential, interiors, and sanction drawings — with a practical eye for Bangalore sites.",
-    specialties: ["Residential", "Vastu-aware layouts", "Sustainable materials"],
-    photos: [],
-    cover_photo: "",
-    profile_photo: "",
-  };
-  if (!localStorage.getItem("hm_portfolio_id")) {
-    localStorage.setItem("hm_portfolio_id", id);
-  }
-  if (!localStorage.getItem("hm_craft")) {
-    localStorage.setItem("hm_craft", "architect");
-  }
-  const prev = getPortfolioBase();
-  if (!String(prev.full_name || "").trim()) {
-    setPortfolioBase({ ...base, ...prev, ...base });
-  }
-}
+import { publicProfileUrl } from "../lib/publicWebUrl";
 
 export default function GoLive() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(null);
   const [slug, setSlug] = useState("");
@@ -56,12 +25,6 @@ export default function GoLive() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (searchParams.get("demo") === "1") {
-      seedGoLiveDemoIfNeeded();
-      navigate("/live", { replace: true });
-      return;
-    }
-
     const pid = localStorage.getItem("hm_portfolio_id");
     if (!pid) {
       navigate("/craft");
@@ -81,53 +44,46 @@ export default function GoLive() {
     }
 
     const media = getPortfolioMedia(pid);
-    const localFallback = () => {
-      const base = saved.full_name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-      const generatedSlug = `${base}-${pid.slice(-4)}`;
-      const published = { ...saved, ...media, slug: generatedSlug, published: true, step: 5, profile_strength: 100 };
-      setPortfolioBase({ ...saved, slug: generatedSlug, published: true, step: 5, profile_strength: 100 });
-      setForm(published);
-      setSlug(generatedSlug);
-      setCraft(saved.craft || "");
-      setLoading(false);
-    };
-
     (async () => {
       try {
-        let mediaForDb = media;
-        try {
-          const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
-          mediaForDb = await syncPortfolioMediaForSave(pid, media);
-          setPortfolioMedia(pid, mediaForDb);
-          const { updatePortfolio } = await import("../lib/api");
-          await updatePortfolio(pid, {
-            photos: mediaForDb.photos,
-            cover_photo: mediaForDb.cover_photo,
-            profile_photo: mediaForDb.profile_photo,
-          });
-        } catch (uploadErr) {
-          console.warn("Go live storage sync:", uploadErr);
-        }
+        const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
+        const mediaForDb = await syncPortfolioMediaForSave(pid, media);
+        setPortfolioMedia(pid, mediaForDb);
+        const { updatePortfolio } = await import("../lib/api");
+        await updatePortfolio(pid, {
+          photos: mediaForDb.photos,
+          cover_photo: mediaForDb.cover_photo,
+          profile_photo: mediaForDb.profile_photo,
+        });
         const published = await publishPortfolio(pid);
         setPortfolioBase({
           ...saved,
           slug: published.slug,
           published: true,
+          moderation_status: published.moderation_status || "pending",
           step: 5,
           profile_strength: 100,
         });
-        setForm({ ...published, ...media });
+        setForm({ ...published, ...mediaForDb });
         setSlug(published.slug || "");
         setCraft(published.craft || saved.craft || "");
         setLoading(false);
       } catch (err) {
-        console.error("Publish via backend failed, using local fallback:", err);
-        localFallback();
+        console.error("Portfolio publish failed:", err);
+        setError(err?.message || "Could not publish your portfolio. Check your connection and try again.");
+        setLoading(false);
       }
     })();
-  }, [navigate, searchParams]);
+  }, [navigate]);
 
-  const profileUrl = `${window.location.origin}/profile/${slug}`;
+  const profileUrl = publicProfileUrl(slug);
+  const profileHost = (() => {
+    try {
+      return new URL(profileUrl).host;
+    } catch {
+      return "www.homemakers.online";
+    }
+  })();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(profileUrl);
@@ -166,9 +122,19 @@ export default function GoLive() {
   };
 
   if (loading) return null;
-  if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#FBF7F2] p-10 text-center">
+        <p className="text-red-600">{error}</p>
+        <button type="button" className="hm-primary-btn mt-5" onClick={() => window.location.reload()}>
+          Try publishing again
+        </button>
+      </div>
+    );
+  }
 
   const firstName = form?.full_name?.split(" ")[0] || "User";
+  const isApproved = form?.moderation_status === "approved";
 
   return (
     <div className="relative min-h-screen bg-[#FBF7F2] overflow-x-hidden">
@@ -183,7 +149,7 @@ export default function GoLive() {
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <ProfileStrength value={100} subtext="Amazing! You're all set 🎉" />
+          <ProfileStrength value={100} subtext={isApproved ? "Approved and live" : "Submitted for review"} />
           <HmUserMenu />
         </div>
       </header>
@@ -201,14 +167,15 @@ export default function GoLive() {
           </div>
 
           <h1 className="mt-6 font-serif-display text-4xl md:text-5xl leading-[1.05] text-[#1C1917] font-medium">
-            <span className="text-3xl inline-block -ml-2 mr-1">🎉</span> You're all set, <span className="italic font-semibold text-[#C85F2B]">{firstName}!</span>
+            <span className="text-3xl inline-block -ml-2 mr-1">{isApproved ? "🎉" : "✓"}</span> {isApproved ? "You're live" : "Submitted for review"}, <span className="italic font-semibold text-[#C85F2B]">{firstName}!</span>
           </h1>
 
           <p className="mt-4 text-[15px] text-[#6A5E53] max-w-md leading-relaxed">
-            Your portfolio is live and ready to impress.<br/>
-            Share your link and start getting discovered.
+            {isApproved ? "Your portfolio is approved and visible in the directory." : "HomeMakers reviews portfolio text and images before they become public."}<br/>
+            {isApproved ? "Share your link and start getting discovered." : "You can keep editing; material changes will be reviewed again."}
           </p>
 
+          {isApproved ? <>
           <div className="mt-8 bg-white border border-[#EFE3D2] rounded-2xl p-5 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-sm font-semibold text-[#1C1917]">Your Live Portfolio Link</span>
@@ -217,7 +184,7 @@ export default function GoLive() {
             
             <div className="flex items-center gap-3">
               <div className="flex-1 bg-[#F9F5F0] border border-[#EFE3D2] rounded-xl px-4 py-3 font-medium text-[#1C1917] truncate select-all">
-                <span className="text-[#C85F2B]">{window.location.host}/profile/</span>{slug}
+                <span className="text-[#C85F2B]">{profileHost}/profile/</span>{slug}
               </div>
               <button 
                 onClick={handleCopy}
@@ -231,8 +198,13 @@ export default function GoLive() {
               <ShieldCheck size={14} /> This is your unique link. Share it anywhere!
             </div>
           </div>
+          </> : (
+            <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">
+              Your public link stays unavailable until moderation is approved. Reports are reviewed through the launch moderation queue; contact support@homemakers.online if you need help.
+            </div>
+          )}
 
-          <div className="mt-8">
+          {isApproved && <div className="mt-8">
             <div className="text-sm font-semibold text-[#1C1917] mb-1">Share your portfolio</div>
             <div className="text-[12px] text-[#7A6E62] mb-4">More shares = more clients 🚀</div>
             
@@ -261,11 +233,11 @@ export default function GoLive() {
             
             <div className="mt-3 bg-[#FFFBF6] border border-[#EFE3D2] rounded-xl px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2 text-[12px] font-medium text-[#B04F20]">
-                <span className="text-lg">⭐</span> Profiles that are shared get <strong>5x</strong> more inquiries!
+                <span className="text-lg">⭐</span> Share your profile where potential clients can find your work.
               </div>
               <div className="text-[11px] font-semibold text-[#C85F2B]">Let's get you more clients 🚀</div>
             </div>
-          </div>
+          </div>}
 
           <div className="mt-8">
             <div className="text-sm font-semibold text-[#1C1917] mb-4">What's next?</div>
@@ -277,7 +249,7 @@ export default function GoLive() {
               </div>
               <div className="bg-white border border-[#EFE3D2] rounded-xl p-4 text-center hover:shadow-sm transition-shadow">
                 <div className="w-10 h-10 bg-[#FBE5D4] rounded-full flex items-center justify-center mx-auto mb-3 text-[#C85F2B]">📈</div>
-                <div className="text-[13px] font-semibold text-[#1C1917] mb-1">Get more inquiries</div>
+                <div className="text-[13px] font-semibold text-[#1C1917] mb-1">Help people discover your work</div>
                 <div className="text-[11px] text-[#7A6E62] leading-relaxed">Share your link in groups, with past clients & on social media.</div>
               </div>
               <div className="bg-white border border-[#EFE3D2] rounded-xl p-4 text-center hover:shadow-sm transition-shadow">
@@ -290,10 +262,10 @@ export default function GoLive() {
           
           <div className="mt-10 pt-6 border-t border-[#EFE3D2] flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[12px] font-medium text-[#7A6E62]">
-              <ShieldCheck size={14} /> Your data is saved locally and private
+              <ShieldCheck size={14} /> {isApproved ? "Your approved portfolio is visible in the directory" : "Your portfolio is private while moderation is pending"}
             </div>
             <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-              <button
+              {isApproved ? <button
                 onClick={() => {
                   // Use slug from state, fallback to saved localStorage slug
                   const saved = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
@@ -303,7 +275,7 @@ export default function GoLive() {
                 className="w-full md:w-auto flex items-center justify-center gap-2 bg-white border border-[#EFE3D2] text-[#1C1917] font-semibold px-6 py-3 rounded-xl hover:bg-[#F9F5F0] transition-colors"
               >
                 <Eye size={18} /> Preview as Client
-              </button>
+              </button> : <span className="text-sm text-[#7A6E62]">Public preview becomes available after approval.</span>}
               <button
                 onClick={() => navigate("/pro/dashboard")}
                 className="w-full md:w-auto btn-continue"
@@ -333,9 +305,9 @@ export default function GoLive() {
               <CheckCircle2 size={24} />
             </div>
             <div>
-              <div className="font-semibold text-[#1C1917]">Congratulations! You're officially live.</div>
+              <div className="font-semibold text-[#1C1917]">{isApproved ? "Congratulations! You're officially live." : "Your portfolio is in review."}</div>
               <div className="text-sm text-[#7A6E62] mt-1 leading-relaxed">
-                Clients can now discover you and send inquiries.<br/>
+                {isApproved ? "People can now discover your profile and start a project brief." : "It will appear in the directory only after approval."}<br/>
                 Check your dashboard anytime to manage your profile.
               </div>
             </div>

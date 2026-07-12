@@ -1,5 +1,6 @@
 import axios from "axios";
 import { localHubAssistantReply } from "./hubAssistantCommands";
+import { withBackendAuth } from "./backendAuth";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 const isDev = process.env.NODE_ENV === "development";
@@ -34,10 +35,11 @@ export async function askHubAssistant(payload) {
   }
 
   try {
-    const { data } = await client.post("/ai/hub-assistant", {
-      message,
-      context,
-    });
+    const { data } = await client.post(
+      "/ai/hub-assistant",
+      { message, context },
+      await withBackendAuth(),
+    );
     const text = String(data?.reply || data?.text || "").trim();
     if (text) {
       return {

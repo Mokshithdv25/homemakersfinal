@@ -286,37 +286,17 @@ export function LivePreview({
                 <div className="text-[10px] text-[#A89A8C] font-medium uppercase mt-0.5">Years Exp.</div>
              </div>
              <div className="flex flex-col items-center">
-                <div className="flex items-center text-[#B04F20] font-semibold gap-1"><BriefcaseIcon /> 120+</div>
-                <div className="text-[10px] text-[#A89A8C] font-medium uppercase mt-0.5">Projects</div>
+                <div className="flex items-center text-[#B04F20] font-semibold gap-1"><ImageIcon size={14} /> {uploadedPhotos.length}</div>
+                <div className="text-[10px] text-[#A89A8C] font-medium uppercase mt-0.5">Work photos</div>
              </div>
           </div>
         </div>
       </div>
       
       {showTestimonial && (
-        <div className="mt-4 bg-[#FFFDFB] border border-[#EFE3D2] rounded-2xl p-5 relative">
-          <div className="absolute top-4 left-4 text-4xl text-[#EFE3D2] font-serif leading-none opacity-50 select-none">"</div>
-          <div className="flex items-start gap-4 z-10 relative pl-4">
-            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80" alt="Client" className="w-10 h-10 rounded-full object-cover shrink-0 mt-1" />
-            <div>
-              <div className="flex gap-0.5 mb-1 text-[#E8A84A]"><StarIcon /><StarIcon /><StarIcon /><StarIcon /><StarIcon /></div>
-              <div className="text-[13px] text-[#1C1917] leading-relaxed font-medium mb-1">
-                Very professional and punctual. Fixed all the wiring issues perfectly. Highly recommended!
-              </div>
-              <div className="text-[11px] text-[#7A6E62]">
-                – Arjun S., Bangalore
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#EFE3D2]">
-            <button className="text-[#A89A8C] hover:text-[#C85F2B] transition-colors p-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m15 18-6-6 6-6"/></svg></button>
-            <div className="flex gap-1.5">
-              <div className="w-3 h-1 bg-[#C85F2B] rounded-full"></div>
-              <div className="w-3 h-1 bg-[#EFE3D2] rounded-full"></div>
-              <div className="w-3 h-1 bg-[#EFE3D2] rounded-full"></div>
-              <div className="w-3 h-1 bg-[#EFE3D2] rounded-full"></div>
-            </div>
-            <button className="text-[#A89A8C] hover:text-[#C85F2B] transition-colors p-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m9 18 6-6-6-6"/></svg></button>
+        <div className="mt-4 bg-[#FFFDFB] border border-[#EFE3D2] rounded-2xl p-5">
+          <div className="text-[13px] text-[#1C1917] leading-relaxed font-medium">
+            Client reviews are not displayed until HomeMakers can verify that they came from a completed project.
           </div>
         </div>
       )}
@@ -332,7 +312,7 @@ export function LivePreview({
           <div>
             <div className="font-semibold text-[#1C1917]">Why complete your details?</div>
             <div className="text-sm text-[#7A6E62] mt-1 leading-relaxed">
-              Profiles with complete details get 3x more inquiries and build more trust with clients.
+              Complete, accurate profiles help potential clients understand your experience and work.
             </div>
           </div>
         </div>
@@ -343,10 +323,4 @@ export function LivePreview({
 
 function ShieldCheckIcon() {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>;
-}
-function BriefcaseIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>;
-}
-function StarIcon() {
-  return <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-[#E8A84A]"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
 }

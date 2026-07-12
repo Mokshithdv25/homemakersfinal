@@ -34,27 +34,32 @@ export default function MobileProsPage() {
   const [searchParams] = useSearchParams();
   const initialQ = searchParams.get("q") || "";
   const [service, setService] = useState(initialQ);
-  const [city, setCity] = useState("Bengaluru");
+  const [city, setCity] = useState("");
   const [craft, setCraft] = useState(null);
-  const [hasSearched, setHasSearched] = useState(Boolean(initialQ));
+  const [hasSearched, setHasSearched] = useState(true);
   const [loading, setLoading] = useState(false);
   const [all, setAll] = useState([]);
+  const [directoryError, setDirectoryError] = useState("");
 
   const fetchPros = useCallback(async (craftFilter) => {
     setLoading(true);
+    setDirectoryError("");
     try {
       const rows = await listPublishedPortfolios({ craft: craftFilter || null, city: city.trim() || null, limit: 100 });
       setAll(rows);
+    } catch (err) {
+      setDirectoryError(err?.message || "Could not load professionals. Try again.");
     } finally {
       setLoading(false);
     }
   }, [city]);
 
   useEffect(() => {
-    if (!initialQ) return;
     setHasSearched(true);
     fetchPros(null);
-  }, [initialQ, fetchPros]);
+    // Initial directory load intentionally runs once; searches are explicit after that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const results = useMemo(() => filterPros(all, service, city, craft), [all, service, city, craft]);
 
@@ -73,7 +78,7 @@ export default function MobileProsPage() {
 
   return (
     <>
-      <MobileHeader title="Marketplace" subtitle="Published pros · search to browse" />
+      <MobileHeader title="Marketplace" subtitle="Published professionals" />
       <form className="hm-m-search-bar" onSubmit={onSearch}>
         <Search size={18} color="#78716C" />
         <input placeholder="Service — architect, painter…" value={service} onChange={(e) => setService(e.target.value)} />
@@ -92,7 +97,9 @@ export default function MobileProsPage() {
           </button>
         ))}
       </div>
-      {!hasSearched ? (
+      {directoryError ? (
+        <p role="alert" style={{ padding: 16, color: "#B42318" }}>{directoryError}</p>
+      ) : !hasSearched ? (
         <p style={{ padding: "8px 16px 24px", fontSize: 14, color: "#78716C", lineHeight: 1.5 }}>
           Search or tap a trade to see professionals who completed their portfolio on HomeMakers.
         </p>

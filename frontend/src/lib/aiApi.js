@@ -1,5 +1,6 @@
 import axios from "axios";
 import { publicAsset } from "./publicAsset";
+import { withBackendAuth } from "./backendAuth";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 const isDev = process.env.NODE_ENV === "development";
@@ -18,14 +19,12 @@ const apiBase = normalizedBackendUrl
 const aiClient = apiBase
   ? axios.create({
       baseURL: apiBase,
-      timeout: 200000,
+      timeout: 240000,
     })
   : null;
 
 const WAKE_ATTEMPTS = 3;
 const WAKE_DELAY_MS = 28000;
-const IMAGE_ATTEMPTS = 3;
-const IMAGE_RETRY_DELAY_MS = 12000;
 
 export function isAiBackendConfigured() {
   return Boolean(aiClient);
@@ -281,36 +280,24 @@ export async function requestV0Images(flow, brief, { onStatus } = {}) {
     return sanitizeV0Bundle(mockV0ImagesClient(flow, safeBrief));
   }
 
-  const postImages = () =>
-    aiClient.post("/ai/v0-images", { flow, brief: safeBrief }, { timeout: 200000 });
+  const postImages = async () =>
+    aiClient.post(
+      "/ai/v0-images",
+      { flow, brief: safeBrief },
+      await withBackendAuth({ timeout: 240000 }),
+    );
 
   onStatus?.("Preparing AI design generation…");
   await wakeAiBackend(onStatus);
 
-  let lastError = null;
-
-  for (let attempt = 1; attempt <= IMAGE_ATTEMPTS; attempt++) {
-    if (attempt > 1) {
-      onStatus?.(`Generating concepts… (attempt ${attempt} of ${IMAGE_ATTEMPTS})`);
-      await sleep(IMAGE_RETRY_DELAY_MS);
-    } else {
-      onStatus?.("Generating your design pack… (about 1–3 minutes)");
-    }
-
-    try {
-      const { data } = await postImages();
-      if (bundleHasGrokConcepts(data)) {
-        onStatus?.("Design concepts ready.");
-        const merged = mergeFloorPlansFromTemplate(data, flow, safeBrief);
-        return sanitizeV0Bundle(merged);
-      }
-      lastError = new Error("AI did not return generated concept images yet.");
-    } catch (err) {
-      lastError = err;
-    }
+  onStatus?.("Generating your design pack… (about 1–3 minutes)");
+  const { data } = await postImages();
+  if (bundleHasGrokConcepts(data)) {
+    onStatus?.("Design concepts ready.");
+    const merged = mergeFloorPlansFromTemplate(data, flow, safeBrief);
+    return sanitizeV0Bundle(merged);
   }
-
-  throw lastError || new Error("Could not generate design images. Wait a minute and tap Regenerate.");
+  throw new Error("AI did not return generated concept images. Wait a minute and tap Regenerate.");
 }
 
 /**
@@ -324,11 +311,15 @@ export async function requestEstimatePlan(flow, brief, imageBundle = null) {
     await fallbackDelay();
     return sanitizePlanBundle(mockEstimateClient(flow, brief));
   }
-  const { data } = await aiClient.post("/ai/estimate-plan", {
-    flow,
-    brief,
-    image_bundle: imageBundle,
-  });
+  const { data } = await aiClient.post(
+    "/ai/estimate-plan",
+    {
+      flow,
+      brief,
+      image_bundle: imageBundle,
+    },
+    await withBackendAuth(),
+  );
   return sanitizePlanBundle(data);
 }
 

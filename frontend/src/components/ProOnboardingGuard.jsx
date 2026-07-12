@@ -9,19 +9,21 @@ export default function ProOnboardingGuard({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const session = useHmSession();
+  const authLoading = session === undefined;
   const signedIn = Boolean(session?.supabaseUserId);
   const returnPath = `${location.pathname}${location.search}`;
 
   useEffect(() => {
     if (!AUTH_UI_ENABLED) return;
+    if (authLoading) return;
     if (!signedIn) {
       navigate(`/sign-in?mode=signup&role=pro&redirect=${encodeURIComponent(returnPath)}`, { replace: true });
     }
-  }, [signedIn, navigate, returnPath]);
+  }, [authLoading, signedIn, navigate, returnPath]);
 
   if (!AUTH_UI_ENABLED) return children;
 
-  if (!signedIn) {
+  if (authLoading || !signedIn) {
     return (
       <div className="min-h-screen bg-[#FBF7F2] flex items-center justify-center">
         <Loader2 className="w-7 h-7 animate-spin text-[#C85F2B]" />

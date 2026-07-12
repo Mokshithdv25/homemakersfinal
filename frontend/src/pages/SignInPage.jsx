@@ -9,6 +9,8 @@ import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } fr
 import { getSupabase, isSupabaseConfigured, getSupabaseInitError } from "../lib/supabaseClient";
 import { fetchUserProfile, upsertUserProfile } from "../lib/userProfileApi";
 import { establishHmSession, getPostLoginPath } from "../lib/hmAuth";
+import { authCallbackUrl, openNativeAuthUrl } from "../lib/nativeAuth";
+import { isNativeApp, nativePlatform } from "../lib/capacitorPlatform";
 
 /**
  * Sign-in: Supabase Auth — email/password when env vars are set.
@@ -48,6 +50,9 @@ export default function SignInPage() {
   const [authError, setAuthError] = useState("");
   const [authNotice, setAuthNotice] = useState("");
   const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState("");
+  const [passwordRecovery, setPasswordRecovery] = useState(
+    () => searchParams.get("recovery") === "1" || window.location.hash.includes("type=recovery"),
+  );
 
   const isSignUp = mode === "signup";
   const showPhoneOtp = process.env.NODE_ENV === "development";
@@ -59,7 +64,34 @@ export default function SignInPage() {
   useEffect(() => {
     if (searchParams.get("mode") === "signup") setMode("signup");
     if (searchParams.get("role") === "pro") setAccountRole("pro");
+    if (searchParams.get("native_error")) {
+      setStep("entry");
+      setMode("signin");
+      setLoading(false);
+      setAuthNotice("");
+      setAuthError("Sign-in could not be completed. Please try again or use email sign-in.");
+    }
+    if (searchParams.get("recovery") === "1") {
+      setPasswordRecovery(true);
+      setMode("signin");
+    }
   }, [searchParams]);
+
+  useEffect(() => {
+    const sb = getSupabase();
+    if (!sb) return undefined;
+    const {
+      data: { subscription },
+    } = sb.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setPasswordRecovery(true);
+        setMode("signin");
+        setStep("entry");
+        setAuthError("");
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const goBack = () => {
     if (window.history.length > 1) navigate(-1);
@@ -76,7 +108,9 @@ export default function SignInPage() {
 
   const authEmailRedirectTo = () => {
     const redirect = redirectFromQuery || (accountRole === "pro" ? "/pro/dashboard" : "/project");
-    return `${window.location.origin}/sign-in?mode=signin&redirect=${encodeURIComponent(redirect)}`;
+    return authCallbackUrl(
+      `/sign-in?mode=signin&confirmed=1&redirect=${encodeURIComponent(redirect)}`,
+    );
   };
 
   const handleResendConfirmation = async () => {
@@ -150,7 +184,7 @@ export default function SignInPage() {
     setStep("details");
   };
 
-  // Finish Google OAuth: after redirect back, pick up the session and continue.
+  // Finish OAuth or email confirmation after the browser/native callback returns.
   useEffect(() => {
     let pending = null;
     try {
@@ -158,13 +192,25 @@ export default function SignInPage() {
     } catch (_) {
       /* ignore */
     }
-    if (!pending) return undefined;
+    const callbackPending =
+      pending ||
+      searchParams.get("confirmed") === "1" ||
+      searchParams.get("oauth") === "1" ||
+      searchParams.get("recovery") === "1" ||
+      window.location.hash.includes("access_token=");
+    if (!callbackPending) return undefined;
     const sb = getSupabase();
     if (!sb) return undefined;
 
     let cancelled = false;
     const finish = async (session) => {
       if (cancelled || !session?.user) return;
+      if (searchParams.get("recovery") === "1" || window.location.hash.includes("type=recovery")) {
+        setPasswordRecovery(true);
+        setMode("signin");
+        setLoading(false);
+        return;
+      }
       try {
         localStorage.removeItem("hm_oauth_pending");
       } catch (_) {
@@ -191,7 +237,7 @@ export default function SignInPage() {
       subscription.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   const handleGoogleSignIn = async () => {
     const sb = getSupabase();
@@ -209,13 +255,19 @@ export default function SignInPage() {
       }
       const params = new URLSearchParams({ role: accountRole });
       if (redirectFromQuery) params.set("redirect", redirectFromQuery);
-      const { error } = await sb.auth.signInWithOAuth({
+      const nextPath = `/sign-in?oauth=1&${params.toString()}`;
+      const { data, error } = await sb.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/sign-in?${params.toString()}`,
+          redirectTo: authCallbackUrl(nextPath),
+          skipBrowserRedirect: isNativeApp(),
         },
       });
       if (error) throw error;
+      if (isNativeApp()) {
+        if (!data?.url) throw new Error("Google sign-in did not return an authorization URL.");
+        await openNativeAuthUrl(data.url);
+      }
       // Browser is navigating to Google — leave loading on.
     } catch (err) {
       try {
@@ -245,7 +297,11 @@ export default function SignInPage() {
     setLoading(true);
     try {
       const { error } = await sb.auth.resetPasswordForEmail(email, {
-        redirectTo: authEmailRedirectTo(),
+        redirectTo: authCallbackUrl(
+          `/sign-in?recovery=1&redirect=${encodeURIComponent(
+            redirectFromQuery || "/account/settings",
+          )}`,
+        ),
       });
       if (error) throw error;
       setAuthNotice("If that email is registered, we sent a reset link. Check your inbox.");
@@ -256,11 +312,49 @@ export default function SignInPage() {
     }
   };
 
+  const handleUpdatePassword = async () => {
+    if (authPassword.length < 8) {
+      setAuthError("Password must be at least 8 characters.");
+      return;
+    }
+    if (authPassword !== confirmPassword) {
+      setAuthError("Passwords do not match.");
+      return;
+    }
+    const sb = getSupabase();
+    if (!sb) {
+      setAuthError("Sign-in is not available on this deployment.");
+      return;
+    }
+    setLoading(true);
+    setAuthError("");
+    setAuthNotice("");
+    try {
+      const { error } = await sb.auth.updateUser({ password: authPassword });
+      if (error) throw error;
+      const {
+        data: { session },
+      } = await sb.auth.getSession();
+      setPasswordRecovery(false);
+      setAuthPassword("");
+      setConfirmPassword("");
+      if (session) {
+        await tryFinishEmailAuth(session);
+      } else {
+        setAuthNotice("Password updated. Sign in with your new password.");
+      }
+    } catch (err) {
+      setAuthError(err?.message || "Could not update your password. Request a new reset link.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleEmailSignIn = async () => {
     if (!authEmail || !authPassword) return;
     if (isSignUp && authPassword !== confirmPassword) return;
-    if (authPassword.length < 6) {
-      setAuthError("Password must be at least 6 characters.");
+    if (authPassword.length < 8) {
+      setAuthError("Password must be at least 8 characters.");
       return;
     }
     setAuthError("");
@@ -463,15 +557,18 @@ export default function SignInPage() {
               >
                 <div className="text-center">
                   <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-2">
-                    {isSignUp ? "Create Account" : "Sign In"}
+                    {passwordRecovery ? "Set a new password" : isSignUp ? "Create Account" : "Sign In"}
                   </h2>
                   <p className="text-muted-foreground font-body text-base">
-                    {isSignUp
+                    {passwordRecovery
+                      ? "Choose a secure password and confirm it below."
+                      : isSignUp
                       ? "Join HomeMakers and bring your dream home to life."
                       : "Sign in to start your homemaking journey."}
                   </p>
                 </div>
 
+                {!passwordRecovery && (
                   <div className="rounded-xl border-2 border-border p-1.5 bg-card">
                     <div className="grid grid-cols-2 gap-1.5">
                       <button
@@ -503,6 +600,7 @@ export default function SignInPage() {
                         : "Save projects and pick up where you left off on any device."}
                     </p>
                   </div>
+                )}
 
                   {!supabaseConfigured ? (
                     <p className="rounded-lg border border-amber-500/40 bg-amber-50 px-3 py-2 font-body text-sm text-amber-900">
@@ -544,7 +642,7 @@ export default function SignInPage() {
                     </div>
                   ) : null}
 
-                  {showPhoneOtp ? (
+                  {showPhoneOtp && !passwordRecovery ? (
                     <div className="flex rounded-xl border-2 border-border overflow-hidden">
                       <button
                         type="button"
@@ -574,7 +672,7 @@ export default function SignInPage() {
                   ) : null}
 
                   {/* Phone Input */}
-                  {showPhoneOtp && authMethod === "phone" && (
+                  {showPhoneOtp && !passwordRecovery && authMethod === "phone" && (
                     <>
                       <div className="space-y-3">
                         <Label className="font-body text-sm font-semibold block">
@@ -616,28 +714,32 @@ export default function SignInPage() {
                   )}
 
                   {/* Email Input */}
-                  {(!showPhoneOtp || authMethod === "email") && (
+                  {(passwordRecovery || !showPhoneOtp || authMethod === "email") && (
                     <>
                       <div className="space-y-4">
+                        {!passwordRecovery && (
+                          <div>
+                            <Label className="font-body text-sm font-semibold mb-1.5 block">
+                              Email Address
+                            </Label>
+                            <Input
+                              type="email"
+                              autoComplete="email"
+                              placeholder="you@example.com"
+                              value={authEmail}
+                              onChange={(e) => setAuthEmail(e.target.value)}
+                              className="font-body rounded-xl border-2 h-12"
+                            />
+                          </div>
+                        )}
                         <div>
                           <Label className="font-body text-sm font-semibold mb-1.5 block">
-                            Email Address
-                          </Label>
-                          <Input
-                            type="email"
-                            placeholder="you@example.com"
-                            value={authEmail}
-                            onChange={(e) => setAuthEmail(e.target.value)}
-                            className="font-body rounded-xl border-2 h-12"
-                          />
-                        </div>
-                        <div>
-                          <Label className="font-body text-sm font-semibold mb-1.5 block">
-                            {isSignUp ? "Create Password" : "Password"}
+                            {passwordRecovery ? "New Password" : isSignUp ? "Create Password" : "Password"}
                           </Label>
                           <Input
                             type="password"
-                            placeholder={isSignUp ? "Min. 8 characters" : "Enter your password"}
+                            autoComplete={isSignUp || passwordRecovery ? "new-password" : "current-password"}
+                            placeholder={isSignUp || passwordRecovery ? "Min. 8 characters" : "Enter your password"}
                             value={authPassword}
                             onChange={(e) => setAuthPassword(e.target.value)}
                             onKeyDown={(e) => {
@@ -645,7 +747,7 @@ export default function SignInPage() {
                             }}
                             className="font-body rounded-xl border-2 h-12"
                           />
-                          {!isSignUp && (
+                          {!isSignUp && !passwordRecovery && (
                             <div className="flex justify-end mt-1">
                               <button
                                 type="button"
@@ -658,13 +760,14 @@ export default function SignInPage() {
                             </div>
                           )}
                         </div>
-                        {isSignUp && (
+                        {(isSignUp || passwordRecovery) && (
                           <div>
                             <Label className="font-body text-sm font-semibold mb-1.5 block">
                               Confirm Password
                             </Label>
                             <Input
                               type="password"
+                              autoComplete="new-password"
                               placeholder="Re-enter your password"
                               value={confirmPassword}
                               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -685,8 +788,13 @@ export default function SignInPage() {
                       </div>
 
                       <Button
-                        onClick={handleEmailSignIn}
-                        disabled={!authEmail || !authPassword || (isSignUp && authPassword !== confirmPassword) || loading}
+                        onClick={passwordRecovery ? handleUpdatePassword : handleEmailSignIn}
+                        disabled={
+                          loading ||
+                          !authPassword ||
+                          (!passwordRecovery && !authEmail) ||
+                          ((isSignUp || passwordRecovery) && authPassword !== confirmPassword)
+                        }
                         className="w-full gradient-copper text-primary-foreground font-body rounded-xl py-6 text-sm font-semibold"
                       >
                         {loading ? (
@@ -695,11 +803,11 @@ export default function SignInPage() {
                           <Mail className="w-4 h-4 mr-2" />
                         )}
                         {loading
-                          ? (isSignUp ? "Creating account..." : "Signing in...")
-                          : (isSignUp ? "Create Account" : "Sign In with Email")}
+                          ? (passwordRecovery ? "Updating password..." : isSignUp ? "Creating account..." : "Signing in...")
+                          : (passwordRecovery ? "Save New Password" : isSignUp ? "Create Account" : "Sign In with Email")}
                       </Button>
 
-                      {supabaseConfigured ? (
+                      {supabaseConfigured && !passwordRecovery && !(isNativeApp() && nativePlatform() === "ios") ? (
                         <>
                           <div className="flex items-center gap-3">
                             <div className="h-px flex-1 bg-border" />
@@ -726,15 +834,15 @@ export default function SignInPage() {
                     </>
                   )}
 
-                  <p className="text-muted-foreground font-body text-[11px] text-center leading-relaxed">
+                  {!passwordRecovery && <p className="text-muted-foreground font-body text-[11px] text-center leading-relaxed">
                     By continuing, you agree to HomeMakers&apos;{" "}
                     <button type="button" onClick={() => navigate("/terms")} className="text-copper hover:underline">Terms of Service</button>
                     {" "}and{" "}
                     <button type="button" onClick={() => navigate("/privacy")} className="text-copper hover:underline">Privacy Policy</button>
-                  </p>
+                  </p>}
 
                   {/* Mode Toggle */}
-                  <div className="pt-2 border-t border-border">
+                  {!passwordRecovery && <div className="pt-2 border-t border-border">
                     <p className="text-center font-body text-sm text-muted-foreground">
                       {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
                       <button
@@ -750,7 +858,7 @@ export default function SignInPage() {
                         {isSignUp ? "Sign In" : "Sign Up"}
                       </button>
                     </p>
-                  </div>
+                  </div>}
                 </motion.div>
               )}
 

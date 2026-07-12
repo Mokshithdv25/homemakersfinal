@@ -1,0 +1,17 @@
+{
+  "name": "HomeMakers",
+  "short_name": "HomeMakers",
+  "description": "Design, plan, and manage an Indian home project.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF7F2",
+  "theme_color": "#C85F2B",
+  "icons": [
+    {
+      "src": "/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

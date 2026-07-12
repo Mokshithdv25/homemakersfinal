@@ -4,7 +4,14 @@ import MobileHeader from "../MobileHeader";
 import { useMobileHub } from "../hooks/useMobileHub";
 import { flowTypeLabel, projectStatusLabel } from "../mobileIA";
 import { AUTH_UI_ENABLED, PROJECT_HUB_DEMO_MODE } from "../../lib/authMode";
-import { formatInrShort, loadProjectBoard } from "../../lib/projectFlowApi";
+import {
+  addProjectTask,
+  derivePhaseProgress,
+  formatInrShort,
+  loadProjectBoard,
+  setProjectStageStatus,
+  setProjectTaskDone,
+} from "../../lib/projectFlowApi";
 import { buildSignInRedirect } from "../../lib/requireHomeownerAuth";
 import { buildHubAssistantContext } from "../../lib/hubAssistantContext";
 import HmProjectAssistant from "../../components/HmProjectAssistant";
@@ -16,15 +23,7 @@ const PROJECT_TOOLS = [
   { label: "Design journey", path: "/project/journey", icon: "🧭" },
   { label: "Find pros", path: "/project/browse", icon: "👷" },
   { label: "Team", path: "/team", icon: "👥" },
-  { label: "Shop", path: "/project/shop", icon: "🛒" },
-];
-
-const DEFAULT_PHASES = [
-  { name: "Design & approval", pct: 8, color: "#C85F2B" },
-  { name: "Sourcing", pct: 0, color: "#F59E0B" },
-  { name: "Foundation", pct: 0, color: "#22A36B" },
-  { name: "Structure", pct: 0, color: "#2A6496" },
-  { name: "Finishing", pct: 0, color: "#A8A29E" },
+  { label: "Payments", path: "/project/payments", icon: "💳" },
 ];
 
 export default function MobileProjectPage() {
@@ -52,16 +51,30 @@ export default function MobileProjectPage() {
       : null;
 
   const [board, setBoard] = useState(null);
+  const [boardLoading, setBoardLoading] = useState(false);
+  const [boardError, setBoardError] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskSaving, setTaskSaving] = useState(false);
 
   useEffect(() => {
     if (!project?.id) {
       setBoard(null);
+      setBoardError("");
       return;
     }
     let cancelled = false;
     (async () => {
-      const data = await loadProjectBoard({ projectId: project.id, source: project.source });
-      if (!cancelled) setBoard(data);
+      setBoardLoading(true);
+      setBoardError("");
+      try {
+        const data = await loadProjectBoard({ projectId: project.id, source: project.source });
+        if (!data) throw new Error("This project could not be loaded for the signed-in account.");
+        if (!cancelled) setBoard(data);
+      } catch (err) {
+        if (!cancelled) setBoardError(err?.message || "Could not load this project.");
+      } finally {
+        if (!cancelled) setBoardLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -69,10 +82,66 @@ export default function MobileProjectPage() {
   }, [project?.id, project?.source]);
 
   const hubQuery = project?.id ? `?projectId=${encodeURIComponent(project.id)}` : "";
-  const boardTasks = board?.tasks || [];
-  const boardMsgs = board?.messages || [];
-  const boardPhases = board?.phases || DEFAULT_PHASES;
-  const activePhase = boardPhases.find((p) => p.status === "In Progress")?.name || boardPhases[0]?.name || "Design & approval";
+  const boardTasks = useMemo(() => board?.tasks || [], [board?.tasks]);
+  const boardMsgs = useMemo(() => board?.messages || [], [board?.messages]);
+  const boardPhases = useMemo(() => board?.phases || [], [board?.phases]);
+  const activePhase = boardPhases.find((p) => p.status === "In Progress")?.name || boardPhases[0]?.name || "";
+
+  const saveTask = async (event) => {
+    event.preventDefault();
+    const titleValue = taskTitle.trim();
+    if (!project?.id || !titleValue || !activePhase) return;
+    setTaskSaving(true);
+    setBoardError("");
+    try {
+      const id = await addProjectTask({ projectId: project.id, title: titleValue, phaseName: activePhase });
+      setBoard((current) => ({
+        ...current,
+        tasks: [...(current?.tasks || []), { id, name: titleValue, phase: activePhase, done: false, date: "Just now", assignee: "Team" }],
+        phases: derivePhaseProgress(current?.phases || [], [...(current?.tasks || []), { id, name: titleValue, phase: activePhase, done: false }]),
+      }));
+      setTaskTitle("");
+    } catch (err) {
+      setBoardError(err?.message || "Could not save the task.");
+    } finally {
+      setTaskSaving(false);
+    }
+  };
+
+  const toggleTask = async (task) => {
+    setBoardError("");
+    try {
+      await setProjectTaskDone(task.id, !task.done);
+      setBoard((current) => ({
+        ...current,
+        tasks: (current?.tasks || []).map((row) => row.id === task.id ? { ...row, done: !row.done } : row),
+        phases: derivePhaseProgress(
+          current?.phases || [],
+          (current?.tasks || []).map((row) => row.id === task.id ? { ...row, done: !row.done } : row),
+        ),
+      }));
+    } catch (err) {
+      setBoardError(err?.message || "Could not update the task.");
+    }
+  };
+
+  const changeStageStatus = async (event) => {
+    const stage = boardPhases.find((row) => row.name === activePhase);
+    if (!stage?.id || !project?.id) return;
+    const status = event.target.value;
+    if (status === "done" && stage.pct < 100) {
+      setBoardError("Complete every checklist task before marking this stage done.");
+      return;
+    }
+    setBoardError("");
+    try {
+      await setProjectStageStatus(stage.id, project.id, status);
+      const label = status === "done" ? "Done" : status === "blocked" ? "Blocked" : status === "in_progress" ? "In Progress" : "Upcoming";
+      setBoard((current) => ({ ...current, phases: (current?.phases || []).map((row) => row.id === stage.id ? { ...row, status: label, pct: status === "done" ? 100 : row.pct } : row) }));
+    } catch (err) {
+      setBoardError(err?.message || "Could not update the stage status.");
+    }
+  };
 
   const assistantContext = useMemo(
     () =>
@@ -198,9 +267,15 @@ export default function MobileProjectPage() {
             </div>
           ) : null}
 
+          {boardError ? <p role="alert" style={{ padding: "10px 16px", color: "#B42318", fontSize: 13 }}>{boardError}</p> : null}
           <p className="hm-m-section-title">Phases</p>
+          {boardLoading ? (
+            <p style={{ padding: "0 16px", color: "#78716C", fontSize: 13 }}>Loading saved project…</p>
+          ) : boardPhases.length === 0 ? (
+            <p style={{ padding: "0 16px", color: "#78716C", fontSize: 13 }}>No saved phases are available for this project.</p>
+          ) : (
           <div className="hm-m-phase-scroll">
-            {DEFAULT_PHASES.map((ph) => (
+            {boardPhases.map((ph) => (
               <div key={ph.name} className="hm-m-phase-card">
                 <div style={{ fontSize: 13, fontWeight: 700 }}>{ph.name}</div>
                 <div style={{ fontSize: 12, color: "#78716C", marginTop: 6 }}>{ph.pct}%</div>
@@ -210,13 +285,49 @@ export default function MobileProjectPage() {
               </div>
             ))}
           </div>
+          )}
+          {activePhase ? (
+            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", fontSize: 13, fontWeight: 700 }}>
+              {activePhase} status
+              <select value={boardPhases.find((row) => row.name === activePhase)?.status === "Done" ? "done" : boardPhases.find((row) => row.name === activePhase)?.status === "Blocked" ? "blocked" : boardPhases.find((row) => row.name === activePhase)?.status === "In Progress" ? "in_progress" : "upcoming"} onChange={changeStageStatus} style={{ flex: 1, padding: 9, border: "1px solid #E5DED6", borderRadius: 8, background: "#fff" }}>
+                <option value="upcoming">Upcoming</option><option value="in_progress">In progress</option><option value="blocked">Blocked</option><option value="done" disabled={(boardPhases.find((row) => row.name === activePhase)?.pct || 0) < 100}>Done — checklist complete</option>
+              </select>
+            </label>
+          ) : null}
+
+          <p className="hm-m-section-title" style={{ marginTop: 16 }}>Tasks</p>
+          <div style={{ padding: "0 16px" }}>
+            <form onSubmit={saveTask} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <input
+                value={taskTitle}
+                onChange={(event) => setTaskTitle(event.target.value)}
+                placeholder={activePhase ? `Add a task to ${activePhase}` : "Project phases are still loading"}
+                disabled={!activePhase || taskSaving}
+                style={{ flex: 1, minWidth: 0, border: "1px solid #E7DED3", borderRadius: 10, padding: "10px 12px" }}
+              />
+              <button type="submit" className="hm-m-btn-primary" disabled={!taskTitle.trim() || !activePhase || taskSaving} style={{ width: "auto", padding: "0 16px" }}>
+                {taskSaving ? "Saving…" : "Add"}
+              </button>
+            </form>
+            {boardTasks.length === 0 ? (
+              <p style={{ color: "#78716C", fontSize: 13 }}>No saved tasks yet.</p>
+            ) : boardTasks.map((task) => (
+              <label key={task.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 0", borderBottom: "1px solid #F0E8DF" }}>
+                <input type="checkbox" checked={Boolean(task.done)} onChange={() => toggleTask(task)} />
+                <span style={{ flex: 1, fontSize: 14, textDecoration: task.done ? "line-through" : "none" }}>
+                  {task.name}
+                  <small style={{ display: "block", color: "#78716C", marginTop: 3 }}>{task.phase}</small>
+                </span>
+              </label>
+            ))}
+          </div>
 
           <p className="hm-m-section-title" style={{ marginTop: 16 }}>
             Project hub
           </p>
           <div className="hm-m-grid-2" style={{ padding: "0 16px 24px" }}>
             {PROJECT_TOOLS.map((link) => (
-              <button key={link.path} type="button" className="hm-m-quick" onClick={() => navigate(link.path)}>
+              <button key={link.path} type="button" className="hm-m-quick" onClick={() => navigate(`${link.path}${hubQuery}`)}>
                 <span className="hm-m-quick-icon">{link.icon}</span>
                 <span className="hm-m-quick-label">{link.label}</span>
               </button>

@@ -75,7 +75,6 @@ export default function HmUserMenu({ className = "" }) {
 
   const handleSignOut = () => {
     setOpen(false);
-    navigate("/", { replace: true });
     void signOutHm();
   };
 

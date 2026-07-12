@@ -95,7 +95,8 @@ export default function CraftSelection() {
     setSubmitting(true);
     try {
       const created = await createPortfolio(selected);
-      const id = created?.id || `hm_${Date.now()}`;
+      if (!created?.id) throw new Error("The server did not return a portfolio ID.");
+      const id = created.id;
       localStorage.setItem("hm_portfolio_id", id);
       localStorage.setItem("hm_craft", selected);
       // Keep local cache for offline/fallback pages.
@@ -110,25 +111,8 @@ export default function CraftSelection() {
       setSubmitting(false);
       navigate("/details");
     } catch (err) {
-      console.error("Create portfolio failed, falling back to local only:", err);
-      // Fallback path keeps existing behavior if API is unavailable.
-      const id = `hm_${Date.now()}`;
-      localStorage.setItem("hm_portfolio_id", id);
-      localStorage.setItem("hm_craft", selected);
-      const portfolio = {
-        id,
-        craft: selected,
-        portfolio_theme: DEFAULT_PORTFOLIO_THEME_ID,
-        portfolio_layout: DEFAULT_PORTFOLIO_LAYOUT,
-        full_name: "", business_name: "", city: "",
-        years_experience: "", phone: "", email: "", license_number: "",
-        short_bio: "", specialties: [], photos: [],
-        cover_photo: "", profile_photo: "",
-        profile_strength: 25, step: 1, published: false, slug: null
-      };
-      localStorage.setItem("hm_portfolio", JSON.stringify(portfolio));
-      setError("Could not reach server, using local draft mode.");
-      navigate("/details");
+      console.error("Create portfolio failed:", err);
+      setError(err?.message || "Could not create your portfolio. Check your connection and try again.");
       setSubmitting(false);
     }
   };

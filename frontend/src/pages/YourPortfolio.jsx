@@ -118,27 +118,18 @@ export default function YourPortfolio() {
       const media = getPortfolioMedia(portfolioId);
       
       const mediaPayload = { ...media, photos: form.photos || [] };
-      let mediaForDb = mediaPayload;
-      try {
-        const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
-        mediaForDb = await syncPortfolioMediaForSave(portfolioId, mediaPayload);
-      } catch (uploadErr) {
-        console.warn("Portfolio storage upload:", uploadErr);
-      }
+      const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
+      const mediaForDb = await syncPortfolioMediaForSave(portfolioId, mediaPayload);
       setPortfolioMedia(portfolioId, mediaForDb);
       const updated = { ...saved, step: 4, profile_strength: 80 };
       setPortfolioBase(updated);
-      try {
-        await updatePortfolio(portfolioId, {
-          photos: mediaForDb.photos || [],
-          cover_photo: mediaForDb.cover_photo,
-          profile_photo: mediaForDb.profile_photo,
-          step: 4,
-          profile_strength: 80,
-        });
-      } catch (apiErr) {
-        console.error("Backend save failed on portfolio step:", apiErr);
-      }
+      await updatePortfolio(portfolioId, {
+        photos: mediaForDb.photos || [],
+        cover_photo: mediaForDb.cover_photo,
+        profile_photo: mediaForDb.profile_photo,
+        step: 4,
+        profile_strength: 80,
+      });
       setError(null);
       
       if (nextRoute) {
@@ -148,7 +139,7 @@ export default function YourPortfolio() {
       }
     } catch (err) {
       console.error(err);
-      setError("Storage is full in this browser. Remove some photos and try again.");
+      setError(err?.message || "Could not save your portfolio. Check your connection and try again.");
     }
   };
 

@@ -11,6 +11,7 @@ import MobileAccountPage from "./pages/MobileAccountPage";
 import MobilePhotoPage from "./pages/MobilePhotoPage";
 import MobileDocumentsPage from "./pages/MobileDocumentsPage";
 import MobileTeamPage from "./pages/MobileTeamPage";
+import MobilePaymentsPage from "./pages/MobilePaymentsPage";
 import MobileShopPage from "./pages/MobileShopPage";
 import MobileDesignJourneyPage from "./pages/MobileDesignJourneyPage";
 import MobileProProfilePage from "./pages/MobileProProfilePage";
@@ -71,7 +72,7 @@ export default function MobileAppRoutes() {
       <Route path="/browse" element={withShell(MobileProsPage)} />
       <Route path="/marketplace" element={<Navigate to="/browse" replace />} />
       <Route path="/project/browse" element={withShell(MobileProsPage)} />
-      <Route path="/project" element={withShell(MobileProjectPage)} />
+      <Route path="/project" element={<HomeownerFlowGuard>{withShell(MobileProjectPage)}</HomeownerFlowGuard>} />
       <Route path="/account" element={withShell(MobileAccountPage)} />
       <Route
         path="/account/settings"
@@ -98,9 +99,10 @@ export default function MobileAppRoutes() {
       />
       <Route path="/shop" element={withShell(MobileShopPage)} />
       <Route path="/project/shop" element={withShell(MobileShopPage)} />
-      <Route path="/documents" element={withShell(MobileDocumentsPage)} />
-      <Route path="/team" element={withShell(MobileTeamPage)} />
-      <Route path="/project/journey" element={withShell(MobileDesignJourneyPage)} />
+      <Route path="/documents" element={<HomeownerFlowGuard>{withShell(MobileDocumentsPage)}</HomeownerFlowGuard>} />
+      <Route path="/team" element={<HomeownerFlowGuard>{withShell(MobileTeamPage)}</HomeownerFlowGuard>} />
+      <Route path="/project/payments" element={<HomeownerFlowGuard>{withShell(MobilePaymentsPage)}</HomeownerFlowGuard>} />
+      <Route path="/project/journey" element={<HomeownerFlowGuard>{withShell(MobileDesignJourneyPage)}</HomeownerFlowGuard>} />
       <Route path="/profile/:slug" element={withShell(MobileProProfilePage)} />
       <Route path="/craft" element={<ProOnboardingGuard><MobileWizardLayout title="Your craft" subtitle="Pro portfolio onboarding" backTo="/account"><CraftSelection /></MobileWizardLayout></ProOnboardingGuard>} />
       <Route path="/details" element={<ProOnboardingGuard><MobileWizardLayout title="Your details" subtitle="Business & contact" backTo="/craft"><YourDetails /></MobileWizardLayout></ProOnboardingGuard>} />

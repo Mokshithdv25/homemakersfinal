@@ -1,25 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { MapPin, Calendar, Building2, Mail, Phone, MessageCircle } from "lucide-react";
+import { MapPin, Calendar, Building2 } from "lucide-react";
 import { findCraft } from "../lib/crafts";
-import {
-  getPortfolioBase,
-  getPortfolioMedia,
-  migrateLegacyPortfolioMedia,
-} from "../lib/portfolioStorage";
 import { getPublicProfile } from "../lib/api";
 import { formatLocationLabel } from "../lib/formatLocation";
 import { getPortfolioThemeFromRecord, portfolioThemeCssVars } from "../lib/portfolioThemes";
+import { blockPortfolio, reportPortfolio } from "../lib/portfolioSafetyApi";
 import "./PortfolioPage.css";
 
 const FALLBACK_HERO = `${process.env.PUBLIC_URL || ""}/landing-hero.png`;
-
-function waLink(phone) {
-  const digits = String(phone || "").replace(/\D/g, "");
-  if (!digits) return null;
-  const full = digits.length === 10 ? `91${digits}` : digits;
-  return `https://wa.me/${full}`;
-}
 
 export default function PortfolioPage() {
   const { slug } = useParams();
@@ -27,22 +16,40 @@ export default function PortfolioPage() {
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
+  const handleBlock = async () => {
+    if (!data?.id || !window.confirm("Hide this professional from your directory and profile results?")) return;
+    await blockPortfolio(data.id);
+    navigate("/browse", { replace: true });
+  };
+
+  const handleReport = async () => {
+    if (!data?.id) return;
+    const reason = window.prompt(
+      "Report reason: spam, harassment, sexual_content, hate_or_violence, impersonation, or other",
+      "spam",
+    );
+    if (!reason) return;
+    const details = window.prompt("Optional details for the moderation team", "") || "";
+    try {
+      await reportPortfolio(data.id, reason.trim().toLowerCase(), details);
+      window.alert("Report received. Our moderation team may review it for safety.");
+      navigate("/browse", { replace: true });
+    } catch (error) {
+      if (/sign in/i.test(error?.message || "")) {
+        navigate(`/sign-in?mode=signin&redirect=${encodeURIComponent(`/profile/${slug}`)}`);
+      } else {
+        window.alert(error?.message || "Could not submit this report.");
+      }
+    }
+  };
+
   useEffect(() => {
-    const pid = localStorage.getItem("hm_portfolio_id") || "";
-    migrateLegacyPortfolioMedia(pid);
-    const saved = getPortfolioBase();
-    const media = getPortfolioMedia(pid);
-    const full = { ...saved, ...media };
     (async () => {
       try {
         const remote = await getPublicProfile(slug);
         setData(remote);
       } catch {
-        if (full?.published && full.slug === slug) {
-          setData(full);
-        } else {
-          setNotFound(true);
-        }
+        setNotFound(true);
       }
     })();
   }, [slug]);
@@ -78,9 +85,6 @@ export default function PortfolioPage() {
   const business = data.business_name || "";
   const bio = data.short_bio || "";
   const specs = data.specialties?.length > 0 ? data.specialties : (craft?.specialties?.slice(0, 5) || []);
-  const email = data.email || "";
-  const phone = data.phone || "";
-  const wa = waLink(phone);
 
   const theme = getPortfolioThemeFromRecord(data);
   const themeVars = portfolioThemeCssVars(theme);
@@ -124,7 +128,7 @@ export default function PortfolioPage() {
               )}
             </div>
             <div style={{ minWidth: 220 }}>
-              <div className="hm-pf-craft">Licensed {craftLabel}</div>
+              <div className="hm-pf-craft">{craftLabel}</div>
               <h1 className={`hm-pf-name${isEditorial ? " hm-pf-serif" : ""}`}>{name}</h1>
               {heroMeta.length > 0 && (
                 <div className="hm-pf-hero-meta">
@@ -200,21 +204,13 @@ export default function PortfolioPage() {
             </p>
           </div>
           <div className="hm-pf-contact-actions">
-            {phone && (
-              <a className="hm-pf-contact-btn hm-pf-contact-btn--solid" href={`tel:${String(phone).replace(/\s/g, "")}`}>
-                <Phone size={17} /> Call
-              </a>
-            )}
-            {wa && (
-              <a className="hm-pf-contact-btn hm-pf-contact-btn--ghost" href={wa} target="_blank" rel="noreferrer">
-                <MessageCircle size={17} /> WhatsApp
-              </a>
-            )}
-            {email && (
-              <a className="hm-pf-contact-btn hm-pf-contact-btn--ghost" href={`mailto:${email}`}>
-                <Mail size={17} /> Email
-              </a>
-            )}
+            <button
+              type="button"
+              className="hm-pf-contact-btn hm-pf-contact-btn--solid"
+              onClick={() => navigate("/build?source=portfolio")}
+            >
+              Start a project brief
+            </button>
           </div>
         </div>
       </section>
@@ -226,6 +222,11 @@ export default function PortfolioPage() {
         </span>
         <span>
           Built on HomeMakers — <Link to="/craft">create your portfolio</Link>
+        </span>
+        <span>
+          <button type="button" onClick={handleReport} className="bg-transparent border-0 underline cursor-pointer text-inherit">Report profile</button>
+          {" · "}
+          <button type="button" onClick={handleBlock} className="bg-transparent border-0 underline cursor-pointer text-inherit">Block profile</button>
         </span>
       </footer>
     </div>

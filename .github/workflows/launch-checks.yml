@@ -1,0 +1,89 @@
+name: Launch checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - name: Validate release environment guard
+        run: npm run verify:client-env
+        env:
+          REACT_APP_BACKEND_URL: https://api.example.com
+          REACT_APP_PUBLIC_WEB_URL: https://www.example.com
+          REACT_APP_SUPABASE_URL: https://launch-check.supabase.co
+          REACT_APP_SUPABASE_ANON_KEY: sb_publishable_ci_guard_only
+      - run: npm run build
+        env:
+          CI: "true"
+          GENERATE_SOURCEMAP: "false"
+      - name: Reject production source maps
+        run: test -z "$(find build -type f -name '*.map' -print -quit)"
+
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: python -m pip install -r backend/requirements.txt
+      - run: python -m unittest tests.test_launch_contracts -v
+      - run: python -m py_compile backend/server.py
+        env:
+          PYTHONPYCACHEPREFIX: /tmp/homemakers-pycache
+      - name: Import backend
+        working-directory: backend
+        run: python -c "import server; assert server.app.routes"
+
+  native-android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+      - run: npm ci --legacy-peer-deps
+      - name: Build and copy the native web bundle
+        run: npm run build:mobile && npx cap copy android
+        env:
+          CI: "true"
+          REACT_APP_BACKEND_URL: https://api.example.com
+          REACT_APP_PUBLIC_WEB_URL: https://www.example.com
+          REACT_APP_SUPABASE_URL: https://launch-check.supabase.co
+          REACT_APP_SUPABASE_ANON_KEY: sb_publishable_ci_guard_only
+      - name: Reject unsafe native bundle contents
+        run: |
+          test -z "$(find android/app/src/main/assets/public -type f -name '*.map' -print -quit)"
+          ! grep -R -E 'localhost:8000|sb_secret_|service_role|sk_live_' android/app/src/main/assets/public
+      - name: Compile Android debug app
+        working-directory: frontend/android
+        run: ./gradlew assembleDebug

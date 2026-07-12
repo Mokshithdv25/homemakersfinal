@@ -11,6 +11,8 @@ Run through this **once** before sharing the live link. Production: Vercel front
 5. **Homeowner path:** `/sign-in?role=homeowner` → `/build` → new home or remodel → generate v0 → handoff → URL must include `projectId=…`.
 6. **Pro path:** `/sign-in?role=pro` → portfolio wizard → Go live → `/browse` + **`/profile/your-slug`** (only after publish; no `demo-pro` unless you create it).
 7. **Public portfolio** — open your slug in an incognito window; must not show another user’s draft from this browser.
+8. **Paid plan** — `/subscriptions` → Razorpay Test Mode checkout → successful payment must return as Active after server verification.
+9. **Failed payment** — use the Razorpay failure path; the account must remain Free and no entitlement may be created.
 
 ## Safe demo script (5 min)
 
@@ -35,4 +37,5 @@ Run through this **once** before sharing the live link. Production: Vercel front
 - **Blank sign-in:** hard refresh; check Supabase env on Vercel.
 - **Stock photos on v0:** Render `XAI_API_KEY`; regenerate v0 after deploy.
 - **Handoff with no project:** sign in before wizard; check Supabase `projects` + align SQL.
+- **Checkout unavailable:** confirm all three `RAZORPAY_*` values and `SUPABASE_SERVICE_ROLE_KEY` on Render, then check `/api/ai/status` for `payments_configured: true`.
 - **Wrong name after login:** sign out, sign in again (device cache clears on user switch).

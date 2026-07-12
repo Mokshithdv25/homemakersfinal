@@ -1,5 +1,8 @@
 import axios from "axios";
 import { getSupabase } from "./supabaseClient";
+import { withBackendAuth } from "./backendAuth";
+import { refreshPortfolioMediaUrls } from "./supabaseStorage";
+import { loadBlockedPortfolioIds } from "./portfolioSafetyApi";
 
 const rawBackendUrl = process.env.REACT_APP_BACKEND_URL || "";
 const normalizedBackendUrl =
@@ -9,6 +12,8 @@ const normalizedBackendUrl =
 export const API = normalizedBackendUrl ? `${normalizedBackendUrl}/api` : "/api";
 
 const supabase = getSupabase();
+const PUBLIC_PORTFOLIO_FIELDS =
+  "id, craft, full_name, business_name, city, years_experience, short_bio, specialties, photos, cover_photo, profile_photo, slug, profile_strength, portfolio_theme, portfolio_layout, updated_at";
 
 export const api = axios.create({
   baseURL: API,
@@ -75,7 +80,7 @@ async function getPortfolioSupabase(id) {
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Portfolio not found");
-  return data;
+  return refreshPortfolioMediaUrls(data);
 }
 
 async function updatePortfolioSupabase(id, patch) {
@@ -88,7 +93,7 @@ async function updatePortfolioSupabase(id, patch) {
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Portfolio not found");
-  return data;
+  return refreshPortfolioMediaUrls(data);
 }
 
 async function publishPortfolioSupabase(id) {
@@ -102,6 +107,7 @@ async function publishPortfolioSupabase(id) {
     .update({
       slug,
       published: true,
+      moderation_status: "pending",
       step: 5,
       profile_strength: 100,
       updated_at: nowIso(),
@@ -112,32 +118,53 @@ async function publishPortfolioSupabase(id) {
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Portfolio not found");
-  return data;
+  return refreshPortfolioMediaUrls(data);
+}
+
+async function unpublishPortfolioSupabase(id) {
+  const ownerUserId = await getAuthUserId();
+  if (!ownerUserId) throw new Error("Your session has expired. Sign in again.");
+  const { data, error } = await supabase
+    .from("portfolios")
+    .update({
+      published: false,
+      moderation_status: "pending",
+      updated_at: nowIso(),
+    })
+    .eq("id", id)
+    .eq("owner_user_id", ownerUserId)
+    .select("*")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Portfolio not found");
+  return refreshPortfolioMediaUrls(data);
 }
 
 async function getPublicProfileSupabase(slug) {
   const { data, error } = await supabase
-    .from("portfolios")
-    .select("*")
+    .from("published_portfolios")
+    .select(PUBLIC_PORTFOLIO_FIELDS)
     .eq("slug", slug)
-    .eq("published", true)
     .limit(1)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Profile not found");
-  return data;
+  const blocked = await loadBlockedPortfolioIds();
+  if (blocked.has(String(data.id))) throw new Error("Profile hidden");
+  return refreshPortfolioMediaUrls(data);
 }
 
 export async function createPortfolio(craft) {
   if (supabase) return createPortfolioSupabase(craft);
-  const { data } = await api.post("/portfolio", { craft });
+  const { data } = await api.post("/portfolio", { craft }, await withBackendAuth());
   return data;
 }
 
 export async function getPortfolio(id) {
   if (supabase) return getPortfolioSupabase(id);
-  const { data } = await api.get(`/portfolio/${id}`);
-  return data;
+  const { data } = await api.get(`/portfolio/${id}`, await withBackendAuth());
+  return refreshPortfolioMediaUrls(data);
 }
 
 /** Most recently updated portfolio owned by this user (pro onboarding resume). */
@@ -154,18 +181,24 @@ export async function fetchOwnedPortfolio(ownerUserId) {
     console.warn("fetchOwnedPortfolio:", error.message);
     return null;
   }
-  return data;
+  return refreshPortfolioMediaUrls(data);
 }
 
 export async function updatePortfolio(id, patch) {
   if (supabase) return updatePortfolioSupabase(id, patch);
-  const { data } = await api.patch(`/portfolio/${id}`, patch);
+  const { data } = await api.patch(`/portfolio/${id}`, patch, await withBackendAuth());
   return data;
 }
 
 export async function publishPortfolio(id) {
   if (supabase) return publishPortfolioSupabase(id);
-  const { data } = await api.post(`/portfolio/${id}/publish`);
+  const { data } = await api.post(`/portfolio/${id}/publish`, null, await withBackendAuth());
+  return data;
+}
+
+export async function unpublishPortfolio(id) {
+  if (supabase) return unpublishPortfolioSupabase(id);
+  const { data } = await api.post(`/portfolio/${id}/unpublish`, null, await withBackendAuth());
   return data;
 }
 
@@ -177,21 +210,19 @@ export async function getPublicProfile(slug) {
 
 /** Published pros for marketplace / browse (Supabase). */
 export async function listPublishedPortfolios({ craft, city, limit = 24 } = {}) {
-  if (!supabase) return [];
+  if (!supabase) throw new Error("Professional directory is not configured.");
   let q = supabase
-    .from("portfolios")
-    .select(
-      "id, craft, full_name, business_name, city, years_experience, specialties, photos, cover_photo, profile_photo, slug, profile_strength, updated_at"
-    )
-    .eq("published", true)
+    .from("published_portfolios")
+    .select(PUBLIC_PORTFOLIO_FIELDS)
     .order("updated_at", { ascending: false })
     .limit(limit);
   if (craft) q = q.eq("craft", craft);
   if (city) q = q.ilike("city", `%${city}%`);
   const { data, error } = await q;
   if (error) {
-    console.warn("listPublishedPortfolios:", error.message);
-    return [];
+    throw new Error(`Could not load the professional directory: ${error.message}`);
   }
-  return data || [];
+  const blocked = await loadBlockedPortfolioIds();
+  const visible = (data || []).filter((row) => !blocked.has(String(row.id)));
+  return Promise.all(visible.map(refreshPortfolioMediaUrls));
 }

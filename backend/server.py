@@ -1,15 +1,23 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Header, Request, Depends
 from dotenv import load_dotenv
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
+from starlette.responses import JSONResponse
 import os
 import re
 import json
 import base64
 import hashlib
+import hmac
 import logging
+import math
 import requests
+import threading
+import time
+from collections import deque
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from urllib.parse import unquote
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import List, Optional, Literal, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import uuid
@@ -33,6 +41,43 @@ except ImportError:
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+
+def _bounded_int_env(name: str, default: int, minimum: int, maximum: int) -> int:
+    """Read an integer setting without allowing unsafe deployment values."""
+    try:
+        value = int(os.getenv(name, str(default)))
+    except (TypeError, ValueError):
+        value = default
+    return max(minimum, min(maximum, value))
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Request limits are deliberately configurable, but always clamped to safe ranges.
+HUB_CONTEXT_MAX_BYTES = _bounded_int_env("HUB_CONTEXT_MAX_BYTES", 64 * 1024, 1024, 512 * 1024)
+AI_BRIEF_MAX_BYTES = _bounded_int_env("AI_BRIEF_MAX_BYTES", 2 * 1024 * 1024, 1024, 4 * 1024 * 1024)
+AI_IMAGE_BUNDLE_MAX_BYTES = _bounded_int_env(
+    "AI_IMAGE_BUNDLE_MAX_BYTES", 512 * 1024, 1024, 4 * 1024 * 1024
+)
+RAZORPAY_WEBHOOK_MAX_BYTES = _bounded_int_env(
+    "RAZORPAY_WEBHOOK_MAX_BYTES", 256 * 1024, 1024, 1024 * 1024
+)
+MAX_REQUEST_BODY_BYTES = _bounded_int_env(
+    "MAX_REQUEST_BODY_BYTES", 5 * 1024 * 1024, 64 * 1024, 10 * 1024 * 1024
+)
+
+AI_RATE_LIMIT_REQUESTS = _bounded_int_env("AI_RATE_LIMIT_REQUESTS", 12, 1, 1000)
+AI_RATE_LIMIT_WINDOW_SECONDS = _bounded_int_env("AI_RATE_LIMIT_WINDOW_SECONDS", 60, 1, 3600)
+AI_MAX_CONCURRENT_REQUESTS = _bounded_int_env("AI_MAX_CONCURRENT_REQUESTS", 4, 1, 32)
+AI_MAX_CONCURRENT_PER_USER = _bounded_int_env("AI_MAX_CONCURRENT_PER_USER", 2, 1, 8)
+AI_CAPACITY_RETRY_SECONDS = _bounded_int_env("AI_CAPACITY_RETRY_SECONDS", 2, 1, 60)
+AI_DAILY_IMAGE_PACKS = _bounded_int_env("AI_DAILY_IMAGE_PACKS", 3, 1, 50)
+
 # ---------------------------------------------------------------------------
 # MongoDB Atlas connection
 # ---------------------------------------------------------------------------
@@ -50,9 +95,256 @@ SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY
 if _SUPABASE_AVAILABLE and SUPABASE_URL and SUPABASE_KEY:
     _supabase = create_supabase_client(SUPABASE_URL, SUPABASE_KEY)
 else:
-    _mongo_client = MongoClient(os.getenv("MONGO_URL", "mongodb://localhost:27017"))
+    _mongo_client = MongoClient(
+        os.getenv("MONGO_URL", "mongodb://localhost:27017"),
+        serverSelectionTimeoutMS=_bounded_int_env(
+            "MONGO_SERVER_SELECTION_TIMEOUT_MS", 3000, 250, 10000
+        ),
+    )
     _db = _mongo_client[os.getenv("DB_NAME", "homemaker")]
     _portfolios = _db["portfolios"]
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "").strip()
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "").strip()
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "").strip()
+BILLING_ENABLED = _env_flag("BILLING_ENABLED", False)
+ALLOW_LIVE_BILLING = _env_flag("ALLOW_LIVE_BILLING", False)
+
+PAID_PLANS = {
+    "homeowner_project_pass": {
+        "name": "HomeMakers Project Pass",
+        "amount_paise": 499_900,
+        "role": "homeowner",
+        "duration_days": None,
+        "description": "AI design, estimate and project workspace access",
+    },
+    "pro_growth_30d": {
+        "name": "HomeMakers Pro Growth",
+        "amount_paise": 199_900,
+        "role": "pro",
+        "duration_days": 30,
+        "description": "30 days of Pro Growth portfolio and directory tools",
+    },
+}
+
+
+def _bearer_token(authorization: Optional[str]) -> str:
+    value = (authorization or "").strip()
+    if not value.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="Sign in to continue")
+    token = value[7:].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Sign in to continue")
+    return token
+
+
+def _require_user(authorization: Optional[str] = Header(default=None)) -> dict:
+    """Validate the Supabase token in FastAPI's worker thread, not the event loop."""
+    token = _bearer_token(authorization)
+    api_key = SUPABASE_ANON_KEY or SUPABASE_SERVICE_ROLE_KEY
+    if not SUPABASE_URL or not api_key:
+        raise HTTPException(status_code=503, detail="Authentication service is not configured")
+    try:
+        response = requests.get(
+            f"{SUPABASE_URL.rstrip('/')}/auth/v1/user",
+            headers={"apikey": api_key, "Authorization": f"Bearer {token}"},
+            timeout=12,
+        )
+    except requests.RequestException as exc:
+        logger.warning("Supabase auth validation failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Could not validate your session") from exc
+    if response.status_code != 200:
+        raise HTTPException(status_code=401, detail="Your session has expired. Sign in again.")
+    try:
+        user = response.json()
+    except (TypeError, ValueError) as exc:
+        logger.warning("Supabase auth returned malformed JSON")
+        raise HTTPException(status_code=503, detail="Could not validate your session") from exc
+    if not user.get("id"):
+        raise HTTPException(status_code=401, detail="Your session has expired. Sign in again.")
+    return user
+
+
+def _bounded_json_object(value: dict, max_bytes: int, label: str) -> dict:
+    """Reject oversized or non-JSON objects before they reach provider prompts."""
+    try:
+        encoded = json.dumps(
+            value,
+            ensure_ascii=False,
+            allow_nan=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{label} must contain valid JSON values") from exc
+    if len(encoded) > max_bytes:
+        raise ValueError(f"{label} exceeds the {max_bytes}-byte limit")
+    return value
+
+
+# These process-local guards protect provider spend and worker capacity. A shared
+# gateway/Redis limiter should replace them if the service is scaled to many workers.
+_ai_guard_lock = threading.Lock()
+_ai_request_times: dict[str, deque] = {}
+_ai_active_by_user: dict[str, int] = {}
+_ai_active_total = 0
+
+
+def _ai_request_slot(user: dict = Depends(_require_user)):
+    """Apply a sliding-window user limit and hold a bounded AI concurrency slot."""
+    global _ai_active_total
+
+    user_id = str(user.get("id") or "")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Sign in to continue")
+
+    now = time.monotonic()
+    cutoff = now - AI_RATE_LIMIT_WINDOW_SECONDS
+    with _ai_guard_lock:
+        events = _ai_request_times.setdefault(user_id, deque())
+        while events and events[0] <= cutoff:
+            events.popleft()
+
+        if len(events) >= AI_RATE_LIMIT_REQUESTS:
+            retry_after = max(1, math.ceil(AI_RATE_LIMIT_WINDOW_SECONDS - (now - events[0])))
+            raise HTTPException(
+                status_code=429,
+                detail="AI request limit reached. Please try again shortly.",
+                headers={"Retry-After": str(retry_after)},
+            )
+
+        user_active = _ai_active_by_user.get(user_id, 0)
+        if (
+            _ai_active_total >= AI_MAX_CONCURRENT_REQUESTS
+            or user_active >= AI_MAX_CONCURRENT_PER_USER
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="AI service is at capacity. Please try again shortly.",
+                headers={"Retry-After": str(AI_CAPACITY_RETRY_SECONDS)},
+            )
+
+        events.append(now)
+        _ai_active_total += 1
+        _ai_active_by_user[user_id] = user_active + 1
+
+        # Opportunistic cleanup prevents inactive one-time users growing the map forever.
+        if len(_ai_request_times) > 2048:
+            stale_users = [
+                key
+                for key, timestamps in _ai_request_times.items()
+                if key != user_id
+                and not _ai_active_by_user.get(key)
+                and (not timestamps or timestamps[-1] <= cutoff)
+            ]
+            for key in stale_users:
+                _ai_request_times.pop(key, None)
+
+    try:
+        yield user
+    finally:
+        with _ai_guard_lock:
+            _ai_active_total = max(0, _ai_active_total - 1)
+            remaining = _ai_active_by_user.get(user_id, 1) - 1
+            if remaining > 0:
+                _ai_active_by_user[user_id] = remaining
+            else:
+                _ai_active_by_user.pop(user_id, None)
+
+
+def _seconds_until_utc_midnight() -> int:
+    now = datetime.now(timezone.utc)
+    elapsed = now.hour * 3600 + now.minute * 60 + now.second
+    return max(1, 86400 - elapsed)
+
+
+def _consume_ai_daily_quota(user_id: str) -> None:
+    """Atomically consume one durable UTC-day image-pack allowance."""
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Sign in to continue")
+    if not _supabase or not SUPABASE_SERVICE_ROLE_KEY:
+        logger.error("AI image quota is unavailable without Supabase service configuration")
+        raise HTTPException(
+            status_code=503,
+            detail="AI usage controls are temporarily unavailable. Please try again.",
+            headers={"Retry-After": str(AI_CAPACITY_RETRY_SECONDS)},
+        )
+
+    try:
+        result = _supabase.rpc(
+            "consume_ai_daily_quota",
+            {
+                "p_user_id": user_id,
+                "p_usage_kind": "image_pack",
+                "p_limit": AI_DAILY_IMAGE_PACKS,
+            },
+        ).execute()
+    except Exception as exc:
+        logger.exception("Could not enforce durable AI image quota")
+        raise HTTPException(
+            status_code=503,
+            detail="AI usage controls are temporarily unavailable. Please try again.",
+            headers={"Retry-After": str(AI_CAPACITY_RETRY_SECONDS)},
+        ) from exc
+
+    if result.data is False:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily AI image limit reached. Please try again tomorrow.",
+            headers={"Retry-After": str(_seconds_until_utc_midnight())},
+        )
+    if result.data is not True:
+        logger.error("AI image quota RPC returned an invalid response")
+        raise HTTPException(
+            status_code=503,
+            detail="AI usage controls are temporarily unavailable. Please try again.",
+            headers={"Retry-After": str(AI_CAPACITY_RETRY_SECONDS)},
+        )
+
+
+def _require_billing_config() -> None:
+    if not BILLING_ENABLED:
+        raise HTTPException(status_code=503, detail="Checkout is not active yet")
+    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+        raise HTTPException(status_code=503, detail="Payments are not active yet")
+    if RAZORPAY_KEY_ID.startswith("rzp_live_") and not ALLOW_LIVE_BILLING:
+        raise HTTPException(status_code=503, detail="Live checkout is disabled")
+    if not _supabase or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=503, detail="Billing storage is not configured")
+
+
+def _remove_user_storage(user_id: str) -> None:
+    """Remove every owner-prefixed object, failing before auth deletion if cleanup is incomplete."""
+    if not _supabase:
+        return
+    for bucket_name in ("project-v0", "portfolio-media", "project-documents"):
+        bucket = _supabase.storage.from_(bucket_name)
+        pending = [user_id]
+        paths: list[str] = []
+        while pending:
+            prefix = pending.pop()
+            offset = 0
+            while True:
+                try:
+                    entries = bucket.list(prefix, {"limit": 100, "offset": offset}) or []
+                except Exception as exc:
+                    raise RuntimeError(
+                        f"Could not enumerate {bucket_name} during account deletion"
+                    ) from exc
+                for entry in entries:
+                    name = entry.get("name") if isinstance(entry, dict) else getattr(entry, "name", None)
+                    if not name:
+                        continue
+                    path = f"{prefix}/{name}"
+                    entry_id = entry.get("id") if isinstance(entry, dict) else getattr(entry, "id", None)
+                    if entry_id:
+                        paths.append(path)
+                    else:
+                        pending.append(path)
+                if len(entries) < 100:
+                    break
+                offset += len(entries)
+        for start in range(0, len(paths), 100):
+            bucket.remove(paths[start:start + 100])
 
 
 def _repo_mode() -> str:
@@ -76,13 +368,14 @@ def _find_portfolio_by_slug(slug: str, published_only: bool = False) -> dict | N
     if _repo_mode() == "supabase":
         q = _supabase.table("portfolios").select("*").eq("slug", slug)
         if published_only:
-            q = q.eq("published", True)
+            q = q.eq("published", True).eq("moderation_status", "approved")
         res = q.limit(1).execute()
         rows = res.data or []
         return rows[0] if rows else None
     query = {"slug": slug}
     if published_only:
         query["published"] = True
+        query["moderation_status"] = "approved"
     return _portfolios.find_one(query, {"_id": 0})
 
 
@@ -106,6 +399,58 @@ def _slug_exists(slug: str, portfolio_id: str) -> bool:
         return bool(res.data)
     existing = _portfolios.find_one({"slug": slug, "id": {"$ne": portfolio_id}}, {"_id": 0})
     return existing is not None
+
+
+class _RequestBodyTooLarge(Exception):
+    pass
+
+
+class RequestBodyLimitMiddleware:
+    """Cap request bodies while ASGI chunks are read, before JSON parsing allocates them."""
+
+    def __init__(self, app, max_bytes: int):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = {key.lower(): value for key, value in scope.get("headers", [])}
+        raw_length = headers.get(b"content-length")
+        if raw_length:
+            try:
+                declared = int(raw_length)
+            except ValueError:
+                response = JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
+                await response(scope, receive, send)
+                return
+            if declared < 0:
+                response = JSONResponse(status_code=400, content={"detail": "Invalid Content-Length"})
+                await response(scope, receive, send)
+                return
+            if declared > self.max_bytes:
+                response = JSONResponse(status_code=413, content={"detail": "Request body is too large"})
+                await response(scope, receive, send)
+                return
+
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message.get("type") == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise _RequestBodyTooLarge()
+            return message
+
+        try:
+            await self.app(scope, limited_receive, send)
+        except _RequestBodyTooLarge:
+            response = JSONResponse(status_code=413, content={"detail": "Request body is too large"})
+            await response(scope, receive, send)
 
 
 app = FastAPI()
@@ -160,6 +505,7 @@ class Portfolio(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    owner_user_id: Optional[str] = None
     craft: CraftType
     full_name: Optional[str] = None
     business_name: Optional[str] = None
@@ -176,11 +522,33 @@ class Portfolio(BaseModel):
     profile_strength: int = 15
     step: int = 1
     published: bool = False
+    moderation_status: Literal["pending", "approved", "rejected"] = "pending"
     slug: Optional[str] = None
     portfolio_theme: Optional[str] = None
     portfolio_layout: Optional[str] = None
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class PublicPortfolio(BaseModel):
+    """Allow-list for directory profiles; private contact and ownership fields stay server-side."""
+    model_config = ConfigDict(extra="ignore")
+
+    id: str
+    craft: CraftType
+    full_name: Optional[str] = None
+    business_name: Optional[str] = None
+    city: Optional[str] = None
+    years_experience: Optional[str] = None
+    short_bio: Optional[str] = None
+    specialties: List[str] = Field(default_factory=list)
+    photos: List[str] = Field(default_factory=list)
+    cover_photo: Optional[str] = None
+    profile_photo: Optional[str] = None
+    published: bool = True
+    slug: Optional[str] = None
+    portfolio_theme: Optional[str] = None
+    portfolio_layout: Optional[str] = None
 
 
 def _slugify(text: str) -> str:
@@ -191,36 +559,135 @@ def _slugify(text: str) -> str:
     return text or "pro"
 
 
+def _portfolio_media_storage_path(value: Optional[str]) -> Optional[str]:
+    marker = "/storage/v1/object/"
+    raw = str(value or "")
+    marker_index = raw.find(marker)
+    if marker_index < 0:
+        return None
+    remainder = raw[marker_index + len(marker):]
+    for prefix in ("public/portfolio-media/", "sign/portfolio-media/"):
+        if remainder.startswith(prefix):
+            return unquote(remainder[len(prefix):].split("?", 1)[0])
+    return None
+
+
+def _signed_portfolio_media_url(value: Optional[str], expected_prefix: str) -> Optional[str]:
+    path = _portfolio_media_storage_path(value)
+    if not path:
+        return value
+    if not expected_prefix or not path.startswith(expected_prefix):
+        logger.warning("Rejected a published portfolio media path outside its owner prefix")
+        return None
+    if not _supabase:
+        return value
+    try:
+        signed = _supabase.storage.from_("portfolio-media").create_signed_url(path, 3600)
+    except Exception as exc:
+        logger.warning("Could not sign published portfolio media: %s", exc)
+        return None
+    if isinstance(signed, dict):
+        return signed.get("signedURL") or signed.get("signedUrl")
+    return None
+
+
+def _public_portfolio(doc: dict) -> PublicPortfolio:
+    profile = PublicPortfolio.model_validate(doc)
+    owner_id = str(doc.get("owner_user_id") or "")
+    portfolio_id = str(doc.get("id") or "")
+    expected_prefix = f"{owner_id}/{portfolio_id}/" if owner_id and portfolio_id else ""
+    profile.photos = [
+        signed
+        for signed in (
+            _signed_portfolio_media_url(url, expected_prefix) for url in profile.photos
+        )
+        if signed
+    ]
+    profile.cover_photo = _signed_portfolio_media_url(profile.cover_photo, expected_prefix)
+    profile.profile_photo = _signed_portfolio_media_url(profile.profile_photo, expected_prefix)
+    return profile
+
+
+@app.get("/health/live")
+def health_live():
+    """Process liveness only; intentionally does not touch external services."""
+    return {"status": "ok"}
+
+
+@app.get("/health/ready")
+def health_ready():
+    """Require the complete launch schema, private buckets, and configured persistence."""
+    mode = _repo_mode()
+    try:
+        if mode == "supabase":
+            if not SUPABASE_SERVICE_ROLE_KEY:
+                raise RuntimeError("Supabase service configuration is incomplete")
+            result = _supabase.rpc("launch_schema_ready").execute()
+            if result.data is not True:
+                raise RuntimeError("Launch schema readiness contract failed")
+        else:
+            if not _env_flag("ALLOW_MONGO_FALLBACK", False):
+                raise RuntimeError("Mongo fallback is disabled for launch")
+            _mongo_client.admin.command("ping")
+    except Exception:
+        logger.warning("Readiness database probe failed for backend=%s", mode)
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "database": "unavailable"},
+        )
+    return {"status": "ready", "database": "ok"}
+
+
 @api_router.get("/")
-async def root():
+def root():
     return {"message": "HomeMaker API"}
 
 
 @api_router.post("/portfolio", response_model=Portfolio)
-async def create_portfolio(payload: PortfolioCreate):
-    portfolio = Portfolio(craft=payload.craft, profile_strength=25, step=1)
+def create_portfolio(payload: PortfolioCreate, user: dict = Depends(_require_user)):
+    portfolio = Portfolio(
+        craft=payload.craft,
+        owner_user_id=user["id"],
+        profile_strength=25,
+        step=1,
+    )
     _save_portfolio(portfolio.model_dump())
     return portfolio
 
 
 @api_router.get("/portfolio/{portfolio_id}", response_model=Portfolio)
-async def get_portfolio(portfolio_id: str):
+def get_portfolio(portfolio_id: str, user: dict = Depends(_require_user)):
     doc = _load_portfolio(portfolio_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Portfolio not found")
+    if doc.get("owner_user_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="You do not own this portfolio")
     return Portfolio(**doc)
 
 
 @api_router.patch("/portfolio/{portfolio_id}", response_model=Portfolio)
-async def update_portfolio(portfolio_id: str, payload: PortfolioUpdate):
+def update_portfolio(
+    portfolio_id: str,
+    payload: PortfolioUpdate,
+    user: dict = Depends(_require_user),
+):
     doc = _load_portfolio(portfolio_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Portfolio not found")
+    if doc.get("owner_user_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="You do not own this portfolio")
 
     update_fields = {k: v for k, v in payload.model_dump().items() if v is not None}
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
 
+    public_fields = {
+        "craft", "full_name", "business_name", "city", "years_experience",
+        "short_bio", "specialties", "photos", "cover_photo", "profile_photo",
+        "portfolio_theme", "portfolio_layout",
+    }
+    if public_fields.intersection(update_fields):
+        update_fields["moderation_status"] = "pending"
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     doc.update(update_fields)
     _save_portfolio(doc)
@@ -228,10 +695,12 @@ async def update_portfolio(portfolio_id: str, payload: PortfolioUpdate):
 
 
 @api_router.post("/portfolio/{portfolio_id}/publish", response_model=Portfolio)
-async def publish_portfolio(portfolio_id: str):
+def publish_portfolio(portfolio_id: str, user: dict = Depends(_require_user)):
     doc = _load_portfolio(portfolio_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Portfolio not found")
+    if doc.get("owner_user_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="You do not own this portfolio")
     if not doc.get("full_name") or not doc.get("craft"):
         raise HTTPException(status_code=400, detail="Profile incomplete")
 
@@ -244,6 +713,7 @@ async def publish_portfolio(portfolio_id: str):
     doc.update({
         "slug": slug,
         "published": True,
+        "moderation_status": "pending",
         "profile_strength": 100,
         "step": 4,
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -252,12 +722,483 @@ async def publish_portfolio(portfolio_id: str):
     return Portfolio(**doc)
 
 
-@api_router.get("/profile/{slug}", response_model=Portfolio)
-async def public_profile(slug: str):
+@api_router.post("/portfolio/{portfolio_id}/unpublish", response_model=Portfolio)
+def unpublish_portfolio(portfolio_id: str, user: dict = Depends(_require_user)):
+    doc = _load_portfolio(portfolio_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Portfolio not found")
+    if doc.get("owner_user_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="You do not own this portfolio")
+
+    doc.update({
+        "published": False,
+        "moderation_status": "pending",
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    })
+    _save_portfolio(doc)
+    return Portfolio(**doc)
+
+
+@api_router.get("/profile/{slug}", response_model=PublicPortfolio)
+def public_profile(slug: str):
     doc = _find_portfolio_by_slug(slug, published_only=True)
     if not doc:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return Portfolio(**doc)
+    # Pydantic drops every field not explicitly declared by PublicPortfolio.
+    # The storage bucket is private, so published media is exposed with short-lived URLs.
+    return _public_portfolio(doc)
+
+
+@api_router.delete("/account")
+def delete_account(user: dict = Depends(_require_user)):
+    """Permanently remove the signed-in user's HomeMakers data and auth account."""
+    if not _supabase or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=503, detail="Account deletion is not configured")
+    user_id = user["id"]
+    try:
+        _remove_user_storage(user_id)
+        portfolio_rows = _supabase.table("portfolios").select("id").eq("owner_user_id", user_id).execute().data or []
+        portfolio_ids = [row["id"] for row in portfolio_rows if row.get("id")]
+        if portfolio_ids:
+            _supabase.table("portfolios").delete().in_("id", portfolio_ids).execute()
+        _supabase.table("projects").delete().eq("owner_user_id", user_id).execute()
+        _supabase.table("user_entitlements").delete().eq("user_id", user_id).execute()
+        _supabase.table("billing_orders").delete().eq("user_id", user_id).execute()
+        _supabase.table("user_profiles").delete().eq("id", user_id).execute()
+        _supabase.auth.admin.delete_user(user_id)
+    except Exception as exc:
+        logger.exception("Account deletion failed for %s", user_id)
+        raise HTTPException(status_code=500, detail="Could not complete account deletion. Contact support.") from exc
+    return {"deleted": True}
+
+
+# ---------------------------------------------------------------------------
+# Billing — Razorpay Standard Checkout + server-side entitlement records
+# ---------------------------------------------------------------------------
+class BillingOrderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    plan_id: Literal["homeowner_project_pass", "pro_growth_30d"]
+
+
+class BillingVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    razorpay_order_id: str = Field(
+        ..., min_length=6, max_length=128, pattern=r"^[A-Za-z0-9_-]+$"
+    )
+    razorpay_payment_id: str = Field(
+        ..., min_length=6, max_length=128, pattern=r"^[A-Za-z0-9_-]+$"
+    )
+    razorpay_signature: str = Field(
+        ..., min_length=64, max_length=64, pattern=r"^[0-9A-Fa-f]{64}$"
+    )
+
+
+def _billing_rows(table: str, **equals) -> list[dict]:
+    query = _supabase.table(table).select("*")
+    for key, value in equals.items():
+        query = query.eq(key, value)
+    result = query.execute()
+    return result.data or []
+
+
+def _user_role(user: dict) -> str:
+    rows = _billing_rows("user_profiles", id=user["id"])
+    role = rows[0].get("role") if rows else None
+    if role not in ("homeowner", "pro"):
+        role = (user.get("user_metadata") or {}).get("role")
+    return role if role in ("homeowner", "pro") else "homeowner"
+
+
+def _entitlement_is_active(row: dict) -> bool:
+    if row.get("status") != "active":
+        return False
+    raw_until = row.get("active_until")
+    if not raw_until:
+        return True
+    try:
+        active_until = datetime.fromisoformat(str(raw_until).replace("Z", "+00:00"))
+        if active_until.tzinfo is None:
+            active_until = active_until.replace(tzinfo=timezone.utc)
+        return active_until > datetime.now(timezone.utc)
+    except (TypeError, ValueError):
+        return False
+
+
+def _billing_checkout_payload(plan: dict, gateway_order_id: str) -> dict:
+    return {
+        "key_id": RAZORPAY_KEY_ID,
+        "order_id": gateway_order_id,
+        "amount": plan["amount_paise"],
+        "currency": "INR",
+        "name": plan["name"],
+        "description": plan["description"],
+    }
+
+
+def _activate_paid_order(order: dict, payment: dict) -> dict:
+    """Atomically mark an order paid and grant its account entitlement."""
+    result = _supabase.rpc(
+        "activate_billing_order",
+        {
+            "p_order_id": order["id"],
+            "p_payment_id": payment.get("id"),
+            "p_payment_status": payment.get("status") or "captured",
+        },
+    ).execute()
+    row = result.data
+    if isinstance(row, list):
+        row = row[0] if row else None
+    if not row:
+        raise HTTPException(status_code=500, detail="Payment was verified but plan activation failed")
+    return row
+
+
+@api_router.get("/billing/me")
+def billing_me(user: dict = Depends(_require_user)):
+    _require_billing_config()
+    entitlements = _billing_rows("user_entitlements", user_id=user["id"])
+    orders = (
+        _supabase.table("billing_orders")
+        .select("id, plan_id, amount_paise, currency, status, gateway_payment_status, paid_at, created_at")
+        .eq("user_id", user["id"])
+        .order("created_at", desc=True)
+        .limit(10)
+        .execute()
+    )
+    return {
+        "role": _user_role(user),
+        "plans": [
+            {"id": key, **value}
+            for key, value in PAID_PLANS.items()
+            if value["role"] == _user_role(user)
+        ],
+        "entitlements": entitlements,
+        "orders": orders.data or [],
+    }
+
+
+@api_router.post("/billing/order")
+def create_billing_order(payload: BillingOrderRequest, user: dict = Depends(_require_user)):
+    _require_billing_config()
+    plan = PAID_PLANS[payload.plan_id]
+    if _user_role(user) != plan["role"]:
+        raise HTTPException(status_code=403, detail="This plan is not available for your account type")
+
+    entitlements = _billing_rows(
+        "user_entitlements", user_id=user["id"], plan_id=payload.plan_id
+    )
+    if any(_entitlement_is_active(row) for row in entitlements):
+        raise HTTPException(status_code=409, detail="This plan is already active on your account")
+
+    pending = (
+        _supabase.table("billing_orders")
+        .select("gateway_order_id")
+        .eq("user_id", user["id"])
+        .eq("plan_id", payload.plan_id)
+        .eq("status", "created")
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    ).data or []
+    if pending and pending[0].get("gateway_order_id"):
+        return _billing_checkout_payload(plan, pending[0]["gateway_order_id"])
+
+    local_id = str(uuid.uuid4())
+    receipt = f"hm_{local_id.replace('-', '')[:28]}"
+    try:
+        response = requests.post(
+            "https://api.razorpay.com/v1/orders",
+            auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+            json={
+                "amount": plan["amount_paise"],
+                "currency": "INR",
+                "receipt": receipt,
+                "notes": {"user_id": user["id"], "plan_id": payload.plan_id},
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+        gateway_order = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        logger.exception("Razorpay order creation failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Could not start checkout. Please try again.") from exc
+    try:
+        gateway_amount = int(gateway_order.get("amount") or 0)
+    except (AttributeError, TypeError, ValueError):
+        gateway_amount = -1
+    if (
+        not isinstance(gateway_order, dict)
+        or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(gateway_order.get("id") or ""))
+        or gateway_amount != int(plan["amount_paise"])
+        or str(gateway_order.get("currency") or "").upper() != "INR"
+        or gateway_order.get("status") != "created"
+    ):
+        logger.error("Razorpay returned an invalid order response")
+        raise HTTPException(status_code=502, detail="Could not start checkout. Please try again.")
+
+    row = {
+        "id": local_id,
+        "user_id": user["id"],
+        "plan_id": payload.plan_id,
+        "amount_paise": plan["amount_paise"],
+        "currency": "INR",
+        "gateway": "razorpay",
+        "gateway_order_id": gateway_order["id"],
+        "gateway_order_status": gateway_order.get("status"),
+        "receipt": receipt,
+        "status": "created",
+    }
+    _supabase.table("billing_orders").insert(row).execute()
+    return _billing_checkout_payload(plan, gateway_order["id"])
+
+
+@api_router.post("/billing/verify")
+def verify_billing_payment(payload: BillingVerifyRequest, user: dict = Depends(_require_user)):
+    _require_billing_config()
+    rows = _billing_rows(
+        "billing_orders",
+        gateway_order_id=payload.razorpay_order_id,
+        user_id=user["id"],
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="Checkout order was not found")
+    order = rows[0]
+    expected = hmac.new(
+        RAZORPAY_KEY_SECRET.encode("utf-8"),
+        f"{order['gateway_order_id']}|{payload.razorpay_payment_id}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, payload.razorpay_signature.lower()):
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+
+    try:
+        response = requests.get(
+            f"https://api.razorpay.com/v1/payments/{payload.razorpay_payment_id}",
+            auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+            timeout=20,
+        )
+        response.raise_for_status()
+        payment = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise HTTPException(status_code=502, detail="Could not confirm payment status") from exc
+
+    if not isinstance(payment, dict):
+        raise HTTPException(status_code=502, detail="Could not confirm payment status")
+    try:
+        payment_amount = int(payment.get("amount") or 0)
+        order_amount = int(order["amount_paise"])
+    except (TypeError, ValueError, KeyError) as exc:
+        raise HTTPException(status_code=502, detail="Could not confirm payment status") from exc
+
+    if (
+        payment.get("order_id") != order["gateway_order_id"]
+        or payment_amount != order_amount
+        or str(payment.get("currency") or "").upper()
+        != str(order.get("currency") or "").upper()
+    ):
+        raise HTTPException(status_code=400, detail="Payment details do not match this order")
+    if payment.get("status") != "captured":
+        _supabase.table("billing_orders").update(
+            {
+                "gateway_payment_id": payment.get("id"),
+                "gateway_payment_status": payment.get("status"),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("id", order["id"]).execute()
+        raise HTTPException(
+            status_code=409,
+            detail="Payment is authorised but not captured yet. Your plan will activate after capture.",
+        )
+    activated = _activate_paid_order(order, payment)
+    return {"verified": True, "order": activated}
+
+
+async def _read_webhook_body(request: Request) -> bytes:
+    """Stream and cap the raw body before allocating the complete webhook payload."""
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            declared_length = int(content_length)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length") from exc
+        if declared_length < 0:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length")
+        if declared_length > RAZORPAY_WEBHOOK_MAX_BYTES:
+            raise HTTPException(status_code=413, detail="Webhook payload is too large")
+
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > RAZORPAY_WEBHOOK_MAX_BYTES:
+            raise HTTPException(status_code=413, detail="Webhook payload is too large")
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _validate_paid_webhook_event(
+    event_type: str,
+    order: dict,
+    payment: dict,
+    order_entity: dict,
+) -> dict:
+    """Bind every paid event to the exact local order amount, currency and final status."""
+    expected_order_id = str(order.get("gateway_order_id") or "")
+    expected_amount = int(order.get("amount_paise") or 0)
+    expected_currency = str(order.get("currency") or "").upper()
+    errors: list[str] = []
+
+    def amount_matches(value) -> bool:
+        try:
+            return int(value) == expected_amount
+        except (TypeError, ValueError):
+            return False
+
+    if not payment:
+        errors.append("missing payment entity")
+    else:
+        if payment.get("order_id") != expected_order_id:
+            errors.append("payment order id")
+        if payment.get("status") != "captured":
+            errors.append("payment status")
+        if not amount_matches(payment.get("amount")):
+            errors.append("payment amount")
+        if str(payment.get("currency") or "").upper() != expected_currency:
+            errors.append("payment currency")
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(payment.get("id") or "")):
+            errors.append("payment id")
+
+    if event_type == "order.paid":
+        if not order_entity:
+            errors.append("missing order entity")
+        else:
+            if order_entity.get("id") != expected_order_id:
+                errors.append("order id")
+            if order_entity.get("status") != "paid":
+                errors.append("order status")
+            if not amount_matches(order_entity.get("amount")):
+                errors.append("order amount")
+            if not amount_matches(order_entity.get("amount_paid")):
+                errors.append("order paid amount")
+            if str(order_entity.get("currency") or "").upper() != expected_currency:
+                errors.append("order currency")
+
+    if errors:
+        logger.warning(
+            "Rejected mismatched Razorpay %s event for local order %s: %s",
+            event_type,
+            order.get("id"),
+            ", ".join(errors),
+        )
+        raise HTTPException(status_code=400, detail="Payment event does not match the checkout order")
+    return payment
+
+
+def _process_razorpay_webhook(raw: bytes, signature: str, supplied_event_id: str) -> dict:
+    """Verify and persist a webhook in a worker thread after bounded async ingestion."""
+    if not re.fullmatch(r"[0-9A-Fa-f]{64}", signature or ""):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+    expected = hmac.new(
+        RAZORPAY_WEBHOOK_SECRET.encode("utf-8"),
+        raw,
+        hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, signature.lower()):
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    try:
+        event = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="Malformed webhook JSON") from exc
+    if not isinstance(event, dict):
+        raise HTTPException(status_code=400, detail="Malformed webhook JSON")
+
+    event_type = event.get("event")
+    if not isinstance(event_type, str) or not 1 <= len(event_type) <= 128:
+        raise HTTPException(status_code=400, detail="Malformed webhook event")
+
+    if supplied_event_id:
+        if not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", supplied_event_id):
+            raise HTTPException(status_code=400, detail="Malformed webhook event id")
+        event_id = supplied_event_id
+    else:
+        event_id = hashlib.sha256(raw).hexdigest()
+
+    if _billing_rows("billing_webhook_events", event_id=event_id):
+        return {"ok": True, "duplicate": True}
+
+    payload = event.get("payload") or {}
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Malformed webhook event")
+    payment_wrapper = payload.get("payment") or {}
+    order_wrapper = payload.get("order") or {}
+    if not isinstance(payment_wrapper, dict) or not isinstance(order_wrapper, dict):
+        raise HTTPException(status_code=400, detail="Malformed webhook event")
+    payment = payment_wrapper.get("entity") or {}
+    order_entity = order_wrapper.get("entity") or {}
+    if not isinstance(payment, dict) or not isinstance(order_entity, dict):
+        raise HTTPException(status_code=400, detail="Malformed webhook event")
+
+    rows: list[dict] = []
+    gateway_order_id = payment.get("order_id") or order_entity.get("id")
+    if gateway_order_id:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(gateway_order_id)):
+            raise HTTPException(status_code=400, detail="Malformed payment order id")
+        rows = _billing_rows("billing_orders", gateway_order_id=gateway_order_id)
+        if rows and event_type in ("payment.captured", "order.paid"):
+            paid_payment = _validate_paid_webhook_event(
+                event_type, rows[0], payment, order_entity
+            )
+            _activate_paid_order(rows[0], paid_payment)
+        elif rows and event_type == "payment.failed":
+            # Webhook delivery can be out of order; failure must never revoke a paid order.
+            if rows[0].get("status") != "paid" and not rows[0].get("paid_at"):
+                _supabase.table("billing_orders").update(
+                    {
+                        "status": "failed",
+                        "gateway_payment_id": payment.get("id"),
+                        "gateway_payment_status": payment.get("status"),
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                ).eq("id", rows[0]["id"]).neq("status", "paid").execute()
+
+    # Keep the idempotency/fraud audit without retaining Razorpay's full payload,
+    # which can contain payer contact details and arbitrary notes.
+    audit_payload = {
+        "gateway_order_id": str(gateway_order_id or "") or None,
+        "gateway_payment_id": str(payment.get("id") or "") or None,
+        "payment_status": str(payment.get("status") or "") or None,
+        "amount": payment.get("amount"),
+        "currency": str(payment.get("currency") or "").upper() or None,
+    }
+    _supabase.table("billing_webhook_events").upsert(
+        {
+            "event_id": event_id,
+            "event_type": event_type,
+            "billing_order_id": rows[0].get("id") if rows else None,
+            "payload": audit_payload,
+        },
+        on_conflict="event_id",
+    ).execute()
+    return {"ok": True}
+
+
+@api_router.post("/billing/webhook")
+async def razorpay_webhook(request: Request):
+    if not RAZORPAY_WEBHOOK_SECRET:
+        raise HTTPException(status_code=503, detail="Webhook is not configured")
+    if not _supabase or not SUPABASE_SERVICE_ROLE_KEY:
+        raise HTTPException(status_code=503, detail="Billing storage is not configured")
+    raw = await _read_webhook_body(request)
+    # Supabase and Razorpay helpers are synchronous; keep them off the event loop.
+    return await run_in_threadpool(
+        _process_razorpay_webhook,
+        raw,
+        request.headers.get("x-razorpay-signature", ""),
+        request.headers.get("x-razorpay-event-id", ""),
+    )
 
 
 
@@ -270,8 +1211,15 @@ FlowKind = Literal["new_home", "remodel"]
 
 
 class AIV0ImagesRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     flow: FlowKind
     brief: dict
+
+    @field_validator("brief")
+    @classmethod
+    def validate_brief_size(cls, value: dict) -> dict:
+        return _bounded_json_object(value, AI_BRIEF_MAX_BYTES, "brief")
 
 
 class AIV0ImagesResponse(BaseModel):
@@ -282,9 +1230,23 @@ class AIV0ImagesResponse(BaseModel):
 
 
 class AIEstimatePlanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     flow: FlowKind
     brief: dict
     image_bundle: Optional[dict] = None
+
+    @field_validator("brief")
+    @classmethod
+    def validate_brief_size(cls, value: dict) -> dict:
+        return _bounded_json_object(value, AI_BRIEF_MAX_BYTES, "brief")
+
+    @field_validator("image_bundle")
+    @classmethod
+    def validate_image_bundle_size(cls, value: Optional[dict]) -> Optional[dict]:
+        if value is None:
+            return None
+        return _bounded_json_object(value, AI_IMAGE_BUNDLE_MAX_BYTES, "image_bundle")
 
 
 class AIEstimatePlanResponse(BaseModel):
@@ -294,6 +1256,11 @@ class AIEstimatePlanResponse(BaseModel):
     total_indicative_inr: Optional[int] = None
     mock: bool = True
     provider_note: Optional[str] = None
+
+
+def _allow_ai_mocks() -> bool:
+    """Mocks are opt-in so production provider outages surface as real failures."""
+    return _env_flag("ALLOW_AI_MOCKS", False)
 
 
 def _xai_api_key(purpose: Literal["image", "plan"] = "plan") -> str:
@@ -508,8 +1475,6 @@ def _grok_estimate_plan(
         parsed = json.loads(content)
         result = _parse_estimate_plan_json(parsed)
         if result is None:
-            if flow == "remodel":
-                return _remodel_estimate_from_brief(brief)
             return None
         if flow == "remodel":
             cap = budget_inr
@@ -1084,7 +2049,7 @@ def _grok_new_home_floor_plan_prompts(brief: dict) -> List[tuple]:
             ),
         ]
     try:
-        cap = max(1, min(4, int(os.getenv("GROK_V0_MAX_FLOOR_PLANS", "4"))))
+        cap = max(1, min(4, int(os.getenv("GROK_V0_MAX_FLOOR_PLANS", "1"))))
     except ValueError:
         cap = 4
     return slots[:cap]
@@ -1413,7 +2378,10 @@ def _mock_v0_images(flow: FlowKind, brief: dict) -> AIV0ImagesResponse:
 def _mock_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[dict]) -> AIEstimatePlanResponse:
     loc = str(brief.get("location") or "India").split(",")[0].strip() or "India"
     if flow == "remodel":
-        return _remodel_estimate_from_brief(brief)
+        mock = _remodel_estimate_from_brief(brief)
+        mock.mock = True
+        mock.provider_note = None
+        return mock
 
     estimate_lines = [
         {"label": "Structure & shell (indicative)", "amount_inr": 2650000, "note": f"{loc} floor plan + exterior v0"},
@@ -1492,8 +2460,6 @@ def _openai_estimate_plan(flow: FlowKind, brief: dict, image_bundle: Optional[di
         parsed = json.loads(content)
         result = _parse_estimate_plan_json(parsed)
         if result is None:
-            if flow == "remodel":
-                return _remodel_estimate_from_brief(brief)
             return None
         if flow == "remodel" and (
             _estimate_looks_like_new_build(result.estimate_lines)
@@ -1521,8 +2487,15 @@ def _gemini_client():
 
 
 class HubAssistantRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
     message: str = Field(..., min_length=1, max_length=1200)
     context: dict = Field(default_factory=dict)
+
+    @field_validator("context")
+    @classmethod
+    def validate_context_size(cls, value: dict) -> dict:
+        return _bounded_json_object(value, HUB_CONTEXT_MAX_BYTES, "context")
 
 
 def _hub_assistant_local(message: str, ctx: dict) -> dict:
@@ -1654,17 +2627,34 @@ def _grok_hub_assistant(message: str, ctx: dict) -> Optional[dict]:
 
 
 @api_router.post("/ai/hub-assistant")
-async def ai_hub_assistant(payload: HubAssistantRequest):
+def ai_hub_assistant(payload: HubAssistantRequest, _user: dict = Depends(_ai_request_slot)):
     grok = _grok_hub_assistant(payload.message, payload.context)
     if grok is not None:
         return grok
-    return _hub_assistant_local(payload.message, payload.context)
+    if _allow_ai_mocks():
+        logger.warning("ai/hub-assistant using local fallback because ALLOW_AI_MOCKS is enabled")
+        return _hub_assistant_local(payload.message, payload.context)
+    raise HTTPException(
+        status_code=502,
+        detail="AI assistant is temporarily unavailable. Please try again.",
+    )
 
 
 @api_router.get("/ai/status")
-async def ai_status():
+def ai_status():
     return {
         "grok_configured": bool(_xai_api_key("plan") or _xai_api_key("image")),
+        "payments_configured": bool(
+            BILLING_ENABLED
+            and RAZORPAY_KEY_ID
+            and RAZORPAY_KEY_SECRET
+            and RAZORPAY_WEBHOOK_SECRET
+            and (not RAZORPAY_KEY_ID.startswith("rzp_live_") or ALLOW_LIVE_BILLING)
+            and SUPABASE_URL
+            and SUPABASE_SERVICE_ROLE_KEY
+            and _supabase is not None
+        ),
+        "ai_mocks_enabled": _allow_ai_mocks(),
         "image_model": os.getenv("GROK_IMAGE_MODEL", "grok-imagine-image"),
         "chat_model": os.getenv("GROK_CHAT_MODEL", "grok-3-mini"),
         "hub_assistant": True,
@@ -1681,24 +2671,30 @@ def _v0_images_json(resp: AIV0ImagesResponse) -> dict:
 
 
 @api_router.post("/ai/v0-images")
-async def ai_v0_images(payload: AIV0ImagesRequest):
+def ai_v0_images(payload: AIV0ImagesRequest, _user: dict = Depends(_ai_request_slot)):
     brief = payload.brief if isinstance(payload.brief, dict) else {}
-    try:
-        grok = _grok_v0_images(payload.flow, brief)
-        if grok is not None:
-            grok.provider_note = None
-            return _v0_images_json(grok)
+    if _allow_ai_mocks():
         mock = _mock_v0_images(payload.flow, brief)
-        logger.warning("ai/v0-images falling back to mock for flow=%s", payload.flow)
+        logger.warning("ai/v0-images using mock because ALLOW_AI_MOCKS is enabled; flow=%s", payload.flow)
         return _v0_images_json(mock)
-    except Exception as exc:
-        logger.exception("ai/v0-images handler failed: %s", exc)
-        mock = _mock_v0_images(payload.flow, brief)
-        return _v0_images_json(mock)
+    if not _xai_api_key("image"):
+        raise HTTPException(
+            status_code=502,
+            detail="AI image generation is temporarily unavailable. Please try again.",
+        )
+    _consume_ai_daily_quota(str(_user.get("id") or ""))
+    grok = _grok_v0_images(payload.flow, brief)
+    if grok is not None:
+        grok.provider_note = None
+        return _v0_images_json(grok)
+    raise HTTPException(
+        status_code=502,
+        detail="AI image generation is temporarily unavailable. Please try again.",
+    )
 
 
 @api_router.post("/ai/estimate-plan", response_model=AIEstimatePlanResponse)
-async def ai_estimate_plan(payload: AIEstimatePlanRequest):
+def ai_estimate_plan(payload: AIEstimatePlanRequest, _user: dict = Depends(_ai_request_slot)):
     grok = _grok_estimate_plan(payload.flow, payload.brief, payload.image_bundle)
     if grok is not None:
         return grok
@@ -1715,12 +2711,18 @@ async def ai_estimate_plan(payload: AIEstimatePlanRequest):
         ):
             return _remodel_estimate_from_brief(payload.brief)
         return llm
-    if payload.flow == "remodel":
-        return _remodel_estimate_from_brief(payload.brief)
-    return _mock_estimate_plan(payload.flow, payload.brief, payload.image_bundle)
+    if _allow_ai_mocks():
+        logger.warning("ai/estimate-plan using mock because ALLOW_AI_MOCKS is enabled; flow=%s", payload.flow)
+        return _mock_estimate_plan(payload.flow, payload.brief, payload.image_bundle)
+    raise HTTPException(
+        status_code=502,
+        detail="AI estimate generation is temporarily unavailable. Please try again.",
+    )
 
 
 app.include_router(api_router)
+
+app.add_middleware(RequestBodyLimitMiddleware, max_bytes=MAX_REQUEST_BODY_BYTES)
 
 app.add_middleware(
     CORSMiddleware,
@@ -1729,7 +2731,10 @@ app.add_middleware(
         "CORS_ORIGINS",
         "https://www.homemakers.online,https://homemakers.online,http://localhost:3000,http://127.0.0.1:3000",
     ),
-    allow_origin_regex=os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app"),
+    allow_origin_regex=os.getenv(
+        "CORS_ORIGIN_REGEX",
+        r"https://(homemakers(-1|final)?|frontend)(-[a-z0-9-]+)?\.vercel\.app",
+    ),
     allow_methods=["*"],
     allow_headers=["*"],
 )

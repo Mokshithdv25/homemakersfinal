@@ -472,14 +472,21 @@ export default function BuildNewHome() {
     setStepBlockError("");
     setV0GenStatus("");
     try {
+      const { inspirationItems = [], ...briefForm } = form;
       const brief = {
-        ...form,
+        ...briefForm,
         resolvedArchStyle: archResolved,
         flowWizard: "build_new_home",
         budgetLabel: budgetSingleLabel(form),
-        inspirationImages: (form.inspirationItems || [])
+        inspirationCount: inspirationItems.length,
+        inspirationLinks: inspirationItems
+          .filter((item) => item?.type === "link" && item?.value)
+          .map((item) => item.value)
+          .slice(0, 8),
+        inspirationImages: inspirationItems
           .filter((x) => x?.type === "image" && x?.value)
-          .map((x) => x.value),
+          .map((x) => x.value)
+          .slice(0, 3),
       };
       setV0GenPhase("images");
       const imagesPayload = await requestV0Images("new_home", brief, {

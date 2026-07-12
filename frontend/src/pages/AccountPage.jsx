@@ -12,6 +12,7 @@ import { fetchUserProfile, persistHmSessionFromSupabase, upsertUserProfile } fro
 import { formatInrShort, listUserProjects } from "../lib/projectFlowApi";
 import { AUTH_UI_ENABLED } from "../lib/authMode";
 import HmUserMenu from "../components/HmUserMenu";
+import { deleteMyAccount } from "../lib/accountApi";
 
 export default function AccountPage() {
   const navigate = useNavigate();
@@ -25,8 +26,10 @@ export default function AccountPage() {
   const [error, setError] = useState("");
   const [savedProjects, setSavedProjects] = useState([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
+    if (session === undefined) return;
     if (!AUTH_UI_ENABLED && !session) {
       navigate("/project", { replace: true });
       return;
@@ -99,17 +102,31 @@ export default function AccountPage() {
   };
 
   const handleSignOut = () => {
-    navigate("/", { replace: true });
     void signOutHm();
   };
 
-  if (!session) {
+  const handleDeleteAccount = async () => {
+    const confirmation = window.prompt('This permanently deletes your account, projects, portfolio, files, and payment records. Type DELETE to continue.');
+    if (confirmation !== "DELETE") return;
+    setDeletingAccount(true);
+    setError("");
+    try {
+      await deleteMyAccount();
+      await signOutHm();
+    } catch (err) {
+      setError(err?.response?.data?.detail || err?.message || "Could not delete your account.");
+      setDeletingAccount(false);
+    }
+  };
+
+  if (session === undefined) {
     return (
       <div className="min-h-screen bg-[#FBF2E8] flex items-center justify-center">
         <Loader2 className="w-6 h-6 animate-spin text-[#C85F2B]" />
       </div>
     );
   }
+  if (session === null) return null;
 
   const initial = getProfileInitial(session);
 
@@ -258,13 +275,10 @@ export default function AccountPage() {
           </div>
 
           {AUTH_UI_ENABLED ? (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="w-full font-body text-sm text-destructive hover:underline bg-transparent border-none cursor-pointer py-2"
-            >
-              Sign out
-            </button>
+            <div className="space-y-2">
+              <button type="button" onClick={handleSignOut} className="w-full font-body text-sm text-destructive hover:underline bg-transparent border-none cursor-pointer py-2">Sign out</button>
+              <button type="button" disabled={deletingAccount} onClick={handleDeleteAccount} className="w-full font-body text-xs text-destructive hover:underline bg-transparent border-none cursor-pointer py-2">{deletingAccount ? "Deleting account…" : "Permanently delete account"}</button>
+            </div>
           ) : null}
         </div>
       </main>

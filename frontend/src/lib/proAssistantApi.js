@@ -1,5 +1,6 @@
 import axios from "axios";
 import { localProAssistantReply } from "./proAssistantCommands";
+import { withBackendAuth } from "./backendAuth";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 const isDev = process.env.NODE_ENV === "development";
@@ -25,10 +26,14 @@ export async function askProAssistant(payload) {
   if (!client) return { ...local, source: "local" };
 
   try {
-    const { data } = await client.post("/ai/hub-assistant", {
-      message,
-      context: { ...context, role: "pro", surface: "pro-dashboard" },
-    });
+    const { data } = await client.post(
+      "/ai/hub-assistant",
+      {
+        message,
+        context: { ...context, role: "pro", surface: "pro-dashboard" },
+      },
+      await withBackendAuth(),
+    );
     const text = String(data?.reply || data?.text || "").trim();
     if (text) {
       return { text, action: data?.action || local.action || null, source: data?.source || "ai" };

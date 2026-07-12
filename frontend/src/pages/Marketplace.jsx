@@ -69,19 +69,23 @@ export default function Marketplace() {
   const hubQuery = location.search || "";
 
   const [serviceQuery, setServiceQuery] = useState("");
-  const [locationQuery, setLocationQuery] = useState("Bengaluru, IN");
+  const [locationQuery, setLocationQuery] = useState("");
   const [craftFilter, setCraftFilter] = useState(null);
-  const [hasSearched, setHasSearched] = useState(false);
+  const [hasSearched, setHasSearched] = useState(true);
   const [loading, setLoading] = useState(false);
   const [allPublished, setAllPublished] = useState([]);
+  const [directoryError, setDirectoryError] = useState("");
 
   const fetchPublished = useCallback(
     async (craft) => {
       setLoading(true);
+      setDirectoryError("");
       try {
         const city = locationQuery?.trim() ? locationQuery.replace(/,\s*IN$/i, "").trim() : null;
         const rows = await listPublishedPortfolios({ craft: craft || null, city, limit: 100 });
         setAllPublished(rows);
+      } catch (err) {
+        setDirectoryError(err?.message || "Could not load professionals. Try again.");
       } finally {
         setLoading(false);
       }
@@ -91,11 +95,12 @@ export default function Marketplace() {
 
   useEffect(() => {
     const trade = searchParams.get("trade");
-    if (!trade) return;
-    setServiceQuery(trade);
+    if (trade) setServiceQuery(trade);
     setHasSearched(true);
     fetchPublished(null);
-  }, [searchParams, fetchPublished]);
+    // Initial directory load intentionally runs once; searches are explicit after that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const results = useMemo(
     () => filterPublishedPros(allPublished, serviceQuery, locationQuery, craftFilter),
@@ -209,7 +214,9 @@ export default function Marketplace() {
             <p style={{ fontSize: 14, color: "#78716C", marginBottom: 20 }}>
               Professionals who completed their portfolio and published their profile.
             </p>
-            {loading ? (
+            {directoryError ? (
+              <p role="alert" style={{ fontSize: 14, color: "#B42318" }}>{directoryError}</p>
+            ) : loading ? (
               <p style={{ fontSize: 14, color: "#78716C" }}>Searching…</p>
             ) : results.length === 0 ? (
               <p style={{ fontSize: 14, color: "#78716C" }}>

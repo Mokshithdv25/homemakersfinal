@@ -4,8 +4,8 @@
 -- You already have: portfolios, projects, project_briefs, project_ai_runs, PM tables.
 -- This adds what the React app expects and fixes one constraint mismatch.
 --
--- NOTE: You disabled RLS on projects/briefs/stages/tasks/messages — keep that for MVP.
---       Do NOT run the strict RLS block in db/project_pm_v0.sql (it conflicts).
+-- LEGACY ALIGNMENT ONLY. Production must run homemakers_rls_hardening.sql after
+-- this file. This script now fails closed instead of disabling project RLS.
 
 -- =========================
 -- 1) Portfolios: link to auth user (for "my portfolio" + optional tightening later)
@@ -23,7 +23,7 @@ alter table public.project_briefs
 
 alter table public.project_briefs
   add constraint project_briefs_flow_status_check
-  check (flow_status in ('draft', 'v0_ready', 'submitted', 'abandoned'));
+  check (flow_status in ('draft', 'v0_ready', 'open_for_quotes', 'submitted', 'abandoned'));
 
 -- =========================
 -- 3) project_v0_packs: denormalized v0 bundle (images + estimate) for project hub UI
@@ -47,8 +47,7 @@ create trigger trg_project_v0_packs_updated_at
   before update on public.project_v0_packs
   for each row execute function public.set_updated_at();
 
--- Match your MVP: no RLS on project child tables (you disabled RLS on projects)
-alter table public.project_v0_packs disable row level security;
+alter table public.project_v0_packs enable row level security;
 
 -- Optional MVP policies if you re-enable RLS later:
 -- alter table public.project_v0_packs enable row level security;
@@ -61,8 +60,8 @@ alter table public.project_v0_packs disable row level security;
 -- =========================
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
-  ('project-v0', 'project-v0', true, 10485760, array['image/jpeg','image/png','image/webp','image/gif']),
-  ('portfolio-media', 'portfolio-media', true, 10485760, array['image/jpeg','image/png','image/webp','image/gif'])
+  ('project-v0', 'project-v0', false, 10485760, array['image/jpeg','image/png','image/webp','image/gif']),
+  ('portfolio-media', 'portfolio-media', false, 10485760, array['image/jpeg','image/png','image/webp','image/gif'])
 on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,

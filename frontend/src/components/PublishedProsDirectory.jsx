@@ -42,15 +42,20 @@ export function proInitials(pro) {
 export function usePublishedPros({ craft, city, limit = 24 } = {}) {
   const [pros, setPros] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const rows = await listPublishedPortfolios({ craft, city, limit });
-      if (!cancelled) {
-        setPros(rows);
-        setLoading(false);
+      setError("");
+      try {
+        const rows = await listPublishedPortfolios({ craft, city, limit });
+        if (!cancelled) setPros(rows);
+      } catch (err) {
+        if (!cancelled) setError(err?.message || "Could not load professionals.");
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
     return () => {
@@ -58,7 +63,7 @@ export function usePublishedPros({ craft, city, limit = 24 } = {}) {
     };
   }, [craft, city, limit]);
 
-  return { pros, loading };
+  return { pros, loading, error };
 }
 
 /**
@@ -75,7 +80,7 @@ export default function PublishedProsDirectory({
   hubQuery = "",
   className = "",
 }) {
-  const { pros, loading } = usePublishedPros({ craft, city, limit });
+  const { pros, loading, error } = usePublishedPros({ craft, city, limit });
 
   if (loading) {
     return (
@@ -84,6 +89,10 @@ export default function PublishedProsDirectory({
         <p style={{ fontSize: 14, color: "#9A8F87" }}>Loading professionals…</p>
       </div>
     );
+  }
+
+  if (error) {
+    return <p role="alert" className={className} style={{ fontSize: 14, color: "#B42318" }}>{error}</p>;
   }
 
   if (!pros.length) {

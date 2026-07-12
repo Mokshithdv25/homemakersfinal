@@ -1,5 +1,7 @@
 -- =============================================================================
--- HomeMakers — SINGLE SETUP (run once in Supabase SQL Editor)
+-- HomeMakers — LEGACY OPEN-DEMO SETUP (not safe as the final production state)
+-- Run homemakers_rls_hardening.sql immediately afterward. Never rerun this file
+-- on a hardened production database.
 -- Safe to re-run (idempotent). Works on empty DB or after v1/v1.1/v1.2.
 --
 -- Gives every signed-in user a persistent row: email + role + name + phone + city
@@ -308,7 +310,7 @@ alter table public.project_briefs add column if not exists flow_step text;
 alter table public.project_briefs drop constraint if exists project_briefs_flow_status_check;
 alter table public.project_briefs
   add constraint project_briefs_flow_status_check
-  check (flow_status in ('draft', 'v0_ready', 'submitted', 'abandoned'));
+  check (flow_status in ('draft', 'v0_ready', 'open_for_quotes', 'submitted', 'abandoned'));
 
 drop trigger if exists trg_project_briefs_updated_at on public.project_briefs;
 create trigger trg_project_briefs_updated_at

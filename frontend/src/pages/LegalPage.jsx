@@ -42,7 +42,7 @@ const TERMS_SECTIONS = [
 const PRIVACY_SECTIONS = [
   {
     h: "1. What we collect",
-    p: "Account details (name, email, phone, city), project briefs (plot details, budget bands, room photos, preferences), professional portfolio content (business details, work photos), and usage data needed to operate and improve the platform.",
+    p: "Account details (name, email, phone, city), project briefs (plot details, budget bands, room photos, preferences), professional portfolio content (business details, work photos), private project documents, team contacts, owner-entered payment records, subscription purchase records, and technical data needed to operate and secure the service.",
   },
   {
     h: "2. How we use it",
@@ -50,11 +50,11 @@ const PRIVACY_SECTIONS = [
   },
   {
     h: "3. AI processing",
-    p: "Your project brief and uploaded room photos may be sent to AI providers (such as xAI's Grok) to generate design concepts and estimates. Only what is needed for generation is shared; results are stored in your project so you can revisit them.",
+    p: "Your project brief and uploaded room photos may be sent to the AI provider configured for the requested feature, including xAI, Google, or OpenAI-compatible services, to generate concepts, estimates, or assistant responses. Only the content needed for the request is sent; results are stored in your project so you can revisit them.",
   },
   {
     h: "4. Where your data lives",
-    p: "Data is stored with our infrastructure providers: Supabase (database, authentication, file storage), Vercel (web hosting), and Render (API hosting). Published portfolios and their photos are public by design — that is what the marketplace shows to potential clients.",
+    p: "Data is processed by our infrastructure providers: Supabase (database, authentication, and file storage), Vercel (web hosting), Render (API hosting), configured AI providers, and Razorpay when you choose a paid plan. Published portfolios and their photos are public by design — that is what the marketplace shows to potential clients.",
   },
   {
     h: "5. What is public vs private",
@@ -62,11 +62,11 @@ const PRIVACY_SECTIONS = [
   },
   {
     h: "6. Your choices",
-    p: `You can edit your profile and portfolio at any time, unpublish a portfolio to remove it from the marketplace, and request account or data deletion by writing to ${SUPPORT_EMAIL}. We respond to deletion requests within 30 days.`,
+    p: `You can edit your profile and portfolio, control whether a portfolio is published, and permanently delete your account, projects, portfolios, and files from Account & Settings. A minimized payment-event audit may be retained where required for fraud prevention, tax, accounting, or other legal obligations. You can also write to ${SUPPORT_EMAIL} for privacy assistance.`,
   },
   {
     h: "7. Cookies and analytics",
-    p: "We use essential cookies and local storage to keep you signed in and save drafts on your device, plus privacy-focused product analytics (PostHog) to understand feature usage. We do not run third-party advertising trackers.",
+    p: "We use essential browser storage to keep you signed in, remember the active project, and retain in-progress drafts on your device. We do not run advertising trackers or sell personal data.",
   },
   {
     h: "8. Contact",

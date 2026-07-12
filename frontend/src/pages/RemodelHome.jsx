@@ -37,6 +37,7 @@ import { HM_FIXED_NAV_OFFSET_TAGLINE_CLASS, HM_TAGLINE_REMODEL } from "../lib/hm
 import { canVisitWizardStep, nextMaxStepReached, wizardExitPath } from "../lib/wizardSteps";
 import VisionCaptureStep from "../components/VisionCaptureStep";
 import WizardMobileStepBar from "../components/WizardMobileStepBar";
+import { optimizeImageFileToDataUrl } from "../lib/imageDataUrl";
 
 const REMODEL_STEPS = [
   { n: 1, title: "Your space", sub: "Photos, then vision" },
@@ -69,12 +70,6 @@ const REMODEL_ROOMS = [
   { label: "Study, office, or hall", icon: "🚪" },
 ];
 const PTYPES = ["Apartment","Independent House","Villa"];
-const DEMO_PHOTOS = [
-  { label:"Front View", url:"https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=200&q=70" },
-  { label:"Left View",  url:"https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=200&q=70" },
-  { label:"Right View", url:"https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=200&q=70" },
-  { label:"Back View",  url:"https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=200&q=70" },
-];
 const PAIN_OPTS = ["Cramped / Small","Poor Lighting","Not Enough Storage","Outdated Design","Poor Ventilation","Other"];
 const GOAL_OPTS = [
   { v:"Improve Layout",        sub:"Make the space more functional",      icon:"⬡" },
@@ -267,12 +262,10 @@ export default function RemodelHome() {
   const [step, setStep] = useState(1);
   const [maxStepReached, setMaxStepReached] = useState(1);
 
-  const [dreamVision, setDreamVision] = useState(
-    "Brighter living room with Scandinavian calm — warm oak accents, hidden storage for toys, and soft daylight. Keep the sofa; rethink the TV wall and ceiling."
-  );
+  const [dreamVision, setDreamVision] = useState("");
   const [visionInspirationItems, setVisionInspirationItems] = useState([]);
   // Step 2 — capture space
-  const [photos, setPhotos] = useState(DEMO_PHOTOS);
+  const [photos, setPhotos] = useState([]);
   const [ptype, setPtype] = useState("Apartment");
   const [room, setRoom] = useState("Living room");
   const [len, setLen] = useState("15");
@@ -309,11 +302,7 @@ export default function RemodelHome() {
   const [architectHandoffNote, setArchitectHandoffNote] = useState("");
   const [hasOwnPros, setHasOwnPros] = useState(false);
   const [stepBlockError, setStepBlockError] = useState("");
-  const [inspirationImgs, setInspirationImgs] = useState([
-    "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=160&q=70",
-    "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?w=160&q=70",
-    "https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=160&q=70",
-  ]);
+  const [inspirationImgs, setInspirationImgs] = useState([]);
   const toggleStyle = (s) => setStyles(prev => prev.includes(s) ? prev.filter(x=>x!==s) : prev.length < 2 ? [...prev, s] : prev);
 
   const togglePain = (p) => setPainPoints(prev => prev.includes(p)?prev.filter(x=>x!==p):[...prev,p]);
@@ -323,17 +312,7 @@ export default function RemodelHome() {
   const readImagesAsDataUrls = async (fileList) => {
     const files = Array.from(fileList || []).filter((f) => /^image\//.test(f.type));
     if (!files.length) return [];
-    return Promise.all(
-      files.slice(0, 8).map(
-        (file) =>
-          new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result || ""));
-            reader.onerror = () => reject(new Error("read-failed"));
-            reader.readAsDataURL(file);
-          })
-      )
-    );
+    return Promise.all(files.slice(0, 8).map((file) => optimizeImageFileToDataUrl(file)));
   };
 
   const handleRoomPhotosUpload = async (ev) => {
@@ -390,6 +369,15 @@ export default function RemodelHome() {
     const budgetN = budgetAmountClampedRemodel(budgetAmount);
     const budgetInr =
       budgetUnit === "Crores" ? budgetN * 10_000_000 : budgetN * 100_000;
+    const referenceImages = [
+      ...photos.map((photo) => photo?.url),
+      ...visionInspirationItems
+        .filter((item) => item?.type === "image")
+        .map((item) => item.value),
+      ...inspirationImgs,
+    ]
+      .filter((url) => typeof url === "string" && url && !url.includes("unsplash.com"))
+      .slice(0, 3);
     return {
       flowWizard: "remodel_home",
       dreamVision,
@@ -424,15 +412,12 @@ export default function RemodelHome() {
       colourSecondary,
       visionInspirationCount: visionInspirationItems.length,
       inspirationCount: inspirationImgs.length,
-      inspirationItems: visionInspirationItems.filter((x) => x?.type === "image"),
-      inspirationImages: [
-        ...visionInspirationItems
-          .filter((x) => x?.type === "image" && x?.value)
-          .map((x) => x.value),
-        ...inspirationImgs.filter(
-          (u) => typeof u === "string" && u && !String(u).includes("unsplash.com"),
-        ),
-      ],
+      roomPhotoCount: photos.length,
+      inspirationLinks: visionInspirationItems
+        .filter((item) => item?.type === "link" && item?.value)
+        .map((item) => item.value)
+        .slice(0, 8),
+      inspirationImages: referenceImages,
     };
   };
 

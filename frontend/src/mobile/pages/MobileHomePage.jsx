@@ -46,6 +46,7 @@ export default function MobileHomePage() {
   const [search, setSearch] = useState("");
   const [pros, setPros] = useState([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
+  const [feedError, setFeedError] = useState("");
 
   const craftFilter = INDIAN_ROOM_FILTERS.find((f) => f.id === filter)?.craft || null;
 
@@ -53,10 +54,14 @@ export default function MobileHomePage() {
     let cancelled = false;
     (async () => {
       setLoadingFeed(true);
-      const rows = await listPublishedPortfolios({ craft: craftFilter, limit: 24 });
-      if (!cancelled) {
-        setPros(rows);
-        setLoadingFeed(false);
+      setFeedError("");
+      try {
+        const rows = await listPublishedPortfolios({ craft: craftFilter, limit: 24 });
+        if (!cancelled) setPros(rows);
+      } catch (err) {
+        if (!cancelled) setFeedError(err?.message || "Could not load professional portfolios.");
+      } finally {
+        if (!cancelled) setLoadingFeed(false);
       }
     })();
     return () => {
@@ -123,7 +128,9 @@ export default function MobileHomePage() {
       <p className="hm-m-section-title" style={{ marginTop: 8 }}>
         From pros on HomeMakers
       </p>
-      {loadingFeed ? (
+      {feedError ? (
+        <p role="alert" style={{ padding: "0 16px 24px", fontSize: 14, color: "#B42318" }}>{feedError}</p>
+      ) : loadingFeed ? (
         <p style={{ padding: "0 16px 24px", fontSize: 14, color: "#78716C" }}>Loading portfolios…</p>
       ) : feed.length === 0 ? (
         <div className="hm-m-empty" style={{ margin: "0 16px 24px" }}>

@@ -5,31 +5,31 @@ import { Zap, IndianRupee, Globe, Handshake, Compass } from "lucide-react";
 const forProfessionals = [
   {
     icon: Zap,
-    title: "Close Deals Faster",
-    benefit: "2× faster sign-off",
+    title: "Start With a Clearer Brief",
+    benefit: "Brief + visuals",
     description:
-      "Clients arrive with clear briefs and visuals. Family comments and approvals live in one place so you sign off in days, not months.",
+      "Homeowners can bring a structured brief, AI concept pack, and budget direction into the first conversation.",
   },
   {
     icon: IndianRupee,
-    title: "Get Paid On Time",
-    benefit: "Zero payment chasing",
+    title: "Track Project Payments",
+    benefit: "Owner-managed ledger",
     description:
-      "Milestone payments built into the platform. Clients fund each phase before work starts. Less chasing invoices.",
+      "Homeowners can record planned, due, and paid milestones in their project workspace. Payments are arranged directly with the professional.",
   },
   {
     icon: Globe,
     title: "Get Discovered Locally",
-    benefit: "Your portfolio, zero effort",
+    benefit: "Shareable profile",
     description:
       "Get found in your city through the marketplace. One portfolio link, no website build required.",
   },
   {
     icon: Handshake,
-    title: "Collaborate Seamlessly",
-    benefit: "One shared workspace",
+    title: "Keep Project Details Together",
+    benefit: "Saved workspace",
     description:
-      "Contractors, suppliers, and designers on one timeline with shared docs. Less WhatsApp chaos.",
+      "Homeowners can keep tasks, documents, team contacts, and project notes together instead of scattering them across chats.",
   },
 ];
 
@@ -54,8 +54,7 @@ export default function LandingForProfessionals() {
               Built for architects, designers, engineers, and contractors
             </h3>
             <p className="text-muted-foreground font-body text-base max-w-xl leading-relaxed">
-              Portfolio, marketplace leads, and a project workspace in one place. AI helps clients show up prepared so
-              you close faster.
+              A shareable portfolio, directory visibility, and structured homeowner briefs in one place.
             </p>
           </div>
           <div className="lg:col-span-5 flex justify-start lg:justify-end">
