@@ -1,21 +1,19 @@
 -- =============================================================================
--- HomeMakers — LEGACY OPEN-DEMO SETUP (not safe as the final production state)
--- Run homemakers_rls_hardening.sql immediately afterward. Never rerun this file
--- on a hardened production database.
--- Safe to re-run (idempotent). Works on empty DB or after v1/v1.1/v1.2.
+-- HomeMakers — FAIL-CLOSED BASE SCHEMA
+-- Run on an empty/reset Supabase project, then run homemakers_rls_hardening.sql
+-- and homemakers_project_workspace.sql. This bootstrap is deliberately safe if
+-- the sequence stops early: private tables have RLS enabled, anonymous grants
+-- are revoked, storage buckets are private, and no broad demo policies exist.
 --
 -- Gives every signed-in user a persistent row: email + role + name + phone + city
 -- Projects, v0 packs, portfolios, and storage for the React app.
 --
--- MODE: OPEN DEMO (no-login persistence). The React app writes to Supabase with
--- the ANON key and no sign-in (AUTH_UI_ENABLED = false), so:
---   • portfolios      → anon can insert/update/select (pros save without login)
---   • projects + kids → RLS disabled (homeowner projects save without login)
---   • storage buckets → anon can upload v0 images + portfolio photos
--- Rows are SHARED (no per-user isolation) — fine pre-launch, NOT for real
--- multi-tenant. Before public launch: set AUTH_UI_ENABLED = true and run
--- db/homemakers_rls_hardening.sql to restore owner-scoped (auth.uid()) policies.
+-- It is idempotent for the canonical schema, but it is not a legacy migration.
+-- Use homemakers_production_reset.sql first when intentionally discarding an
+-- older schema, and never use the obsolete open-demo SQL attachment.
 -- =============================================================================
+
+begin;
 
 create extension if not exists pgcrypto;
 
@@ -31,6 +29,8 @@ begin
   return new;
 end;
 $$;
+
+revoke all on function public.set_updated_at() from public, anon, authenticated;
 
 -- -----------------------------------------------------------------------------
 -- 1) USER SESSION (email + role + profile — source of truth for the app)
@@ -95,6 +95,8 @@ begin
 end;
 $$;
 
+revoke all on function public.handle_new_user() from public, anon, authenticated;
+
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
@@ -114,6 +116,8 @@ begin
   return new;
 end;
 $$;
+
+revoke all on function public.handle_user_email_updated() from public, anon, authenticated;
 
 drop trigger if exists on_auth_user_email_updated on auth.users;
 create trigger on_auth_user_email_updated
@@ -137,6 +141,10 @@ on conflict (id) do update set
   updated_at = now();
 
 alter table public.user_profiles enable row level security;
+
+revoke all on public.user_profiles from public, anon, authenticated;
+grant select, insert, update on public.user_profiles to authenticated;
+grant all on public.user_profiles to service_role;
 
 drop policy if exists "user_profiles_select_own" on public.user_profiles;
 create policy "user_profiles_select_own" on public.user_profiles
@@ -178,7 +186,7 @@ as $$
   where p.id = auth.uid();
 $$;
 
-revoke all on function public.get_my_session() from public;
+revoke all on function public.get_my_session() from public, anon, authenticated;
 grant execute on function public.get_my_session() to authenticated;
 
 -- -----------------------------------------------------------------------------
@@ -186,7 +194,7 @@ grant execute on function public.get_my_session() to authenticated;
 -- -----------------------------------------------------------------------------
 create table if not exists public.portfolios (
   id text primary key,
-  owner_user_id uuid references auth.users (id) on delete set null,
+  owner_user_id uuid not null references auth.users (id) on delete cascade,
   craft text not null,
   full_name text,
   business_name text,
@@ -199,8 +207,10 @@ create table if not exists public.portfolios (
   email text,
   license_number text,
   short_bio text,
-  specialties jsonb not null default '[]'::jsonb,
-  photos jsonb not null default '[]'::jsonb,
+  specialties jsonb not null default '[]'::jsonb
+    check (jsonb_typeof(specialties) = 'array'),
+  photos jsonb not null default '[]'::jsonb
+    check (jsonb_typeof(photos) = 'array'),
   cover_photo text,
   profile_photo text,
   profile_strength integer not null default 15,
@@ -213,13 +223,27 @@ create table if not exists public.portfolios (
   updated_at timestamptz not null default now()
 );
 
-alter table public.portfolios add column if not exists owner_user_id uuid references auth.users (id) on delete set null;
+alter table public.portfolios add column if not exists owner_user_id uuid references auth.users (id) on delete cascade;
+alter table public.portfolios drop constraint if exists portfolios_owner_user_id_fkey;
+alter table public.portfolios
+  add constraint portfolios_owner_user_id_fkey
+  foreign key (owner_user_id) references auth.users (id) on delete cascade;
+alter table public.portfolios alter column owner_user_id set not null;
 -- Wizard fields added after the initial schema: street address (details step) and
 -- look & feel (theme step). Without these columns Supabase rejects the whole write,
 -- so details and theme silently fail to persist.
 alter table public.portfolios add column if not exists address text;
 alter table public.portfolios add column if not exists portfolio_theme text;
 alter table public.portfolios add column if not exists portfolio_layout text;
+
+alter table public.portfolios drop constraint if exists portfolios_specialties_array_check;
+alter table public.portfolios
+  add constraint portfolios_specialties_array_check
+  check (jsonb_typeof(specialties) = 'array');
+alter table public.portfolios drop constraint if exists portfolios_photos_array_check;
+alter table public.portfolios
+  add constraint portfolios_photos_array_check
+  check (jsonb_typeof(photos) = 'array');
 
 create index if not exists idx_portfolios_published on public.portfolios (published);
 create index if not exists idx_portfolios_owner_user on public.portfolios (owner_user_id);
@@ -229,40 +253,25 @@ create trigger trg_portfolios_updated_at
   before update on public.portfolios
   for each row execute function public.set_updated_at();
 
--- OPEN DEMO MODE: anon (no-login) can create/edit/read portfolios so pros persist
--- without sign-in. Before real multi-tenant launch, run homemakers_rls_hardening.sql
--- to switch these back to owner-scoped (auth.uid()) policies.
+-- Fail closed until the hardening script installs owner-scoped policies and the
+-- safe published_portfolios projection.
 alter table public.portfolios enable row level security;
+revoke all on public.portfolios from public, anon, authenticated;
+grant all on public.portfolios to service_role;
 
--- Drop any prior owner-scoped policies (from hardened setup) so re-runs are clean.
-drop policy if exists "portfolio_select_own_or_published" on public.portfolios;
-drop policy if exists "portfolio_select_published_anon" on public.portfolios;
-drop policy if exists "portfolio_insert_own" on public.portfolios;
-drop policy if exists "portfolio_update_own" on public.portfolios;
-drop policy if exists "portfolio_delete_own" on public.portfolios;
-
+-- Remove only obsolete broad policies. Existing production owner policies are
+-- intentionally preserved if this idempotent bootstrap is re-run.
 drop policy if exists "public_read_published_portfolios" on public.portfolios;
-create policy "public_read_published_portfolios"
-  on public.portfolios for select to anon, authenticated using (published = true);
-
 drop policy if exists "anon_read_portfolios_mvp" on public.portfolios;
-create policy "anon_read_portfolios_mvp"
-  on public.portfolios for select to anon, authenticated using (true);
-
 drop policy if exists "anon_insert_portfolios_mvp" on public.portfolios;
-create policy "anon_insert_portfolios_mvp"
-  on public.portfolios for insert to anon, authenticated with check (true);
-
 drop policy if exists "anon_update_portfolios_mvp" on public.portfolios;
-create policy "anon_update_portfolios_mvp"
-  on public.portfolios for update to anon, authenticated using (true) with check (true);
 
 -- -----------------------------------------------------------------------------
 -- 3) HOMEOWNER PROJECTS + BRIEFS + AI + V0 PACK
 -- -----------------------------------------------------------------------------
 create table if not exists public.projects (
   id uuid primary key default gen_random_uuid(),
-  owner_user_id uuid references auth.users (id) on delete set null,
+  owner_user_id uuid not null references auth.users (id) on delete cascade,
   title text,
   flow_type text not null check (flow_type in ('new_home', 'remodel')),
   status text not null default 'draft' check (status in (
@@ -282,7 +291,12 @@ create table if not exists public.projects (
 );
 
 alter table public.projects add column if not exists source text;
-alter table public.projects add column if not exists owner_user_id uuid references auth.users (id) on delete set null;
+alter table public.projects add column if not exists owner_user_id uuid references auth.users (id) on delete cascade;
+alter table public.projects drop constraint if exists projects_owner_user_id_fkey;
+alter table public.projects
+  add constraint projects_owner_user_id_fkey
+  foreign key (owner_user_id) references auth.users (id) on delete cascade;
+alter table public.projects alter column owner_user_id set not null;
 alter table public.projects add column if not exists last_active_at timestamptz not null default now();
 
 create index if not exists idx_projects_owner on public.projects (owner_user_id);
@@ -341,6 +355,9 @@ create table if not exists public.project_v0_packs (
   updated_at timestamptz not null default now()
 );
 
+create index if not exists idx_project_v0_packs_generated_at
+  on public.project_v0_packs (generated_at desc);
+
 drop trigger if exists trg_project_v0_packs_updated_at on public.project_v0_packs;
 create trigger trg_project_v0_packs_updated_at
   before update on public.project_v0_packs
@@ -360,6 +377,19 @@ create table if not exists public.project_stages (
   due_date date,
   created_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'project_stages_id_project_key'
+      and conrelid = 'public.project_stages'::regclass
+  ) then
+    alter table public.project_stages
+      add constraint project_stages_id_project_key unique (id, project_id);
+  end if;
+end;
+$$;
 
 create table if not exists public.project_tasks (
   id uuid primary key default gen_random_uuid(),
@@ -398,58 +428,95 @@ create table if not exists public.project_documents (
   created_at timestamptz not null default now()
 );
 
--- OPEN DEMO MODE: the frontend writes projects (and children) directly with the
--- anon key and no login, so RLS is disabled on these tables to let writes persist.
--- Before real multi-tenant launch, run homemakers_rls_hardening.sql to re-enable
--- RLS with owner-scoped (auth.uid()) policies.
-alter table public.projects disable row level security;
-alter table public.project_briefs disable row level security;
-alter table public.project_stages disable row level security;
-alter table public.project_tasks disable row level security;
-alter table public.project_messages disable row level security;
-alter table public.project_documents disable row level security;
-alter table public.project_v0_packs disable row level security;
-alter table public.project_ai_runs disable row level security;
+create index if not exists idx_project_stages_project_sort
+  on public.project_stages (project_id, sort_order);
+create index if not exists idx_project_tasks_project_created
+  on public.project_tasks (project_id, created_at desc);
+create index if not exists idx_project_tasks_stage
+  on public.project_tasks (stage_id);
+create index if not exists idx_project_messages_project_created
+  on public.project_messages (project_id, created_at desc);
+
+-- Prevent a task, message, or document from pointing at a stage that belongs to
+-- another project. The single-column FK above still nulls stage_id on deletion;
+-- these composite FKs enforce tenant consistency while the stage exists.
+alter table public.project_tasks
+  drop constraint if exists project_tasks_stage_project_fk;
+alter table public.project_tasks
+  add constraint project_tasks_stage_project_fk
+  foreign key (stage_id, project_id)
+  references public.project_stages (id, project_id);
+
+alter table public.project_messages
+  drop constraint if exists project_messages_stage_project_fk;
+alter table public.project_messages
+  add constraint project_messages_stage_project_fk
+  foreign key (stage_id, project_id)
+  references public.project_stages (id, project_id);
+
+alter table public.project_documents
+  drop constraint if exists project_documents_stage_project_fk;
+alter table public.project_documents
+  add constraint project_documents_stage_project_fk
+  foreign key (stage_id, project_id)
+  references public.project_stages (id, project_id);
+
+drop trigger if exists trg_project_tasks_updated_at on public.project_tasks;
+create trigger trg_project_tasks_updated_at
+  before update on public.project_tasks
+  for each row execute function public.set_updated_at();
+
+-- Fail closed until homemakers_rls_hardening.sql installs owner-scoped policies.
+alter table public.projects enable row level security;
+alter table public.project_briefs enable row level security;
+alter table public.project_stages enable row level security;
+alter table public.project_tasks enable row level security;
+alter table public.project_messages enable row level security;
+alter table public.project_documents enable row level security;
+alter table public.project_v0_packs enable row level security;
+alter table public.project_ai_runs enable row level security;
+
+revoke all on public.projects from public, anon, authenticated;
+revoke all on public.project_briefs from public, anon, authenticated;
+revoke all on public.project_stages from public, anon, authenticated;
+revoke all on public.project_tasks from public, anon, authenticated;
+revoke all on public.project_messages from public, anon, authenticated;
+revoke all on public.project_documents from public, anon, authenticated;
+revoke all on public.project_v0_packs from public, anon, authenticated;
+revoke all on public.project_ai_runs from public, anon, authenticated;
+
+grant all on public.projects to service_role;
+grant all on public.project_briefs to service_role;
+grant all on public.project_stages to service_role;
+grant all on public.project_tasks to service_role;
+grant all on public.project_messages to service_role;
+grant all on public.project_documents to service_role;
+grant all on public.project_v0_packs to service_role;
+grant all on public.project_ai_runs to service_role;
 
 -- -----------------------------------------------------------------------------
 -- 5) STORAGE (v0 images + portfolio photos)
 -- -----------------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
-  ('project-v0', 'project-v0', true, 10485760, array['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
-  ('portfolio-media', 'portfolio-media', true, 10485760, array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+  ('project-v0', 'project-v0', false, 10485760, array['image/jpeg', 'image/png', 'image/webp', 'image/gif']),
+  ('portfolio-media', 'portfolio-media', false, 10485760, array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
 on conflict (id) do update set
   public = excluded.public,
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
--- OPEN DEMO MODE: allow anon (no-login) uploads to both public buckets so v0
--- images and portfolio photos persist. Drop prior owner-scoped upload policies.
-drop policy if exists "project_v0_upload_own" on storage.objects;
-drop policy if exists "project_v0_update_own" on storage.objects;
-drop policy if exists "portfolio_media_upload_own" on storage.objects;
-drop policy if exists "portfolio_media_update_own" on storage.objects;
-
+-- Remove obsolete broad storage policies. Hardened owner policies are preserved
+-- on idempotent re-runs and are installed by the hardening script on fresh DBs.
 drop policy if exists "demo_storage_insert" on storage.objects;
-create policy "demo_storage_insert" on storage.objects
-  for insert to anon, authenticated
-  with check (bucket_id in ('project-v0', 'portfolio-media'));
-
 drop policy if exists "demo_storage_update" on storage.objects;
-create policy "demo_storage_update" on storage.objects
-  for update to anon, authenticated
-  using (bucket_id in ('project-v0', 'portfolio-media'));
-
 drop policy if exists "project_v0_select_public" on storage.objects;
-create policy "project_v0_select_public" on storage.objects
-  for select to public using (bucket_id = 'project-v0');
-
 drop policy if exists "portfolio_media_select_public" on storage.objects;
-create policy "portfolio_media_select_public" on storage.objects
-  for select to public using (bucket_id = 'portfolio-media');
 
 -- -----------------------------------------------------------------------------
 -- 6) VERIFY (run while signed in, or replace auth.uid() with a real uuid)
 -- -----------------------------------------------------------------------------
 -- select * from public.get_my_session();
 -- select id, email, role, full_name from public.user_profiles order by updated_at desc limit 10;
+
+commit;

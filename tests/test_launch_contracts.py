@@ -136,7 +136,10 @@ class LaunchContractsTest(unittest.TestCase):
         compact_sql = re.sub(r"\s+", " ", sql.lower())
         self.assertIn("create or replace view public.published_portfolios", compact_sql)
         self.assertIn("with (security_barrier = true)", compact_sql)
-        self.assertIn("revoke all on public.portfolios from anon", compact_sql)
+        self.assertIn(
+            "revoke all on public.portfolios from public, anon, authenticated",
+            compact_sql,
+        )
         self.assertIn("grant select on public.published_portfolios to anon, authenticated", compact_sql)
         self.assertIn(
             "update storage.buckets set public = false where id in ('project-v0', 'portfolio-media')",
@@ -359,6 +362,39 @@ class LaunchContractsTest(unittest.TestCase):
         profile_pos = auth.index('if (profile?.role === "pro"')
         intent_pos = auth.index('if (signInIntent === "pro"')
         self.assertLess(profile_pos, intent_pos)
+
+    def test_oauth_role_persistence_requires_an_explicit_signup_callback(self):
+        sign_in = (ROOT / "frontend/src/pages/SignInPage.jsx").read_text()
+        self.assertRegex(
+            sign_in,
+            re.compile(
+                r'if\s*\(\s*searchParams\.get\("oauth"\) === "1"\s*&&\s*'
+                r'searchParams\.get\("signup"\) === "1"',
+                re.DOTALL,
+            ),
+        )
+        self.assertIn('if (requestedSignUp) params.set("signup", "1");', sign_in)
+        self.assertEqual(sign_in.count("await updateUserProfileRole("), 1)
+
+    def test_craco_does_not_preload_generic_dotenv_before_cra(self):
+        craco = (ROOT / "frontend/craco.config.js").read_text()
+        self.assertNotIn('require("dotenv").config()', craco)
+
+    def test_production_database_scripts_are_transactional(self):
+        for name in (
+            "homemakers_production_reset.sql",
+            "homemakers_single_setup.sql",
+            "homemakers_rls_hardening.sql",
+            "homemakers_project_workspace.sql",
+        ):
+            sql = (ROOT / "db" / name).read_text().lower()
+            self.assertRegex(sql, r"(?m)^begin;\s*$", name)
+            self.assertRegex(sql, r"(?m)^commit;\s*$", name)
+
+    def test_native_google_creation_is_not_hidden_behind_an_ios_check(self):
+        sign_in = (ROOT / "frontend/src/pages/SignInPage.jsx").read_text()
+        self.assertNotIn("nativePlatform", sign_in)
+        self.assertIn("{supabaseConfigured && !passwordRecovery ? (", sign_in)
 
 
 if __name__ == "__main__":

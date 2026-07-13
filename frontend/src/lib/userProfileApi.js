@@ -42,6 +42,26 @@ export async function upsertUserProfile({ fullName, phone, city, role }) {
   return row;
 }
 
+/** Persist the homeowner/pro choice made at the start of an OAuth flow. */
+export async function updateUserProfileRole(role) {
+  const sb = getSupabase();
+  if (!sb) return null;
+  const {
+    data: { user },
+    error: userErr,
+  } = await sb.auth.getUser();
+  if (userErr) throw userErr;
+  if (!user) throw new Error("Not signed in");
+
+  const normalizedRole = role === "pro" ? "pro" : "homeowner";
+  const { error } = await sb
+    .from("user_profiles")
+    .update({ role: normalizedRole, updated_at: new Date().toISOString() })
+    .eq("id", user.id);
+  if (error) throw error;
+  return normalizedRole;
+}
+
 /** Sync localStorage keys used by the rest of the app (until full auth rollout). */
 export function persistHmSessionFromSupabase(user, profile, { activeRole } = {}) {
   if (!user) return;

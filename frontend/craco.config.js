@@ -1,6 +1,9 @@
 // craco.config.js
 const path = require("path");
-require("dotenv").config();
+
+// CRA loads .env files with environment-specific precedence. Preloading the
+// generic .env here makes its localhost values win even during production and
+// native builds, because dotenv does not overwrite an existing variable.
 
 // Check if we're in development/preview mode (not production build)
 // Craco sets NODE_ENV=development for start, NODE_ENV=production for build

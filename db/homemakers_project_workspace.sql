@@ -1,6 +1,8 @@
 -- HomeMakers launch workspace: checklist progress, team, documents, and payment ledger.
 -- Run after homemakers_single_setup.sql and homemakers_rls_hardening.sql.
 
+begin;
+
 create table if not exists public.project_team_members (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null references public.projects(id) on delete cascade,
@@ -45,6 +47,13 @@ for each row execute function public.set_updated_at();
 
 alter table public.project_team_members enable row level security;
 alter table public.project_payments enable row level security;
+
+revoke all on public.project_team_members from public, anon, authenticated;
+revoke all on public.project_payments from public, anon, authenticated;
+grant select, insert, update, delete on public.project_team_members to authenticated;
+grant select, insert, update, delete on public.project_payments to authenticated;
+grant all on public.project_team_members to service_role;
+grant all on public.project_payments to service_role;
 
 drop policy if exists "project_team_members_select_own" on public.project_team_members;
 create policy "project_team_members_select_own" on public.project_team_members for select to authenticated
@@ -124,13 +133,29 @@ $$;
 
 create or replace function public.project_task_progress_trigger()
 returns trigger language plpgsql security definer set search_path = public as $$
-declare target_project uuid; total_tasks integer; done_tasks integer; current_project_status text;
+declare
+  target_project uuid;
+  old_project uuid;
+  total_tasks integer;
+  done_tasks integer;
+  current_project_status text;
 begin
-  target_project := coalesce(new.project_id, old.project_id);
-  perform public.recalculate_project_stage_progress(coalesce(new.stage_id, old.stage_id), target_project);
-  if tg_op = 'UPDATE' and old.stage_id is distinct from new.stage_id then
-    perform public.recalculate_project_stage_progress(old.stage_id, target_project);
+  if tg_op = 'DELETE' then
+    target_project := old.project_id;
+    perform public.recalculate_project_stage_progress(old.stage_id, old.project_id);
+  else
+    target_project := new.project_id;
+    perform public.recalculate_project_stage_progress(new.stage_id, new.project_id);
   end if;
+
+  if tg_op = 'UPDATE' and (
+    old.project_id is distinct from new.project_id
+    or old.stage_id is distinct from new.stage_id
+  ) then
+    old_project := old.project_id;
+    perform public.recalculate_project_stage_progress(old.stage_id, old.project_id);
+  end if;
+
   select count(*), count(*) filter (where status = 'done') into total_tasks, done_tasks
   from public.project_tasks where project_id = target_project;
   select status into current_project_status from public.projects where id = target_project;
@@ -140,6 +165,19 @@ begin
       last_active_at = now()
     where id = target_project;
   end if;
+
+  if old_project is not null and old_project is distinct from target_project then
+    select count(*), count(*) filter (where status = 'done') into total_tasks, done_tasks
+    from public.project_tasks where project_id = old_project;
+    select status into current_project_status from public.projects where id = old_project;
+    if current_project_status not in ('archived', 'on_hold') then
+      update public.projects set
+        status = case when total_tasks > 0 and total_tasks = done_tasks then 'completed' else 'active' end,
+        last_active_at = now()
+      where id = old_project;
+    end if;
+  end if;
+
   if tg_op = 'DELETE' then return old; end if;
   return new;
 end;
@@ -151,8 +189,9 @@ drop trigger if exists trg_project_task_progress on public.project_tasks;
 create trigger trg_project_task_progress after insert or update or delete on public.project_tasks
 for each row execute function public.project_task_progress_trigger();
 
--- Render readiness calls this RPC. It fails closed until the complete launch
--- schema, RLS posture, billing RPC, safe public view, and private buckets exist.
+-- Render readiness calls this RPC. It validates the complete schema contract,
+-- deterministic grants, required triggers/constraints, private buckets, and the
+-- absence of legacy anonymous policies.
 create or replace function public.launch_schema_ready()
 returns boolean
 language sql
@@ -162,11 +201,41 @@ set search_path = public
 as $$
   select
     to_regclass('public.published_portfolios') is not null
+    and to_regclass('public.project_professionals') is null
+    and (select count(*) = 18 from pg_tables where schemaname = 'public')
+    and (
+      select count(*) = 1
+      from pg_views
+      where schemaname = 'public' and viewname = 'published_portfolios'
+    )
+    and (
+      select array_agg(column_name::text order by ordinal_position) = array[
+        'id', 'craft', 'full_name', 'business_name', 'city',
+        'years_experience', 'short_bio', 'specialties', 'photos',
+        'cover_photo', 'profile_photo', 'slug', 'profile_strength',
+        'portfolio_theme', 'portfolio_layout', 'updated_at'
+      ]::text[]
+      from information_schema.columns
+      where table_schema = 'public' and table_name = 'published_portfolios'
+    )
+    and to_regprocedure('public.get_my_session()') is not null
     and to_regprocedure('public.activate_billing_order(uuid,text,text)') is not null
     and to_regprocedure('public.portfolio_media_is_published(text)') is not null
     and to_regprocedure('public.enforce_portfolio_moderation()') is not null
     and to_regprocedure('public.consume_ai_daily_quota(uuid,text,integer)') is not null
+    and to_regprocedure('public.project_task_progress_trigger()') is not null
     and has_table_privilege('anon', 'public.published_portfolios', 'SELECT')
+    and has_table_privilege('authenticated', 'public.published_portfolios', 'SELECT')
+    and has_function_privilege('authenticated', 'public.get_my_session()', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.get_my_session()', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.consume_ai_daily_quota(uuid,text,integer)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.consume_ai_daily_quota(uuid,text,integer)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.consume_ai_daily_quota(uuid,text,integer)', 'EXECUTE')
+    and has_function_privilege('service_role', 'public.activate_billing_order(uuid,text,text)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.activate_billing_order(uuid,text,text)', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.activate_billing_order(uuid,text,text)', 'EXECUTE')
+    and not has_function_privilege('anon', 'public.launch_schema_ready()', 'EXECUTE')
+    and not has_function_privilege('authenticated', 'public.launch_schema_ready()', 'EXECUTE')
     and not exists (
       select 1
       from (values
@@ -190,25 +259,194 @@ as $$
         ('public.billing_webhook_events')
       ) as required(relation_name)
       left join pg_class c on c.oid = to_regclass(required.relation_name)
-      where c.oid is null or c.relrowsecurity is not true
+      where c.oid is null
+        or c.relrowsecurity is not true
+        or has_table_privilege('anon', required.relation_name, 'SELECT')
+        or has_table_privilege('anon', required.relation_name, 'INSERT')
+        or has_table_privilege('anon', required.relation_name, 'UPDATE')
+        or has_table_privilege('anon', required.relation_name, 'DELETE')
+    )
+    and not exists (
+      select 1
+      from pg_policies
+      where schemaname = 'public'
+        and (
+          'anon' = any(roles)
+          or 'public' = any(roles)
+        )
+    )
+    and not exists (
+      select 1
+      from (values
+        ('public.user_profiles', true, true, true, false),
+        ('public.portfolios', true, true, true, true),
+        ('public.projects', true, true, true, true),
+        ('public.project_briefs', true, true, true, true),
+        ('public.project_ai_runs', true, true, false, false),
+        ('public.project_v0_packs', true, true, true, true),
+        ('public.project_stages', true, true, true, true),
+        ('public.project_tasks', true, true, true, true),
+        ('public.project_messages', true, true, true, true),
+        ('public.project_documents', true, true, true, true),
+        ('public.project_team_members', true, true, true, true),
+        ('public.project_payments', true, true, true, true),
+        ('public.portfolio_reports', true, true, false, false),
+        ('public.blocked_portfolios', true, true, false, true),
+        ('public.billing_orders', true, false, false, false),
+        ('public.user_entitlements', true, false, false, false),
+        ('public.ai_usage_daily', false, false, false, false),
+        ('public.billing_webhook_events', false, false, false, false)
+      ) as expected(relation_name, can_select, can_insert, can_update, can_delete)
+      where has_table_privilege('authenticated', relation_name, 'SELECT') is distinct from can_select
+         or has_table_privilege('authenticated', relation_name, 'INSERT') is distinct from can_insert
+         or has_table_privilege('authenticated', relation_name, 'UPDATE') is distinct from can_update
+         or has_table_privilege('authenticated', relation_name, 'DELETE') is distinct from can_delete
+    )
+    and exists (
+      select 1 from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'auth' and c.relname = 'users'
+        and t.tgname = 'on_auth_user_created' and not t.tgisinternal
+    )
+    and exists (
+      select 1 from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'auth' and c.relname = 'users'
+        and t.tgname = 'on_auth_user_email_updated' and not t.tgisinternal
+    )
+    and exists (
+      select 1 from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = 'project_tasks'
+        and t.tgname = 'trg_project_task_progress' and not t.tgisinternal
+    )
+    and exists (
+      select 1 from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relname = 'project_tasks'
+        and t.tgname = 'trg_project_tasks_updated_at' and not t.tgisinternal
     )
     and (
       select count(*) = 3
-      from storage.buckets
-      where id in ('project-v0', 'project-documents', 'portfolio-media')
-        and public is false
+      from pg_trigger t
+      join pg_class c on c.oid = t.tgrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public'
+        and not t.tgisinternal
+        and t.tgname in (
+          'trg_portfolio_moderation_insert',
+          'trg_portfolio_moderation_update',
+          'trg_quarantine_reported_portfolio'
+        )
     )
     and (
-      select count(*) = 3
+      select count(*) = 7
+      from pg_constraint
+      where conname in (
+        'portfolios_owner_user_id_fkey',
+        'projects_owner_user_id_fkey',
+        'portfolios_specialties_array_check',
+        'portfolios_photos_array_check',
+        'project_tasks_stage_project_fk',
+        'project_messages_stage_project_fk',
+        'project_documents_stage_project_fk'
+      )
+    )
+    and (
+      select count(*) = 2
+      from pg_constraint
+      where conname in ('portfolios_owner_user_id_fkey', 'projects_owner_user_id_fkey')
+        and confdeltype = 'c'
+    )
+    and (
+      select count(*) = 2
+      from pg_attribute
+      where attrelid in ('public.portfolios'::regclass, 'public.projects'::regclass)
+        and attname = 'owner_user_id'
+        and attnotnull
+        and not attisdropped
+    )
+    and not exists (
+      select 1
+      from (values
+        ('project-v0', 10485760::bigint,
+          array['image/jpeg','image/png','image/webp','image/gif']::text[]),
+        ('portfolio-media', 10485760::bigint,
+          array['image/jpeg','image/png','image/webp','image/gif']::text[]),
+        ('project-documents', 15728640::bigint,
+          array['application/pdf','image/jpeg','image/png','image/webp','text/plain','text/csv',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']::text[])
+      ) as expected_bucket(bucket_id, max_bytes, mime_types)
+      left join storage.buckets b on b.id = expected_bucket.bucket_id
+      where b.id is null
+        or b.public is not false
+        or b.file_size_limit is distinct from expected_bucket.max_bytes
+        or b.allowed_mime_types is distinct from expected_bucket.mime_types
+    )
+    and (
+      select count(*) = 13
       from pg_policies
       where schemaname = 'storage'
+        and tablename = 'objects'
         and policyname in (
           'project_v0_select_own',
+          'project_v0_upload_own',
+          'project_v0_update_own',
+          'project_v0_delete_own',
+          'portfolio_media_select_own',
+          'portfolio_media_select_published',
+          'portfolio_media_upload_own',
+          'portfolio_media_update_own',
+          'portfolio_media_delete_own',
           'project_documents_storage_select_own',
-          'portfolio_media_select_published'
+          'project_documents_storage_insert_own',
+          'project_documents_storage_update_own',
+          'project_documents_storage_delete_own'
         )
+    )
+    and not exists (
+      select 1
+      from pg_policies
+      where schemaname = 'storage'
+        and tablename = 'objects'
+        and policyname not in (
+          'project_v0_select_own',
+          'project_v0_upload_own',
+          'project_v0_update_own',
+          'project_v0_delete_own',
+          'portfolio_media_select_own',
+          'portfolio_media_select_published',
+          'portfolio_media_upload_own',
+          'portfolio_media_update_own',
+          'portfolio_media_delete_own',
+          'project_documents_storage_select_own',
+          'project_documents_storage_insert_own',
+          'project_documents_storage_update_own',
+          'project_documents_storage_delete_own'
+        )
+    )
+    and not exists (
+      select 1
+      from pg_policies
+      where schemaname = 'storage'
+        and tablename = 'objects'
+        and policyname <> 'portfolio_media_select_published'
+        and ('anon' = any(roles) or 'public' = any(roles))
+    )
+    and not exists (
+      select 1
+      from pg_policies
+      where schemaname = 'storage'
+        and tablename <> 'objects'
     );
 $$;
 
 revoke all on function public.launch_schema_ready() from public, anon, authenticated;
 grant execute on function public.launch_schema_ready() to service_role;
+
+commit;

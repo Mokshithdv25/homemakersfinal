@@ -42,7 +42,9 @@ AI concepts and estimates are preliminary planning aids, not sanction drawings, 
 
 ## Review notes draft
 
-HomeMakers supports homeowner and professional roles. Email/password sign-up is available in the app. Public discovery and public professional profiles can be reviewed without an account. Project, document, team, payment-ledger, and portfolio-editing features require authentication.
+HomeMakers supports homeowner and professional roles. Google OAuth is the current account-creation path. Email/password sign-in remains available for existing accounts, while in-app email account creation stays disabled until custom SMTP confirmation and recovery delivery are verified. Public discovery and public professional profiles can be reviewed without an account. Project, document, team, payment-ledger, and portfolio-editing features require authentication.
+
+This listing is not ready for submission until Sign in with Apple is implemented and verified alongside Google OAuth in the iOS app.
 
 The payment ledger records owner-entered project payments; it does not transfer money. The native app does not present Razorpay checkout or an external purchase link.
 

@@ -7,19 +7,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { HM_HEADER_BAR_CHROME_CLASS, HM_WORDMARK_TITLE_CLASS, hmLogoMarkSrc } from "../lib/hmBrand";
 import { getSupabase, isSupabaseConfigured, getSupabaseInitError } from "../lib/supabaseClient";
-import { fetchUserProfile, upsertUserProfile } from "../lib/userProfileApi";
+import { fetchUserProfile, updateUserProfileRole, upsertUserProfile } from "../lib/userProfileApi";
 import { establishHmSession, getPostLoginPath } from "../lib/hmAuth";
 import { authCallbackUrl, openNativeAuthUrl } from "../lib/nativeAuth";
-import { isNativeApp, nativePlatform } from "../lib/capacitorPlatform";
+import { isNativeApp } from "../lib/capacitorPlatform";
+
+const EMAIL_SIGNUP_ENABLED = process.env.REACT_APP_EMAIL_SIGNUP_ENABLED === "true";
 
 /**
- * Sign-in: Supabase Auth — email/password when env vars are set.
+ * Sign-in: Google plus email/password for existing accounts. Email account
+ * creation stays disabled until production SMTP is configured and verified.
  * Phone OTP remains a demo flow until enabled in Supabase.
  */
 export default function SignInPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const modeFromQuery = searchParams.get("mode") === "signup" ? "signup" : "signin";
+  const requestedSignUp = searchParams.get("mode") === "signup";
+  const modeFromQuery = requestedSignUp && EMAIL_SIGNUP_ENABLED ? "signup" : "signin";
   const roleFromQuery = searchParams.get("role") === "pro" ? "pro" : "homeowner";
   const redirectFromQuery = (() => {
     const raw = searchParams.get("redirect");
@@ -58,11 +62,12 @@ export default function SignInPage() {
   const showPhoneOtp = process.env.NODE_ENV === "development";
   const supabaseConfigured = isSupabaseConfigured();
   const supabaseInitError = getSupabaseInitError();
+  const googleOnlySignUp = requestedSignUp && !EMAIL_SIGNUP_ENABLED && !passwordRecovery;
 
   const otpRefs = useRef([]);
 
   useEffect(() => {
-    if (searchParams.get("mode") === "signup") setMode("signup");
+    if (searchParams.get("mode") === "signup" && EMAIL_SIGNUP_ENABLED) setMode("signup");
     if (searchParams.get("role") === "pro") setAccountRole("pro");
     if (searchParams.get("native_error")) {
       setStep("entry");
@@ -159,10 +164,23 @@ export default function SignInPage() {
     } catch (_) {
       /* user_profiles table or policies not ready — continue to profile step */
     }
-    const signInIntent =
-      searchParams.get("role") === "pro" || searchParams.get("role") === "homeowner"
-        ? searchParams.get("role")
-        : accountRole;
+    const requestedRole = searchParams.get("role");
+    const hasExplicitRole = requestedRole === "pro" || requestedRole === "homeowner";
+    const signInIntent = hasExplicitRole ? requestedRole : accountRole;
+
+    // The database trigger creates OAuth profiles as homeowners by default.
+    // Apply the selected role only for an explicit create-account flow. A
+    // normal Google sign-in must never rewrite an existing account's role.
+    if (
+      searchParams.get("oauth") === "1" &&
+      searchParams.get("signup") === "1" &&
+      hasExplicitRole &&
+      profile &&
+      profile.role !== requestedRole
+    ) {
+      await updateUserProfileRole(requestedRole);
+      profile = await fetchUserProfile(user.id);
+    }
     if (profile?.full_name?.trim()) {
       const resolvedRole = await establishHmSession(user, profile, { signInIntent });
       navigate(getPostLoginPath(resolvedRole, redirectFromQuery), { replace: true });
@@ -254,6 +272,7 @@ export default function SignInPage() {
         /* ignore */
       }
       const params = new URLSearchParams({ role: accountRole });
+      if (requestedSignUp) params.set("signup", "1");
       if (redirectFromQuery) params.set("redirect", redirectFromQuery);
       const nextPath = `/sign-in?oauth=1&${params.toString()}`;
       const { data, error } = await sb.auth.signInWithOAuth({
@@ -276,7 +295,7 @@ export default function SignInPage() {
         /* ignore */
       }
       setLoading(false);
-      setAuthError(err?.message || "Google sign-in failed. Try email instead.");
+      setAuthError(err?.message || "Google sign-in failed. Please try again.");
     }
   };
 
@@ -351,6 +370,10 @@ export default function SignInPage() {
   };
 
   const handleEmailSignIn = async () => {
+    if (isSignUp && !EMAIL_SIGNUP_ENABLED) {
+      setAuthError("Email account creation is temporarily unavailable. Continue with Google instead.");
+      return;
+    }
     if (!authEmail || !authPassword) return;
     if (isSignUp && authPassword !== confirmPassword) return;
     if (authPassword.length < 8) {
@@ -557,12 +580,12 @@ export default function SignInPage() {
               >
                 <div className="text-center">
                   <h2 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-2">
-                    {passwordRecovery ? "Set a new password" : isSignUp ? "Create Account" : "Sign In"}
+                    {passwordRecovery ? "Set a new password" : requestedSignUp ? "Create Account" : "Sign In"}
                   </h2>
                   <p className="text-muted-foreground font-body text-base">
                     {passwordRecovery
                       ? "Choose a secure password and confirm it below."
-                      : isSignUp
+                      : requestedSignUp
                       ? "Join HomeMakers and bring your dream home to life."
                       : "Sign in to start your homemaking journey."}
                   </p>
@@ -626,10 +649,16 @@ export default function SignInPage() {
                     </p>
                   ) : null}
 
+                  {requestedSignUp && !EMAIL_SIGNUP_ENABLED && step === "entry" ? (
+                    <p className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 font-body text-sm text-blue-950">
+                      Create your account with Google. Email account creation will return after verified delivery is configured.
+                    </p>
+                  ) : null}
+
                   {pendingConfirmationEmail && step === "entry" ? (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 font-body text-sm text-amber-950 space-y-2">
                       <p className="m-0">
-                        Waiting on <strong>{pendingConfirmationEmail}</strong>. Supabase&apos;s default mail often lands in spam or is delayed.
+                        Confirmation is still pending for <strong>{pendingConfirmationEmail}</strong>. Try resend once; if it does not arrive, use Google sign-in or contact support.
                       </p>
                       <button
                         type="button"
@@ -714,7 +743,7 @@ export default function SignInPage() {
                   )}
 
                   {/* Email Input */}
-                  {(passwordRecovery || !showPhoneOtp || authMethod === "email") && (
+                  {!googleOnlySignUp && (passwordRecovery || !showPhoneOtp || authMethod === "email") && (
                     <>
                       <div className="space-y-4">
                         {!passwordRecovery && (
@@ -807,32 +836,35 @@ export default function SignInPage() {
                           : (passwordRecovery ? "Save New Password" : isSignUp ? "Create Account" : "Sign In with Email")}
                       </Button>
 
-                      {supabaseConfigured && !passwordRecovery && !(isNativeApp() && nativePlatform() === "ios") ? (
-                        <>
-                          <div className="flex items-center gap-3">
-                            <div className="h-px flex-1 bg-border" />
-                            <span className="font-body text-xs text-muted-foreground">or</span>
-                            <div className="h-px flex-1 bg-border" />
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={handleGoogleSignIn}
-                            disabled={loading}
-                            className="w-full rounded-xl py-6 font-body text-sm font-semibold gap-2 border-2"
-                          >
-                            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
-                              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
-                              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
-                              <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z" />
-                              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.16-3.16A10.96 10.96 0 0 0 12 1 11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z" />
-                            </svg>
-                            Continue with Google
-                          </Button>
-                        </>
-                      ) : null}
                     </>
                   )}
+
+                  {supabaseConfigured && !passwordRecovery ? (
+                    <>
+                      {!googleOnlySignUp ? (
+                        <div className="flex items-center gap-3">
+                          <div className="h-px flex-1 bg-border" />
+                          <span className="font-body text-xs text-muted-foreground">or</span>
+                          <div className="h-px flex-1 bg-border" />
+                        </div>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={handleGoogleSignIn}
+                        disabled={loading}
+                        className="w-full rounded-xl py-6 font-body text-sm font-semibold gap-2 border-2"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden>
+                          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
+                          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+                          <path fill="#FBBC05" d="M5.84 14.1A6.6 6.6 0 0 1 5.5 12c0-.73.13-1.44.34-2.1V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z" />
+                          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.16-3.16A10.96 10.96 0 0 0 12 1 11 11 0 0 0 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z" />
+                        </svg>
+                        {googleOnlySignUp ? "Create account with Google" : "Continue with Google"}
+                      </Button>
+                    </>
+                  ) : null}
 
                   {!passwordRecovery && <p className="text-muted-foreground font-body text-[11px] text-center leading-relaxed">
                     By continuing, you agree to HomeMakers&apos;{" "}
@@ -842,7 +874,7 @@ export default function SignInPage() {
                   </p>}
 
                   {/* Mode Toggle */}
-                  {!passwordRecovery && <div className="pt-2 border-t border-border">
+                  {!passwordRecovery && EMAIL_SIGNUP_ENABLED && <div className="pt-2 border-t border-border">
                     <p className="text-center font-body text-sm text-muted-foreground">
                       {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
                       <button

@@ -3,6 +3,8 @@
 -- Owner-scoped projects; portfolios writable only by owner; published pros public.
 -- =============================================================================
 
+begin;
+
 -- The app marks a posted brief as open_for_quotes. Earlier schemas rejected it,
 -- which made the final project-save step fail after a successful v0 generation.
 alter table public.project_briefs
@@ -28,7 +30,7 @@ as $$
   );
 $$;
 
-revoke all on function public.project_owned_by_user(uuid) from public;
+revoke all on function public.project_owned_by_user(uuid) from public, anon, authenticated;
 grant execute on function public.project_owned_by_user(uuid) to authenticated;
 
 -- -----------------------------------------------------------------------------
@@ -64,9 +66,13 @@ drop trigger if exists trg_portfolio_moderation_update on public.portfolios;
 create trigger trg_portfolio_moderation_update
   before update of craft, full_name, business_name, city, years_experience, short_bio,
     specialties, photos, cover_photo, profile_photo, portfolio_theme,
-    portfolio_layout, published, moderation_status
+    portfolio_layout, slug, profile_strength, published, moderation_status
   on public.portfolios
   for each row execute function public.enforce_portfolio_moderation();
+
+create index if not exists idx_portfolios_public_directory
+  on public.portfolios (craft, city, updated_at desc)
+  where published = true and moderation_status = 'approved';
 
 alter table public.portfolios enable row level security;
 
@@ -127,7 +133,9 @@ select
 from public.portfolios
 where published = true and moderation_status = 'approved';
 
-revoke all on public.portfolios from anon;
+revoke all on public.portfolios from public, anon, authenticated;
+grant select, insert, update, delete on public.portfolios to authenticated;
+grant all on public.portfolios to service_role;
 revoke all on public.published_portfolios from public, anon, authenticated;
 grant select on public.published_portfolios to anon, authenticated;
 
@@ -206,10 +214,12 @@ create table if not exists public.blocked_portfolios (
 
 alter table public.portfolio_reports enable row level security;
 alter table public.blocked_portfolios enable row level security;
-revoke all on public.portfolio_reports from anon, authenticated;
-revoke all on public.blocked_portfolios from anon, authenticated;
+revoke all on public.portfolio_reports from public, anon, authenticated;
+revoke all on public.blocked_portfolios from public, anon, authenticated;
 grant select, insert on public.portfolio_reports to authenticated;
 grant select, insert, delete on public.blocked_portfolios to authenticated;
+grant all on public.portfolio_reports to service_role;
+grant all on public.blocked_portfolios to service_role;
 
 drop policy if exists "portfolio_reports_insert_own" on public.portfolio_reports;
 create policy "portfolio_reports_insert_own" on public.portfolio_reports
@@ -267,14 +277,14 @@ alter table public.project_documents enable row level security;
 alter table public.project_v0_packs enable row level security;
 alter table public.project_ai_runs enable row level security;
 
-revoke all on public.projects from anon;
-revoke all on public.project_briefs from anon;
-revoke all on public.project_stages from anon;
-revoke all on public.project_tasks from anon;
-revoke all on public.project_messages from anon;
-revoke all on public.project_documents from anon;
-revoke all on public.project_v0_packs from anon;
-revoke all on public.project_ai_runs from anon;
+revoke all on public.projects from public, anon, authenticated;
+revoke all on public.project_briefs from public, anon, authenticated;
+revoke all on public.project_stages from public, anon, authenticated;
+revoke all on public.project_tasks from public, anon, authenticated;
+revoke all on public.project_messages from public, anon, authenticated;
+revoke all on public.project_documents from public, anon, authenticated;
+revoke all on public.project_v0_packs from public, anon, authenticated;
+revoke all on public.project_ai_runs from public, anon, authenticated;
 
 grant select, insert, update, delete on public.projects to authenticated;
 grant select, insert, update, delete on public.project_briefs to authenticated;
@@ -283,7 +293,16 @@ grant select, insert, update, delete on public.project_tasks to authenticated;
 grant select, insert, update, delete on public.project_messages to authenticated;
 grant select, insert, update, delete on public.project_documents to authenticated;
 grant select, insert, update, delete on public.project_v0_packs to authenticated;
-grant select, insert, update, delete on public.project_ai_runs to authenticated;
+grant select, insert on public.project_ai_runs to authenticated;
+
+grant all on public.projects to service_role;
+grant all on public.project_briefs to service_role;
+grant all on public.project_stages to service_role;
+grant all on public.project_tasks to service_role;
+grant all on public.project_messages to service_role;
+grant all on public.project_documents to service_role;
+grant all on public.project_v0_packs to service_role;
+grant all on public.project_ai_runs to service_role;
 
 -- Remove every older permissive policy name. PostgreSQL ORs permissive
 -- policies together, so leaving one behind defeats the stricter policies below.
@@ -741,8 +760,13 @@ drop policy if exists "user_entitlements_select_own" on public.user_entitlements
 create policy "user_entitlements_select_own" on public.user_entitlements
   for select to authenticated using (user_id = auth.uid());
 
-revoke all on public.billing_orders from anon, authenticated;
-revoke all on public.user_entitlements from anon, authenticated;
-revoke all on public.billing_webhook_events from anon, authenticated;
+revoke all on public.billing_orders from public, anon, authenticated;
+revoke all on public.user_entitlements from public, anon, authenticated;
+revoke all on public.billing_webhook_events from public, anon, authenticated;
 grant select on public.billing_orders to authenticated;
 grant select on public.user_entitlements to authenticated;
+grant all on public.billing_orders to service_role;
+grant all on public.user_entitlements to service_role;
+grant all on public.billing_webhook_events to service_role;
+
+commit;

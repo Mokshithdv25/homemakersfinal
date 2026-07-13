@@ -31,8 +31,11 @@ client-side claim path.
 | Existing HomeMakers production schema | `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` |
 | Empty Supabase project | `homemakers_single_setup.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` |
 | Older v1/v1.1/v1.2 schema missing current columns or buckets | `homemakers_supabase_align.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` |
+| Intentionally discard all HomeMakers data | Empty the three app buckets through Storage Admin, delete disposable users through Auth Admin, then `homemakers_production_reset.sql` → `homemakers_single_setup.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` |
 
-`homemakers_single_setup.sql` creates an intentionally open demo state. It is safe only as a temporary bootstrap step in a fresh database and must be followed immediately by `homemakers_rls_hardening.sql`. Never run it again after hardening production.
+`homemakers_single_setup.sql` is now fail-closed: it enables RLS, revokes anonymous table access, and creates private buckets without broad policies. The app is not ready until the hardening and workspace scripts also succeed, but an interrupted bootstrap does not expose the database.
+
+`homemakers_production_reset.sql` is destructive and refuses to run while any HomeMakers storage object remains. Delete files through Storage Admin rather than deleting `storage.objects` rows directly. SQL does not delete Auth users; use Auth Admin when the accounts are also disposable. SMTP and confirmation-email delivery are Auth configuration and remain separate from every database script.
 
 `supabase_storage.sql` is a standalone storage repair/reference script. The canonical production paths above already create or harden the required buckets; if this repair script is used later, re-run `homemakers_rls_hardening.sql` afterward and repeat the probes below.
 
@@ -47,7 +50,13 @@ client-side claim path.
 
 ## SQL verification
 
-Run this in the SQL Editor after the migration. Every listed table must report `rls_enabled = true`.
+Run the readiness contract first. It must return `true`:
+
+```sql
+select public.launch_schema_ready();
+```
+
+Then inspect RLS directly. Every listed table must report `rls_enabled = true`.
 
 ```sql
 select

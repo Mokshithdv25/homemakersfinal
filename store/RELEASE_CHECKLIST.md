@@ -15,16 +15,16 @@
 
 ## Required before uploading
 
-- Apply the production Supabase scripts in order: `db/homemakers_rls_hardening.sql`, then `db/homemakers_project_workspace.sql`. Use the fresh/legacy paths in `db/README.md` only when applicable; never re-run the open-demo setup after hardening.
+- Apply the production Supabase scripts in the path documented by `db/README.md`. Existing schemas use `db/homemakers_rls_hardening.sql`, then `db/homemakers_project_workspace.sql`; fresh projects first use the fail-closed `db/homemakers_single_setup.sql`. Use the destructive reset only when data loss is intentional.
 - Run the SQL, anonymous, storage, and two-account isolation probes in `db/README.md`. Any anonymous project/billing row or exposure of a portfolio owner ID, street address, email, phone, license number, or private media blocks release.
-- Require Supabase email confirmation and allow `https://www.homemakers.online/sign-in`, `https://homemakers.online/sign-in`, and `in.homemakers.app://auth/callback`.
+- Keep `REACT_APP_EMAIL_SIGNUP_ENABLED=false` until custom SMTP confirmation, resend, and password-recovery delivery pass end-to-end tests; Google OAuth is the current account-creation path. Allow `https://www.homemakers.online/sign-in`, `https://homemakers.online/sign-in`, and `in.homemakers.app://auth/callback`, and require confirmation before email sign-up is re-enabled.
 - Set `REACT_APP_SUPABASE_URL` and the browser-safe `REACT_APP_SUPABASE_ANON_KEY` in Vercel and in ignored `frontend/.env.production.local` for native builds. Never expose the service-role key to the frontend.
 - Configure production Supabase service-role, AI, CORS, and Razorpay Test Mode secrets on Render. Keep `ALLOW_AI_MOCKS=false`.
-- Redeploy the Render backend and the frontend-only Vercel project from the reviewed revision. The currently deployed services predate these hardening changes and are not the release candidates.
+- Redeploy the Render backend and the frontend-only Vercel project from the reviewed revision; confirm both services report that same revision before treating them as release candidates.
 - Verify Render returns `200` from `/health/ready`, exposes the current `/api/ai/status`, and accepts an authenticated `/api/ai/hub-assistant` request. Confirm the Vercel frontend sends API traffic to Render.
 - Confirm real image packs stop at `AI_DAILY_IMAGE_PACKS` per user per UTC day with `429` and `Retry-After`; a quota-storage failure must return `503` instead of calling the provider.
 - Build with Node 20 and run `npm run cap:sync`; reject any web or native bundle containing source maps, `localhost:8000`, or a temporary Capacitor `server.url`.
-- Test PKCE email confirmation, password recovery, sign-out, and stale-session cleanup on installed iOS and Android builds. Test Google sign-in on web and Android; the iOS shell intentionally hides Google until Sign in with Apple is configured and verified.
+- Test Google account creation/sign-in, sign-out, and stale-session cleanup on web and installed iOS and Android builds. After custom SMTP is configured, test PKCE email confirmation, resend, and password recovery before enabling email account creation.
 - Confirm `portfolio-media` is private: an anonymous reader can obtain a short-lived signed URL only for an exact published `{owner_user_id}/{portfolio_id}/...` path, while draft, mismatched-prefix, direct-public, and expired URL probes fail.
 - Review every pending portfolio before approval; test Report profile and Block profile on web, iOS, and Android; assign an owner and response SLA for the `portfolio_reports` queue.
 - Confirm `support@homemakers.online` is monitored for safety and moderation escalations.
@@ -48,6 +48,7 @@
 
 ## iOS publisher actions
 
+- Implement and verify Sign in with Apple alongside Google OAuth before App Store submission
 - Install full Xcode and select `/Applications/Xcode.app/Contents/Developer`
 - Review and accept the Xcode license (`sudo xcodebuild -license`) before running CocoaPods or an archive build
 - Sign into Xcode with the Apple Developer account
