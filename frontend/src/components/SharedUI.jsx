@@ -1,7 +1,7 @@
 import React from "react";
 import { findCraft } from "../lib/crafts";
 import { getPortfolioThemeFromRecord, portfolioThemeCssVars } from "../lib/portfolioThemes";
-import { User, Pencil, MapPin, ImageIcon, Lightbulb, Phone, Mail } from "lucide-react";
+import { User, Pencil, MapPin, ImageIcon, Lightbulb } from "lucide-react";
 
 export function StepRail({ currentStep = 1 }) {
   const steps = [
@@ -118,8 +118,6 @@ export function LivePreview({
   const name = formValues.full_name || "Your Name";
   const business = formValues.business_name || displayName;
   const city = formValues.city || "Your City";
-  const phone = formValues.phone || "Your phone number";
-  const email = formValues.email || "your@email.com";
   const about = formValues.short_bio || "Your professional story will appear here.";
   const years = formValues.years_experience || "8+ Years";
   const uploadedPhotos = formValues.photos || [];
@@ -217,15 +215,6 @@ export function LivePreview({
             <MapPin size={14} strokeWidth={1.8} />
             <span>{city}</span>
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-sm text-[#7A6E62]">
-            <Phone size={14} strokeWidth={1.8} />
-            <span className="truncate">{phone}</span>
-          </div>
-          <div className="mt-1 flex items-center gap-1.5 text-sm text-[#7A6E62]">
-            <Mail size={14} strokeWidth={1.8} />
-            <span className="truncate">{email}</span>
-          </div>
-
           <div className="mt-6 h-px bg-[#EFE3D2]" />
 
           <div className="mt-5">

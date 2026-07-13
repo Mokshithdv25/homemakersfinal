@@ -11,7 +11,7 @@ const features = [
   },
   {
     id: 2,
-    title: "AI contractor matching",
+    title: "AI professional matching",
     description:
       "Browse our marketplace or bring your own team. AI surfaces architects and contractors that fit your city and scope. You choose who to hire.",
   },
@@ -19,7 +19,7 @@ const features = [
     id: 3,
     title: "Smart project hub",
     description:
-      "Site visits, documents, checklists, and team updates in one place. AI assistance on what needs attention next. Agentic materials shopping with picks you approve.",
+      "Site visits, documents, checklists, and team updates in one place. Smart reminders, schedule tracking, and follow-ups keep work moving. Agentic shopping suggests materials you approve.",
   },
   {
     id: 4,

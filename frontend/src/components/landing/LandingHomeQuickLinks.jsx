@@ -31,7 +31,7 @@ const PATHS = [
   {
     id: "marketplace",
     title: "Marketplace & shop",
-    description: "AI contractor matching, browse pros, and materials picks you review before you buy.",
+    description: "AI professional matching, browse pros, and agentic material picks you review before you buy.",
     to: "/browse",
     icon: Store,
   },

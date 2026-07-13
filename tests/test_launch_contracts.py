@@ -332,7 +332,65 @@ class LaunchContractsTest(unittest.TestCase):
         self.assertIn("AI_DAILY_IMAGE_PACKS=3", env_example)
         self.assertIn('key: AI_DAILY_IMAGE_PACKS\n        value: "3"', render)
 
-    def test_portfolio_moderation_reporting_and_blocking_are_launch_contracts(self):
+    def test_new_home_v0_has_one_free_concept_and_paid_followups(self):
+        server = (ROOT / "backend/server.py").read_text()
+        build = (ROOT / "frontend/src/pages/BuildNewHome.jsx").read_text()
+        visuals = (ROOT / "frontend/src/components/V0MockResults.jsx").read_text()
+        dashboard = (ROOT / "frontend/src/pages/ProjectDashboard.jsx").read_text()
+        render = (ROOT / "render.yaml").read_text()
+
+        self.assertIn('mode: Literal["full", "concept", "floor_plans", "revision"] = "concept"', server)
+        self.assertIn('paid_mode = payload.mode in ("full", "floor_plans", "revision")', server)
+        self.assertIn('plan_id="homeowner_project_pass"', server)
+        self.assertIn('Your free exterior concept has already been used', server)
+        self.assertIn('mode === "floor_plans"', build)
+        self.assertIn('runV0Generation("concept")', build)
+        self.assertIn('runV0Generation("floor_plans")', build)
+        self.assertIn('runV0Generation("revision", revisionPrompt, revisionTarget)', build)
+        self.assertIn('revision_kind: Literal["exterior", "floor_plan"]', server)
+        self.assertIn('revision_kind: revisionKind', (ROOT / "frontend/src/lib/aiApi.js").read_text())
+        self.assertIn('setBuildFlow({ formSnapshot: form, activeStep, step: activeStep })', build)
+        self.assertIn('flowStep: "draft"', build)
+        self.assertIn('savedStep >= 1 && savedStep <= 4', build)
+        self.assertIn('⌕ Zoom', visuals)
+        self.assertIn('↓ Download', visuals)
+        self.assertIn('v0Pack?.images?.floor_plans', dashboard)
+        self.assertIn('key: GROK_INLINE_IMAGES\n        value: "1"', render)
+
+    def test_project_workspace_controls_are_persistent_and_share_the_hub_shell(self):
+        dashboard = (ROOT / "frontend/src/pages/ProjectDashboard.jsx").read_text()
+        workspace = (ROOT / "frontend/src/lib/projectWorkspaceApi.js").read_text()
+        flow_api = (ROOT / "frontend/src/lib/projectFlowApi.js").read_text()
+        payments = (ROOT / "frontend/src/pages/ProjectPayments.jsx").read_text()
+        documents = (ROOT / "frontend/src/pages/DocumentVault.jsx").read_text()
+        nav = (ROOT / "frontend/src/components/landing/LandingNavbar.jsx").read_text()
+
+        self.assertIn("updateProjectTitle(activeProjectId", dashboard)
+        self.assertIn("setProjectTaskStatus(task.id, status)", dashboard)
+        self.assertIn('category: "site_photo"', dashboard)
+        self.assertIn('from("projects")', workspace)
+        self.assertIn('kind: String(category || "other")', workspace)
+        self.assertIn('["todo", "in_progress", "blocked", "done"]', flow_api)
+        self.assertIn("<ProjectHubShell>", payments)
+        self.assertIn('category: "payment_receipt"', payments)
+        self.assertIn("<ProjectHubShell>", documents)
+        self.assertIn("Approvals, permits & NOCs", documents)
+        self.assertNotIn('{ label: "Materials shop", path: "/shop" }', nav)
+
+    def test_homepage_keeps_core_value_proposition_with_light_agentic_signal(self):
+        why = (ROOT / "frontend/src/components/landing/LandingWhyChooseUs.jsx").read_text()
+        pros = (ROOT / "frontend/src/components/landing/LandingForProfessionals.jsx").read_text()
+
+        self.assertIn("AI design, plans & estimates", why)
+        self.assertIn("AI professional matching", why)
+        self.assertIn("Smart project hub", why)
+        self.assertIn("Payment protection", why)
+        self.assertIn("Smart reminders, schedule tracking, and follow-ups", why)
+        self.assertIn("Agentic shopping suggests materials you approve", why)
+        self.assertIn("A shareable portfolio, directory visibility", pros)
+        self.assertIn("Smart reminders and client follow-ups are the next layer", pros)
+
+    def test_portfolio_self_publish_reporting_and_blocking_are_launch_contracts(self):
         sql = (ROOT / "db/homemakers_rls_hardening.sql").read_text()
         api = (ROOT / "frontend/src/lib/api.js").read_text()
         desktop = (ROOT / "frontend/src/pages/PortfolioPage.jsx").read_text()
@@ -342,14 +400,24 @@ class LaunchContractsTest(unittest.TestCase):
             "create table if not exists public.portfolio_reports",
             "create table if not exists public.blocked_portfolios",
             "quarantine_reported_portfolio",
-            "enforce_portfolio_moderation",
+            "drop trigger if exists trg_portfolio_moderation_insert",
+            "set moderation_status = 'approved'",
         ):
             self.assertIn(contract, sql)
-        self.assertIn('moderation_status: "pending"', api)
+        self.assertIn('moderation_status: "approved"', api)
         self.assertIn("Report profile", desktop)
         self.assertIn("Block profile", desktop)
+        self.assertIn("Work With Me", desktop)
+        self.assertIn("Want a portfolio like this? Create yours", desktop)
         self.assertIn("Report profile", mobile)
         self.assertIn("Block profile", mobile)
+        self.assertIn("Work With Me", mobile)
+        self.assertIn("Want a portfolio like this? Create yours", mobile)
+
+        migration = (ROOT / "db/homemakers_portfolio_self_publish.sql").read_text()
+        self.assertIn("drop trigger if exists trg_portfolio_moderation_insert", migration)
+        self.assertIn("set moderation_status = 'approved'", migration)
+        self.assertIn("still_waiting", migration)
 
     def test_server_profile_signer_is_owner_prefix_scoped(self):
         server = (ROOT / "backend/server.py").read_text()

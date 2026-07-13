@@ -476,6 +476,9 @@ export default function YourDetails() {
                 </div>
               </div>
             </div>
+            <div className="-mt-1 rounded-xl border border-[#DCE9E2] bg-[#F3FAF6] px-4 py-3 text-[12px] leading-relaxed text-[#456052]">
+              <strong>Private contact details:</strong> phone, email, street address, and licence information are never displayed on your public portfolio. Homeowner inquiries begin through HomeMakers.
+            </div>
 
             <div>
               <label className="text-[13px] font-semibold text-[#1C1917] mb-1.5 block">License / COA Number <span className="text-[#C85F2B]">*</span></label>

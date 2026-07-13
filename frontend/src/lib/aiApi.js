@@ -58,7 +58,12 @@ export function isGrokConceptUrl(url) {
 /** At least one elevation/concept image from Grok (floor plans may still be indicative templates). */
 export function bundleHasGrokConcepts(bundle) {
   const images = Array.isArray(bundle?.images) ? bundle.images : [];
-  return images.some((img) => isGrokConceptUrl(img?.url));
+  return images.some(
+    (img) =>
+      Boolean(img?.storage_path) ||
+      img?.storage_bucket === "project-v0" ||
+      isGrokConceptUrl(img?.url),
+  );
 }
 
 /** Strip engineer notes before UI; keep bundle shape. */
@@ -270,32 +275,70 @@ function mergeFloorPlansFromTemplate(data, flow, brief) {
  * Design images from wizard brief → backend → Grok Imagine.
  * Waits for real Grok URLs; never returns instant stock placeholders in production.
  */
-export async function requestV0Images(flow, brief, { onStatus } = {}) {
+export async function requestV0Images(
+  flow,
+  brief,
+  { onStatus, mode = "concept", referenceImages = [], revisionPrompt = "", revisionKind = "exterior" } = {},
+) {
   const safeBrief = brief && typeof brief === "object" ? brief : {};
   if (!aiClient) {
     if (process.env.NODE_ENV === "production") {
       throw new Error("AI service is not configured. Please try again in a few minutes.");
     }
     await fallbackDelay();
-    return sanitizeV0Bundle(mockV0ImagesClient(flow, safeBrief));
+    const mock = mockV0ImagesClient(flow, safeBrief);
+    if (mode === "floor_plans") return sanitizeV0Bundle({ ...mock, images: [] });
+    if (mode === "concept") return sanitizeV0Bundle({ ...mock, floor_plans: [] });
+    if (mode === "revision") {
+      const floorRevision = revisionKind === "floor_plan";
+      return sanitizeV0Bundle({
+        ...mock,
+        floor_plans: floorRevision ? mock.floor_plans.slice(0, 1).map((image) => ({
+          ...image,
+          label: "Revised floor plan",
+          hint: revisionPrompt || "Revised from the saved floor plan",
+        })) : [],
+        images: floorRevision ? [] : mock.images.slice(0, 1).map((image) => ({
+          ...image,
+          label: "Revised exterior concept",
+          hint: revisionPrompt || "Revised from the saved concept",
+        })),
+      });
+    }
+    return sanitizeV0Bundle(mock);
   }
 
   const postImages = async () =>
     aiClient.post(
       "/ai/v0-images",
-      { flow, brief: safeBrief },
+      {
+        flow,
+        brief: safeBrief,
+        mode,
+        reference_images: referenceImages,
+        revision_prompt: revisionPrompt || null,
+        revision_kind: revisionKind,
+      },
       await withBackendAuth({ timeout: 240000 }),
     );
 
   onStatus?.("Preparing AI design generation…");
   await wakeAiBackend(onStatus);
 
-  onStatus?.("Generating your design pack… (about 1–3 minutes)");
+  onStatus?.(
+    mode === "floor_plans"
+      ? "Drawing your floor plan from the approved exterior…"
+      : mode === "revision"
+        ? "Applying your requested design changes…"
+        : "Creating your free exterior concept…",
+  );
   const { data } = await postImages();
-  if (bundleHasGrokConcepts(data)) {
-    onStatus?.("Design concepts ready.");
-    const merged = mergeFloorPlansFromTemplate(data, flow, safeBrief);
-    return sanitizeV0Bundle(merged);
+  const hasConcept = bundleHasGrokConcepts(data);
+  const hasFloorPlans = Array.isArray(data?.floor_plans) && data.floor_plans.length > 0;
+  if (hasConcept || hasFloorPlans) {
+    onStatus?.(hasFloorPlans && !hasConcept ? "Floor plan ready." : "Design concept ready.");
+    const result = mode === "full" ? mergeFloorPlansFromTemplate(data, flow, safeBrief) : data;
+    return sanitizeV0Bundle(result);
   }
   throw new Error("AI did not return generated concept images. Wait a minute and tap Regenerate.");
 }

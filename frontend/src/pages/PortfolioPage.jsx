@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { MapPin, Calendar, Building2 } from "lucide-react";
+import { MapPin, Calendar, Building2, X } from "lucide-react";
 import { findCraft } from "../lib/crafts";
 import { getPublicProfile } from "../lib/api";
 import { formatLocationLabel } from "../lib/formatLocation";
@@ -15,6 +15,7 @@ export default function PortfolioPage() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   const handleBlock = async () => {
     if (!data?.id || !window.confirm("Hide this professional from your directory and profile results?")) return;
@@ -103,7 +104,8 @@ export default function PortfolioPage() {
     city && { value: city.split(",")[0], label: "Based in" },
   ].filter(Boolean);
 
-  const gallery = photos.slice(0, 9);
+  const gallery = photos.slice(0, 10);
+  const startWithPro = () => navigate(`/build?source=portfolio&pro=${encodeURIComponent(data.slug || data.id)}`);
 
   return (
     <div className="hm-pf" style={themeVars}>
@@ -112,7 +114,7 @@ export default function PortfolioPage() {
         <div className="hm-pf-hero-bg" style={{ backgroundImage: `url(${hero})` }} />
         <div className="hm-pf-hero-overlay" />
 
-        <button type="button" className="hm-pf-cta" onClick={() => navigate("/build?source=portfolio")}>
+        <button type="button" className="hm-pf-cta" onClick={startWithPro}>
           Work With Me
         </button>
 
@@ -182,9 +184,9 @@ export default function PortfolioPage() {
         {gallery.length > 0 ? (
           <div className="hm-pf-gallery">
             {gallery.map((src, i) => (
-              <div key={`${src}-${i}`} className={`hm-pf-shot${i === 0 && gallery.length >= 3 ? " hm-pf-shot--feature" : ""}`}>
+              <button type="button" key={`${src}-${i}`} className={`hm-pf-shot${i === 0 && gallery.length >= 3 ? " hm-pf-shot--feature" : ""}`} onClick={() => setSelectedPhoto({ src, index: i })} aria-label={`Open ${name} project ${i + 1}`}>
                 <img src={src} alt={`${name} project ${i + 1}`} loading={i > 1 ? "lazy" : undefined} />
-              </div>
+              </button>
             ))}
           </div>
         ) : (
@@ -194,40 +196,20 @@ export default function PortfolioPage() {
         )}
       </section>
 
-      {/* ══ Contact ══ */}
-      <section className="hm-pf-contact">
-        <div className="hm-pf-contact-card">
-          <div>
-            <h3 className={isEditorial ? "hm-pf-serif" : undefined}>Let&apos;s build something together</h3>
-            <p>
-              Share your plot, room, or brief — {name.split(" ")[0]} will get back with how they&apos;d approach it.
-            </p>
-          </div>
-          <div className="hm-pf-contact-actions">
-            <button
-              type="button"
-              className="hm-pf-contact-btn hm-pf-contact-btn--solid"
-              onClick={() => navigate("/build?source=portfolio")}
-            >
-              Start a project brief
-            </button>
-          </div>
+      {selectedPhoto ? (
+        <div className="hm-pf-lightbox" role="dialog" aria-modal="true" aria-label={`Project image ${selectedPhoto.index + 1}`} onClick={() => setSelectedPhoto(null)}>
+          <button type="button" className="hm-pf-lightbox-close" onClick={() => setSelectedPhoto(null)} aria-label="Close image"><X size={22} /></button>
+          <img src={selectedPhoto.src} alt={`${name} project ${selectedPhoto.index + 1}`} onClick={(event) => event.stopPropagation()} />
         </div>
-      </section>
+      ) : null}
 
       {/* ══ Footer ══ */}
       <footer className="hm-pf-footer">
         <span>
           {name} · {craftLabel}{city ? ` · ${city}` : ""}
         </span>
-        <span>
-          Built on HomeMakers — <Link to="/craft">create your portfolio</Link>
-        </span>
-        <span>
-          <button type="button" onClick={handleReport} className="bg-transparent border-0 underline cursor-pointer text-inherit">Report profile</button>
-          {" · "}
-          <button type="button" onClick={handleBlock} className="bg-transparent border-0 underline cursor-pointer text-inherit">Block profile</button>
-        </span>
+        <details className="hm-pf-safety"><summary>Safety</summary><button type="button" onClick={handleReport}>Report profile</button><button type="button" onClick={handleBlock}>Block profile</button></details>
+        <Link className="hm-pf-create-cta" to="/craft">Want a portfolio like this? Create yours</Link>
       </footer>
     </div>
   );

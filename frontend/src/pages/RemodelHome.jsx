@@ -256,6 +256,7 @@ function RightPanel({
 export default function RemodelHome() {
   const navigate = useNavigate();
   const location = useLocation();
+  const referredProSlug = new URLSearchParams(location.search).get("pro") || "";
   const flowMainRef = useRef(null);
   const photoUploadRef = useRef(null);
   const styleUploadRef = useRef(null);
@@ -438,6 +439,7 @@ export default function RemodelHome() {
       setV0GenPhase("images");
       const imagesPayload = await requestV0Images("remodel", brief, {
         onStatus: (msg) => setV0GenStatus(msg),
+        mode: "concept",
       });
       setV0GenPhase("estimate");
       setV0GenStatus("Building your estimate…");
@@ -445,7 +447,7 @@ export default function RemodelHome() {
       setV0ImageBundle(imagesPayload);
       setV0PlanBundle(planPayload);
       setV0Generated(true);
-      const briefForSave = { ...brief, step: 5, v0Generated: true };
+      const briefForSave = { ...brief, referredProSlug, step: 5, v0Generated: true };
       const saved = await persistFlowAfterV0({
         projectId: flowProjectId || getRemodelFlow().projectId,
         flowType: "remodel",
@@ -1480,6 +1482,7 @@ export default function RemodelHome() {
                     try {
                       const briefPayload = {
                         ...remodelBriefPayload(),
+                        referredProSlug,
                         architectHandoffNote,
                         hasArchitect: hasOwnPros,
                         postAiNotes,

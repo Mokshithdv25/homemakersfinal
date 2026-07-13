@@ -107,7 +107,7 @@ async function publishPortfolioSupabase(id) {
     .update({
       slug,
       published: true,
-      moderation_status: "pending",
+      moderation_status: "approved",
       step: 5,
       profile_strength: 100,
       updated_at: nowIso(),

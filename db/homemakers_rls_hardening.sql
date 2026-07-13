@@ -44,31 +44,15 @@ alter table public.portfolios
   add constraint portfolios_moderation_status_check
   check (moderation_status in ('pending', 'approved', 'rejected'));
 
-create or replace function public.enforce_portfolio_moderation()
-returns trigger
-language plpgsql
-set search_path = public
-as $$
-begin
-  if current_user not in ('postgres', 'service_role') then
-    new.moderation_status := 'pending';
-  end if;
-  return new;
-end;
-$$;
-
-revoke all on function public.enforce_portfolio_moderation() from public, anon, authenticated;
 drop trigger if exists trg_portfolio_moderation_insert on public.portfolios;
-create trigger trg_portfolio_moderation_insert
-  before insert on public.portfolios
-  for each row execute function public.enforce_portfolio_moderation();
 drop trigger if exists trg_portfolio_moderation_update on public.portfolios;
-create trigger trg_portfolio_moderation_update
-  before update of craft, full_name, business_name, city, years_experience, short_bio,
-    specialties, photos, cover_photo, profile_photo, portfolio_theme,
-    portfolio_layout, slug, profile_strength, published, moderation_status
-  on public.portfolios
-  for each row execute function public.enforce_portfolio_moderation();
+drop function if exists public.enforce_portfolio_moderation();
+
+-- Owners self-publish immediately. Safety reports can still quarantine a live
+-- portfolio by returning it to pending through quarantine_reported_portfolio().
+update public.portfolios
+set moderation_status = 'approved', updated_at = now()
+where published = true and moderation_status = 'pending';
 
 create index if not exists idx_portfolios_public_directory
   on public.portfolios (craft, city, updated_at desc)
@@ -192,7 +176,8 @@ revoke all on function public.consume_ai_daily_quota(uuid, text, integer)
 grant execute on function public.consume_ai_daily_quota(uuid, text, integer)
   to service_role;
 
--- User-generated-content safeguards: every publish is reviewed before public
+-- Post-publication safeguards: reports and blocks remain available, and repeated
+-- credible reports automatically quarantine a profile from public discovery.
 -- visibility; signed-in visitors can report and block profiles in-app.
 create table if not exists public.portfolio_reports (
   id uuid primary key default gen_random_uuid(),

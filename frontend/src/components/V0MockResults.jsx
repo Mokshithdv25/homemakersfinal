@@ -1,9 +1,16 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 const OR = "#C85F2B";
 
 export function V0GeneratingPanel({ phase = "images", statusLine = "" }) {
-  const step1Active = phase === "images";
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const timer = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, [phase]);
+  const step1Active = phase === "images" || phase === "revision";
+  const floorActive = phase === "floor_plans";
   const step2Active = phase === "estimate";
   const step1Done = step2Active;
   const row = (n, label, sub, active, done) => (
@@ -23,17 +30,23 @@ export function V0GeneratingPanel({ phase = "images", statusLine = "" }) {
   );
   return (
     <div style={{ padding: "24px 20px", background: "linear-gradient(180deg,#FFFBF7,#FDF8F3)", border: "1px solid #EEDCCB", borderRadius: 14, marginBottom: 20 }}>
-      <div style={{ fontSize: 15, fontWeight: 800, textAlign: "center", marginBottom: 4 }}>AI is generating your v0 pack</div>
+      <div style={{ fontSize: 15, fontWeight: 800, textAlign: "center", marginBottom: 4 }}>
+        {floorActive ? "AI is drawing your floor plan" : phase === "revision" ? "AI is revising your design" : "AI is creating your exterior concept"}
+      </div>
       <p style={{ fontSize: 12, color: "#7A6E62", textAlign: "center", margin: "0 0 8px" }}>
-        Please keep this page open — we wait for real AI renders (about 1–2 minutes).
+        Keep this page open. The request is active · {elapsed}s elapsed
       </p>
       {statusLine ? (
         <p style={{ fontSize: 12, color: "#C85F2B", textAlign: "center", margin: "0 0 16px", fontWeight: 600, lineHeight: 1.45 }}>
           {statusLine}
         </p>
       ) : null}
-      {row(1, "Design concepts", step1Active ? "Rendering…" : "Done", step1Active, step1Done)}
-      {row(2, "Estimate", step2Active ? "INR lines…" : "Waiting", step2Active, false)}
+      {row(1, phase === "revision" ? "Design revision" : "Exterior concept", step1Active ? "Rendering…" : floorActive || step2Active ? "Done" : "Waiting", step1Active, floorActive || step1Done)}
+      {row(2, "Floor plan", floorActive ? "Drawing from the approved exterior…" : "Available after the exterior", floorActive, false)}
+      {row(3, "Estimate", step2Active ? "Building INR lines…" : "Saved with the free concept", step2Active, false)}
+      <div style={{ height: 5, marginTop: 14, borderRadius: 99, overflow: "hidden", background: "#EDE8E0" }}>
+        <div className="hm-v0-progress-pulse" style={{ width: "42%", height: "100%", borderRadius: 99, background: OR }} />
+      </div>
     </div>
   );
 }
@@ -138,7 +151,22 @@ export function V0EstimateSection({ planBundle, title = "Design plan estimate (f
 }
 
 /** Large concept image — caption below, minimal chrome (no thumbnail boxes). */
-function conceptImageCard(entry, i, variant = "elevation") {
+async function downloadVisual(url, label) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("download failed");
+    const blobUrl = URL.createObjectURL(await response.blob());
+    const anchor = document.createElement("a");
+    anchor.href = blobUrl;
+    anchor.download = `${String(label || "homemakers-v0").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.jpg`;
+    anchor.click();
+    URL.revokeObjectURL(blobUrl);
+  } catch {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+function conceptImageCard(entry, i, variant = "elevation", onOpen) {
   const label = entry && typeof entry === "object" ? entry.label || `Concept ${i + 1}` : `Concept ${i + 1}`;
   const url = entry?.url;
   const hint = entry?.hint;
@@ -148,6 +176,7 @@ function conceptImageCard(entry, i, variant = "elevation") {
     <figure key={label + i} style={{ margin: 0 }}>
       <div
         style={{
+          position: "relative",
           width: "100%",
           borderRadius: 16,
           overflow: "hidden",
@@ -173,6 +202,12 @@ function conceptImageCard(entry, i, variant = "elevation") {
             }}
           />
         ) : null}
+        {url ? (
+          <div style={{ position: "absolute", right: 10, bottom: 10, display: "flex", gap: 8 }}>
+            <button type="button" onClick={() => onOpen?.(entry)} aria-label={`Zoom ${label}`} style={{ border: "none", borderRadius: 999, padding: "8px 12px", background: "rgba(28,25,23,.82)", color: "#fff", fontWeight: 700, cursor: "pointer" }}>⌕ Zoom</button>
+            <button type="button" onClick={() => downloadVisual(url, label)} aria-label={`Download ${label}`} style={{ border: "none", borderRadius: 999, padding: "8px 12px", background: "rgba(255,255,255,.92)", color: "#1C1917", fontWeight: 700, cursor: "pointer" }}>↓ Download</button>
+          </div>
+        ) : null}
       </div>
       <figcaption style={{ paddingTop: 12, paddingBottom: 4 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: "#1C1917", letterSpacing: "-0.01em" }}>{label}</div>
@@ -193,6 +228,7 @@ export function V0VisualBundleSections({
   elevationTitle = "Elevations & massing",
   interiorRenders = false,
 }) {
+  const [zoomed, setZoomed] = useState(null);
   let floorPlans = Array.isArray(bundle?.floor_plans) ? bundle.floor_plans : [];
   let elevations = Array.isArray(bundle?.images) ? bundle.images : [];
 
@@ -224,7 +260,7 @@ export function V0VisualBundleSections({
               gap: 28,
             }}
           >
-            {floorPlans.map((e, i) => conceptImageCard(e, i, "plan"))}
+            {floorPlans.map((e, i) => conceptImageCard(e, i, "plan", setZoomed))}
           </div>
         </div>
       ) : null}
@@ -235,10 +271,17 @@ export function V0VisualBundleSections({
             Concept directions from your brief — share with your architect to refine.
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-            {elevations.map((e, i) => conceptImageCard(e, i, interiorRenders ? "interior" : "elevation"))}
+            {elevations.map((e, i) => conceptImageCard(e, i, interiorRenders ? "interior" : "elevation", setZoomed))}
           </div>
         </div>
       ) : null}
+      {zoomed?.url ? (
+        <div role="dialog" aria-modal="true" aria-label={zoomed.label || "AI design preview"} onClick={() => setZoomed(null)} style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(17,15,13,.9)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <button type="button" onClick={() => setZoomed(null)} aria-label="Close zoom" style={{ position: "absolute", top: 18, right: 22, border: "none", background: "rgba(255,255,255,.14)", color: "#fff", borderRadius: 999, width: 42, height: 42, fontSize: 22, cursor: "pointer" }}>×</button>
+          <img src={zoomed.url} alt={zoomed.label || "AI design"} onClick={(event) => event.stopPropagation()} style={{ maxWidth: "94vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 12, boxShadow: "0 24px 80px rgba(0,0,0,.45)" }} />
+        </div>
+      ) : null}
+      <style>{`@keyframes hmV0Pulse{0%{transform:translateX(-110%)}100%{transform:translateX(260%)}}.hm-v0-progress-pulse{animation:hmV0Pulse 1.8s ease-in-out infinite}`}</style>
     </>
   );
 }

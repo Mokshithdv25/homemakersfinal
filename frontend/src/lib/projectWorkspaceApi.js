@@ -69,7 +69,7 @@ export async function listProjectDocuments(projectId) {
   }));
 }
 
-export async function uploadProjectDocument({ projectId, stageId = null, file }) {
+export async function uploadProjectDocument({ projectId, stageId = null, file, category = "other" }) {
   requireProject(projectId);
   const userId = await requireUser();
   if (!file) throw new Error("Choose a document to upload.");
@@ -82,7 +82,7 @@ export async function uploadProjectDocument({ projectId, stageId = null, file })
     project_id: projectId,
     stage_id: stageId,
     uploaded_by_user_id: userId,
-    kind: "file",
+    kind: String(category || "other").slice(0, 60),
     file_name: file.name,
     file_url: storagePath,
     storage_path: storagePath,
@@ -95,6 +95,22 @@ export async function uploadProjectDocument({ projectId, stageId = null, file })
   }
   const { data: signed } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(storagePath, 3600);
   return { ...data, signed_url: signed?.signedUrl || null };
+}
+
+export async function updateProjectTitle(projectId, title) {
+  requireProject(projectId);
+  await requireUser();
+  const cleanTitle = String(title || "").trim().slice(0, 120);
+  if (!cleanTitle) throw new Error("Enter a project name.");
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ title: cleanTitle, last_active_at: new Date().toISOString() })
+    .eq("id", projectId)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.id) throw new Error("The project could not be renamed.");
+  return data;
 }
 
 export async function removeProjectDocument(projectId, document) {

@@ -1,8 +1,6 @@
 import React from "react";
 import { Users } from "lucide-react";
 
-const OR = "#C85F2B";
-
 /**
  * After v0 — explains quotes/bids vs bringing your own pros (not a single-architect handoff).
  */
@@ -55,8 +53,8 @@ export default function ProQuotesEngagementCallout({ onBrowseForQuotes, hasOwnPr
           className="btn-continue !rounded-xl !px-5 !py-2.5 text-sm"
           style={{ display: "inline-flex", alignItems: "center", gap: 8 }}
         >
-          <span style={{ color: OR, fontWeight: 700 }}>Preview marketplace pros</span>
-          <span style={{ fontSize: 12, fontWeight: 500, color: "#57534E" }}>Architects · contractors · trades</span>
+          <span style={{ color: "#fff", fontWeight: 800 }}>Preview marketplace pros</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.9)" }}>Architects · contractors · trades</span>
         </button>
       ) : null}
     </div>

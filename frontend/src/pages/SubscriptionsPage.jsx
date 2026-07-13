@@ -14,9 +14,10 @@ const PLAN_COPY = {
     name: "Project Pass",
     price: "₹4,999",
     cadence: "one-time per account",
-    summary: "Move from a first brief to a saved, shareable project workspace.",
+    summary: "Turn your free exterior concept into an editable design and floor-plan package.",
     benefits: [
-      "AI design concepts, floor-plan directions and estimate pack",
+      "Generate floor-plan directions from your saved exterior",
+      "Regenerate and revise designs with written change requests",
       "Saved project hub, tasks, timeline and documents",
       "Share your structured brief with professionals",
       "Secure Razorpay checkout and payment receipt",
@@ -165,7 +166,7 @@ export default function SubscriptionsPage() {
                     </div>
                   </div>
                   <p className="font-body text-sm text-muted-foreground leading-relaxed mt-5 mb-0">
-                    {active ? "Your payment has been verified and your entitlement is stored on your account." : "Free includes account access, a portfolio draft, project brief creation and directory browsing."}
+                    {active ? "Your payment has been verified and your entitlement is stored on your account." : "Free includes one saved exterior concept and indicative estimate. Floor plans and revisions require Project Pass."}
                   </p>
                 </>
               )}

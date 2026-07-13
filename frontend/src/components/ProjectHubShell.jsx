@@ -18,6 +18,7 @@ const OR = "#C85F2B";
 export default function ProjectHubShell({ children, hubQuery: hubQueryProp }) {
   const navigate = useNavigate();
   const { pathname, search } = useLocation();
+  const currentTab = new URLSearchParams(search).get("tab") || "";
   const shellFont = { fontFamily: "'DM Sans','Inter',sans-serif", color: "#1C1917" };
 
   const hubQuery = useMemo(() => {
@@ -28,8 +29,14 @@ export default function ProjectHubShell({ children, hubQuery: hubQueryProp }) {
     return `?projectId=${encodeURIComponent(pid)}${src ? `&source=${encodeURIComponent(src)}` : ""}`;
   }, [hubQueryProp, search]);
 
-  const goNav = (path) => {
-    if (path && path !== "#") navigate(`${path}${hubQuery}`);
+  const goNav = (item) => {
+    if (item?.tab) {
+      const params = new URLSearchParams(hubQuery.replace(/^\?/, ""));
+      params.set("tab", item.tab);
+      navigate(`/project?${params.toString()}`);
+      return;
+    }
+    if (item?.path && item.path !== "#") navigate(`${item.path}${hubQuery}`);
   };
 
   return (
@@ -60,11 +67,11 @@ export default function ProjectHubShell({ children, hubQuery: hubQueryProp }) {
                 key={n.label}
                 role="button"
                 tabIndex={0}
-                onClick={() => goNav(n.path)}
+                onClick={() => goNav(n)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") goNav(n.path);
+                  if (e.key === "Enter" || e.key === " ") goNav(n);
                 }}
-                style={hmProjectSidebarNavItemStyle(hubNavActive(pathname, n.path))}
+                style={hmProjectSidebarNavItemStyle(hubNavActive(pathname, n.path, n.tab, currentTab))}
               >
                 <span style={{ fontSize: 15 }}>{n.icon}</span>
                 {n.label}

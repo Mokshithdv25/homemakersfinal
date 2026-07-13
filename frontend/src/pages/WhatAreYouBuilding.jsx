@@ -72,7 +72,11 @@ function FeatureRow({ text }) {
 export default function WhatAreYouBuilding() {
   const [searchParams] = useSearchParams();
   const fromPortfolio = (searchParams.get("source") || "").toLowerCase() === "portfolio";
-  const flowQuery = fromPortfolio ? "?source=portfolio" : "";
+  const referredPro = searchParams.get("pro") || "";
+  const flowParams = new URLSearchParams();
+  if (fromPortfolio) flowParams.set("source", "portfolio");
+  if (referredPro) flowParams.set("pro", referredPro);
+  const flowQuery = flowParams.toString() ? `?${flowParams.toString()}` : "";
 
   return (
     <div

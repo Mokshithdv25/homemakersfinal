@@ -19,13 +19,13 @@ const steps = [
     icon: UsersRound,
     title: "Bring in the right pros",
     description:
-      "AI contractor matching in our marketplace, or bring your own architect. You approve every hire before work starts.",
+      "AI professional matching in our marketplace, or bring your own architect. You approve every hire before work starts.",
   },
   {
     icon: ClipboardList,
     title: "Run the build with clarity",
     description:
-      "One AI-assisted hub for visits, photos, documents, and checklists. Agentic materials shopping with picks you can edit. You stay in control to handover.",
+      "One AI-assisted hub for visits, photos, documents, and checklists—with smart reminders, schedule tracking, and follow-ups. Agentic shopping suggests material picks you can edit and approve.",
   },
 ];
 

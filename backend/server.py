@@ -257,7 +257,7 @@ def _seconds_until_utc_midnight() -> int:
     return max(1, 86400 - elapsed)
 
 
-def _consume_ai_daily_quota(user_id: str) -> None:
+def _consume_ai_daily_quota(user_id: str, limit: Optional[int] = None) -> None:
     """Atomically consume one durable UTC-day image-pack allowance."""
     if not user_id:
         raise HTTPException(status_code=401, detail="Sign in to continue")
@@ -275,7 +275,7 @@ def _consume_ai_daily_quota(user_id: str) -> None:
             {
                 "p_user_id": user_id,
                 "p_usage_kind": "image_pack",
-                "p_limit": AI_DAILY_IMAGE_PACKS,
+                "p_limit": limit or AI_DAILY_IMAGE_PACKS,
             },
         ).execute()
     except Exception as exc:
@@ -681,13 +681,6 @@ def update_portfolio(
     if not update_fields:
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    public_fields = {
-        "craft", "full_name", "business_name", "city", "years_experience",
-        "short_bio", "specialties", "photos", "cover_photo", "profile_photo",
-        "portfolio_theme", "portfolio_layout",
-    }
-    if public_fields.intersection(update_fields):
-        update_fields["moderation_status"] = "pending"
     update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
     doc.update(update_fields)
     _save_portfolio(doc)
@@ -713,9 +706,9 @@ def publish_portfolio(portfolio_id: str, user: dict = Depends(_require_user)):
     doc.update({
         "slug": slug,
         "published": True,
-        "moderation_status": "pending",
+        "moderation_status": "approved",
         "profile_strength": 100,
-        "step": 4,
+        "step": 5,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
     _save_portfolio(doc)
@@ -1215,11 +1208,25 @@ class AIV0ImagesRequest(BaseModel):
 
     flow: FlowKind
     brief: dict
+    mode: Literal["full", "concept", "floor_plans", "revision"] = "concept"
+    reference_images: Optional[List[str]] = None
+    revision_prompt: Optional[str] = Field(default=None, max_length=1200)
+    revision_kind: Literal["exterior", "floor_plan"] = "exterior"
 
     @field_validator("brief")
     @classmethod
     def validate_brief_size(cls, value: dict) -> dict:
         return _bounded_json_object(value, AI_BRIEF_MAX_BYTES, "brief")
+
+    @field_validator("reference_images")
+    @classmethod
+    def validate_reference_images(cls, value: Optional[List[str]]) -> Optional[List[str]]:
+        if value is None:
+            return None
+        refs = [str(item).strip() for item in value if str(item).strip()]
+        if len(refs) > 3 or any(len(item) > 4_000_000 for item in refs):
+            raise ValueError("Use up to three reference images")
+        return refs
 
 
 class AIV0ImagesResponse(BaseModel):
@@ -1503,8 +1510,8 @@ def _grok_image_timeout_sec() -> int:
 
 
 def _should_inline_grok_images() -> bool:
-    """Inlining bloats JSON (~1MB+). Default off — browser loads xAI CDN URLs directly."""
-    return os.getenv("GROK_INLINE_IMAGES", "0").strip().lower() in ("1", "true", "yes")
+    """Return durable image data so the browser can mirror it into private Supabase storage."""
+    return os.getenv("GROK_INLINE_IMAGES", "1").strip().lower() in ("1", "true", "yes")
 
 
 def _inline_image_url(url: str) -> str:
@@ -2255,26 +2262,70 @@ def _default_floor_plans(flow: FlowKind, brief: dict) -> List[dict]:
     ]
 
 
-def _grok_v0_images(flow: FlowKind, brief: dict) -> Optional[AIV0ImagesResponse]:
+def _grok_v0_images(
+    flow: FlowKind,
+    brief: dict,
+    mode: str = "full",
+    reference_images: Optional[List[str]] = None,
+    revision_prompt: Optional[str] = None,
+    revision_kind: str = "exterior",
+) -> Optional[AIV0ImagesResponse]:
     if not _xai_api_key("image"):
         logger.warning("Grok images skipped: no XAI_API_KEY / HM_AI_IMAGE_API_KEY")
         return None
 
     try:
-        concept_count = _v0_concept_image_count(flow, brief)
-        mood_specs = _grok_v0_image_prompts(flow, brief)[:concept_count]
-        images = _generate_concept_images_sequential(mood_specs, flow, brief)
-
-        concept_urls = [img["url"] for img in images if img.get("url")]
+        refs = [url for url in (reference_images or []) if url]
+        images: List[dict] = []
         floor_plans: List[dict] = []
-        if _v0_floor_plans_enabled(flow):
-            fp_specs = _grok_new_home_floor_plan_prompts(brief)
-            floor_plans = _generate_floor_plans_sequential(fp_specs, flow, brief, concept_urls)
-        elif flow == "new_home":
-            floor_plans = _default_floor_plans(flow, brief)
 
-        if not images:
-            logger.warning("Grok returned zero images for flow=%s", flow)
+        if mode == "revision":
+            if not refs or not str(revision_prompt or "").strip():
+                return None
+            if revision_kind == "floor_plan":
+                prompt = (
+                    "Revise the architectural floor plan shown in <IMAGE_1>. Keep the same plot, "
+                    "structural footprint, stair/core alignment and all unaffected rooms. Produce a "
+                    "clean, legible top-down architectural plan with room labels and dimensions. "
+                    f"Requested changes: {str(revision_prompt).strip()}"
+                )
+                aspect_ratio = "4:3"
+            else:
+                prompt = (
+                    "Revise the same home design shown in <IMAGE_1>. Preserve its identity, massing, "
+                    "roofline and site context unless the homeowner explicitly asks otherwise. "
+                    f"Requested changes: {str(revision_prompt).strip()}"
+                )
+                aspect_ratio = "16:9"
+            revised_url = _grok_edit_image(prompt, refs[:1], aspect_ratio=aspect_ratio)
+            if revised_url:
+                revised_item = {
+                    "url": revised_url,
+                    "label": "Revised floor plan" if revision_kind == "floor_plan" else "Revised exterior concept",
+                    "hint": str(revision_prompt).strip(),
+                }
+                if revision_kind == "floor_plan":
+                    floor_plans = [revised_item]
+                else:
+                    images = [revised_item]
+        elif mode == "floor_plans":
+            if not refs:
+                return None
+            fp_specs = _grok_new_home_floor_plan_prompts(brief)
+            floor_plans = _generate_floor_plans_sequential(fp_specs, flow, brief, refs)
+        else:
+            concept_count = _v0_concept_image_count(flow, brief)
+            mood_specs = _grok_v0_image_prompts(flow, brief)[:concept_count]
+            images = _generate_concept_images_sequential(mood_specs, flow, brief)
+            concept_urls = [img["url"] for img in images if img.get("url")]
+            if mode == "full" and _v0_floor_plans_enabled(flow):
+                fp_specs = _grok_new_home_floor_plan_prompts(brief)
+                floor_plans = _generate_floor_plans_sequential(fp_specs, flow, brief, concept_urls)
+            elif mode == "full" and flow == "new_home":
+                floor_plans = _default_floor_plans(flow, brief)
+
+        if not images and not floor_plans:
+            logger.warning("Grok returned zero images for flow=%s mode=%s", flow, mode)
             return None
 
         model = _grok_image_model()
@@ -2673,17 +2724,78 @@ def _v0_images_json(resp: AIV0ImagesResponse) -> dict:
 @api_router.post("/ai/v0-images")
 def ai_v0_images(payload: AIV0ImagesRequest, _user: dict = Depends(_ai_request_slot)):
     brief = payload.brief if isinstance(payload.brief, dict) else {}
+    user_id = str(_user.get("id") or "")
+    paid_mode = payload.mode in ("full", "floor_plans", "revision")
+    entitlements = _billing_rows(
+        "user_entitlements", user_id=user_id, plan_id="homeowner_project_pass"
+    ) if _supabase else []
+    has_project_pass = any(_entitlement_is_active(row) for row in entitlements)
+    if not _allow_ai_mocks():
+        if paid_mode and not has_project_pass:
+            raise HTTPException(
+                status_code=402,
+                detail="Project Pass is required for floor plans, regeneration, and design revisions.",
+            )
+        if payload.mode in ("concept", "full") and not has_project_pass and _supabase:
+            owned = (
+                _supabase.table("projects")
+                .select("id")
+                .eq("owner_user_id", user_id)
+                .execute()
+            ).data or []
+            project_ids = [row.get("id") for row in owned if row.get("id")]
+            prior = []
+            if project_ids:
+                prior = (
+                    _supabase.table("project_ai_runs")
+                    .select("id")
+                    .in_("project_id", project_ids)
+                    .eq("run_type", "v0_images")
+                    .eq("status", "completed")
+                    .limit(1)
+                    .execute()
+                ).data or []
+            if prior:
+                raise HTTPException(
+                    status_code=402,
+                    detail="Your free exterior concept has already been used. Project Pass unlocks regeneration, floor plans, and revisions.",
+                )
     if _allow_ai_mocks():
         mock = _mock_v0_images(payload.flow, brief)
         logger.warning("ai/v0-images using mock because ALLOW_AI_MOCKS is enabled; flow=%s", payload.flow)
+        if payload.mode == "concept":
+            mock.floor_plans = []
+            mock.images = mock.images[:1]
+        elif payload.mode == "floor_plans":
+            mock.images = []
+        elif payload.mode == "revision":
+            if payload.revision_kind == "floor_plan":
+                mock.images = []
+                mock.floor_plans = mock.floor_plans[:1]
+                if mock.floor_plans:
+                    mock.floor_plans[0]["label"] = "Revised floor plan"
+                    mock.floor_plans[0]["hint"] = payload.revision_prompt or "Revised from the saved floor plan"
+            else:
+                mock.floor_plans = []
+                mock.images = mock.images[:1]
+                if mock.images:
+                    mock.images[0]["label"] = "Revised exterior concept"
+                    mock.images[0]["hint"] = payload.revision_prompt or "Revised from the saved concept"
         return _v0_images_json(mock)
     if not _xai_api_key("image"):
         raise HTTPException(
             status_code=502,
             detail="AI image generation is temporarily unavailable. Please try again.",
         )
-    _consume_ai_daily_quota(str(_user.get("id") or ""))
-    grok = _grok_v0_images(payload.flow, brief)
+    _consume_ai_daily_quota(user_id, AI_DAILY_IMAGE_PACKS if has_project_pass else 1)
+    grok = _grok_v0_images(
+        payload.flow,
+        brief,
+        mode=payload.mode,
+        reference_images=payload.reference_images,
+        revision_prompt=payload.revision_prompt,
+        revision_kind=payload.revision_kind,
+    )
     if grok is not None:
         grok.provider_note = None
         return _v0_images_json(grok)

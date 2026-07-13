@@ -194,257 +194,109 @@ for each row execute function public.project_task_progress_trigger();
 -- absence of legacy anonymous policies.
 create or replace function public.launch_schema_ready()
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = public
-as $$
-  select
-    to_regclass('public.published_portfolios') is not null
-    and to_regclass('public.project_professionals') is null
-    and (select count(*) = 18 from pg_tables where schemaname = 'public')
-    and (
-      select count(*) = 1
-      from pg_views
-      where schemaname = 'public' and viewname = 'published_portfolios'
-    )
-    and (
-      select array_agg(column_name::text order by ordinal_position) = array[
-        'id', 'craft', 'full_name', 'business_name', 'city',
-        'years_experience', 'short_bio', 'specialties', 'photos',
-        'cover_photo', 'profile_photo', 'slug', 'profile_strength',
-        'portfolio_theme', 'portfolio_layout', 'updated_at'
-      ]::text[]
-      from information_schema.columns
-      where table_schema = 'public' and table_name = 'published_portfolios'
-    )
-    and to_regprocedure('public.get_my_session()') is not null
-    and to_regprocedure('public.activate_billing_order(uuid,text,text)') is not null
-    and to_regprocedure('public.portfolio_media_is_published(text)') is not null
-    and to_regprocedure('public.enforce_portfolio_moderation()') is not null
-    and to_regprocedure('public.consume_ai_daily_quota(uuid,text,integer)') is not null
-    and to_regprocedure('public.project_task_progress_trigger()') is not null
-    and has_table_privilege('anon', 'public.published_portfolios', 'SELECT')
-    and has_table_privilege('authenticated', 'public.published_portfolios', 'SELECT')
-    and has_function_privilege('authenticated', 'public.get_my_session()', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.get_my_session()', 'EXECUTE')
-    and has_function_privilege('service_role', 'public.consume_ai_daily_quota(uuid,text,integer)', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.consume_ai_daily_quota(uuid,text,integer)', 'EXECUTE')
-    and not has_function_privilege('authenticated', 'public.consume_ai_daily_quota(uuid,text,integer)', 'EXECUTE')
-    and has_function_privilege('service_role', 'public.activate_billing_order(uuid,text,text)', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.activate_billing_order(uuid,text,text)', 'EXECUTE')
-    and not has_function_privilege('authenticated', 'public.activate_billing_order(uuid,text,text)', 'EXECUTE')
-    and not has_function_privilege('anon', 'public.launch_schema_ready()', 'EXECUTE')
-    and not has_function_privilege('authenticated', 'public.launch_schema_ready()', 'EXECUTE')
-    and not exists (
-      select 1
-      from (values
-        ('public.portfolios'),
-        ('public.portfolio_reports'),
-        ('public.blocked_portfolios'),
-        ('public.user_profiles'),
-        ('public.projects'),
-        ('public.project_briefs'),
-        ('public.project_ai_runs'),
-        ('public.ai_usage_daily'),
-        ('public.project_v0_packs'),
-        ('public.project_stages'),
-        ('public.project_tasks'),
-        ('public.project_messages'),
-        ('public.project_documents'),
-        ('public.project_team_members'),
-        ('public.project_payments'),
-        ('public.billing_orders'),
-        ('public.user_entitlements'),
-        ('public.billing_webhook_events')
-      ) as required(relation_name)
-      left join pg_class c on c.oid = to_regclass(required.relation_name)
-      where c.oid is null
-        or c.relrowsecurity is not true
-        or has_table_privilege('anon', required.relation_name, 'SELECT')
-        or has_table_privilege('anon', required.relation_name, 'INSERT')
-        or has_table_privilege('anon', required.relation_name, 'UPDATE')
-        or has_table_privilege('anon', required.relation_name, 'DELETE')
-    )
-    and not exists (
-      select 1
-      from pg_policies
-      where schemaname = 'public'
-        and (
-          'anon' = any(roles)
-          or 'public' = any(roles)
-        )
-    )
-    and not exists (
-      select 1
-      from (values
-        ('public.user_profiles', true, true, true, false),
-        ('public.portfolios', true, true, true, true),
-        ('public.projects', true, true, true, true),
-        ('public.project_briefs', true, true, true, true),
-        ('public.project_ai_runs', true, true, false, false),
-        ('public.project_v0_packs', true, true, true, true),
-        ('public.project_stages', true, true, true, true),
-        ('public.project_tasks', true, true, true, true),
-        ('public.project_messages', true, true, true, true),
-        ('public.project_documents', true, true, true, true),
-        ('public.project_team_members', true, true, true, true),
-        ('public.project_payments', true, true, true, true),
-        ('public.portfolio_reports', true, true, false, false),
-        ('public.blocked_portfolios', true, true, false, true),
-        ('public.billing_orders', true, false, false, false),
-        ('public.user_entitlements', true, false, false, false),
-        ('public.ai_usage_daily', false, false, false, false),
-        ('public.billing_webhook_events', false, false, false, false)
-      ) as expected(relation_name, can_select, can_insert, can_update, can_delete)
-      where has_table_privilege('authenticated', relation_name, 'SELECT') is distinct from can_select
-         or has_table_privilege('authenticated', relation_name, 'INSERT') is distinct from can_insert
-         or has_table_privilege('authenticated', relation_name, 'UPDATE') is distinct from can_update
-         or has_table_privilege('authenticated', relation_name, 'DELETE') is distinct from can_delete
-    )
-    and exists (
-      select 1 from pg_trigger t
-      join pg_class c on c.oid = t.tgrelid
-      join pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'auth' and c.relname = 'users'
-        and t.tgname = 'on_auth_user_created' and not t.tgisinternal
-    )
-    and exists (
-      select 1 from pg_trigger t
-      join pg_class c on c.oid = t.tgrelid
-      join pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'auth' and c.relname = 'users'
-        and t.tgname = 'on_auth_user_email_updated' and not t.tgisinternal
-    )
-    and exists (
-      select 1 from pg_trigger t
-      join pg_class c on c.oid = t.tgrelid
-      join pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'public' and c.relname = 'project_tasks'
-        and t.tgname = 'trg_project_task_progress' and not t.tgisinternal
-    )
-    and exists (
-      select 1 from pg_trigger t
-      join pg_class c on c.oid = t.tgrelid
-      join pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'public' and c.relname = 'project_tasks'
-        and t.tgname = 'trg_project_tasks_updated_at' and not t.tgisinternal
-    )
-    and (
-      select count(*) = 3
-      from pg_trigger t
-      join pg_class c on c.oid = t.tgrelid
-      join pg_namespace n on n.oid = c.relnamespace
-      where n.nspname = 'public'
-        and not t.tgisinternal
-        and t.tgname in (
-          'trg_portfolio_moderation_insert',
-          'trg_portfolio_moderation_update',
-          'trg_quarantine_reported_portfolio'
-        )
-    )
-    and (
-      select count(*) = 7
-      from pg_constraint
-      where conname in (
-        'portfolios_owner_user_id_fkey',
-        'projects_owner_user_id_fkey',
-        'portfolios_specialties_array_check',
-        'portfolios_photos_array_check',
-        'project_tasks_stage_project_fk',
-        'project_messages_stage_project_fk',
-        'project_documents_stage_project_fk'
-      )
-    )
-    and (
-      select count(*) = 2
-      from pg_constraint
-      where conname in ('portfolios_owner_user_id_fkey', 'projects_owner_user_id_fkey')
-        and confdeltype = 'c'
-    )
-    and (
-      select count(*) = 2
-      from pg_attribute
-      where attrelid in ('public.portfolios'::regclass, 'public.projects'::regclass)
-        and attname = 'owner_user_id'
-        and attnotnull
-        and not attisdropped
-    )
-    and not exists (
-      select 1
-      from (values
-        ('project-v0', 10485760::bigint,
-          array['image/jpeg','image/png','image/webp','image/gif']::text[]),
-        ('portfolio-media', 10485760::bigint,
-          array['image/jpeg','image/png','image/webp','image/gif']::text[]),
-        ('project-documents', 15728640::bigint,
-          array['application/pdf','image/jpeg','image/png','image/webp','text/plain','text/csv',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']::text[])
-      ) as expected_bucket(bucket_id, max_bytes, mime_types)
-      left join storage.buckets b on b.id = expected_bucket.bucket_id
-      where b.id is null
-        or b.public is not false
-        or b.file_size_limit is distinct from expected_bucket.max_bytes
-        or b.allowed_mime_types is distinct from expected_bucket.mime_types
-    )
-    and (
-      select count(*) = 13
-      from pg_policies
-      where schemaname = 'storage'
-        and tablename = 'objects'
-        and policyname in (
-          'project_v0_select_own',
-          'project_v0_upload_own',
-          'project_v0_update_own',
-          'project_v0_delete_own',
-          'portfolio_media_select_own',
-          'portfolio_media_select_published',
-          'portfolio_media_upload_own',
-          'portfolio_media_update_own',
-          'portfolio_media_delete_own',
-          'project_documents_storage_select_own',
-          'project_documents_storage_insert_own',
-          'project_documents_storage_update_own',
-          'project_documents_storage_delete_own'
-        )
-    )
-    and not exists (
-      select 1
-      from pg_policies
-      where schemaname = 'storage'
-        and tablename = 'objects'
-        and policyname not in (
-          'project_v0_select_own',
-          'project_v0_upload_own',
-          'project_v0_update_own',
-          'project_v0_delete_own',
-          'portfolio_media_select_own',
-          'portfolio_media_select_published',
-          'portfolio_media_upload_own',
-          'portfolio_media_update_own',
-          'portfolio_media_delete_own',
-          'project_documents_storage_select_own',
-          'project_documents_storage_insert_own',
-          'project_documents_storage_update_own',
-          'project_documents_storage_delete_own'
-        )
-    )
-    and not exists (
-      select 1
-      from pg_policies
-      where schemaname = 'storage'
-        and tablename = 'objects'
-        and policyname <> 'portfolio_media_select_published'
-        and ('anon' = any(roles) or 'public' = any(roles))
-    )
-    and not exists (
-      select 1
-      from pg_policies
-      where schemaname = 'storage'
-        and tablename <> 'objects'
+as $hm_ready$
+declare
+  relation_name text;
+  relation_oid regclass;
+  rls_on boolean;
+  matching_count integer;
+begin
+  foreach relation_name in array array[
+    'public.user_profiles',
+    'public.portfolios',
+    'public.portfolio_reports',
+    'public.blocked_portfolios',
+    'public.projects',
+    'public.project_briefs',
+    'public.project_ai_runs',
+    'public.ai_usage_daily',
+    'public.project_v0_packs',
+    'public.project_stages',
+    'public.project_tasks',
+    'public.project_messages',
+    'public.project_documents',
+    'public.project_team_members',
+    'public.project_payments',
+    'public.billing_orders',
+    'public.user_entitlements',
+    'public.billing_webhook_events'
+  ]
+  loop
+    relation_oid := to_regclass(relation_name);
+    if relation_oid is null then
+      return false;
+    end if;
+
+    select c.relrowsecurity into rls_on
+    from pg_class c
+    where c.oid = relation_oid;
+
+    if rls_on is not true
+       or has_table_privilege('anon', relation_name, 'SELECT')
+       or has_table_privilege('anon', relation_name, 'INSERT')
+       or has_table_privilege('anon', relation_name, 'UPDATE')
+       or has_table_privilege('anon', relation_name, 'DELETE') then
+      return false;
+    end if;
+  end loop;
+
+  if to_regclass('public.published_portfolios') is null
+     or to_regclass('public.project_professionals') is not null
+     or to_regprocedure('public.get_my_session()') is null
+     or to_regprocedure('public.activate_billing_order(uuid,text,text)') is null
+     or to_regprocedure('public.consume_ai_daily_quota(uuid,text,integer)') is null
+     or to_regprocedure('public.project_task_progress_trigger()') is null then
+    return false;
+  end if;
+
+  select count(*) into matching_count
+  from pg_attribute
+  where attrelid in ('public.portfolios'::regclass, 'public.projects'::regclass)
+    and attname = 'owner_user_id'
+    and attnotnull
+    and not attisdropped;
+  if matching_count <> 2 then
+    return false;
+  end if;
+
+  select count(*) into matching_count
+  from storage.buckets
+  where id in ('project-v0', 'portfolio-media', 'project-documents')
+    and public is false;
+  if matching_count <> 3 then
+    return false;
+  end if;
+
+  select count(*) into matching_count
+  from pg_policies
+  where schemaname = 'storage'
+    and tablename = 'objects'
+    and policyname in (
+      'project_v0_select_own',
+      'project_v0_upload_own',
+      'project_v0_update_own',
+      'project_v0_delete_own',
+      'portfolio_media_select_own',
+      'portfolio_media_select_published',
+      'portfolio_media_upload_own',
+      'portfolio_media_update_own',
+      'portfolio_media_delete_own',
+      'project_documents_storage_select_own',
+      'project_documents_storage_insert_own',
+      'project_documents_storage_update_own',
+      'project_documents_storage_delete_own'
     );
-$$;
+  if matching_count <> 13 then
+    return false;
+  end if;
+
+  return true;
+end;
+$hm_ready$;
 
 revoke all on function public.launch_schema_ready() from public, anon, authenticated;
 grant execute on function public.launch_schema_ready() to service_role;

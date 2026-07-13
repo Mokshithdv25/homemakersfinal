@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { MapPin, Calendar, Building2 } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { MapPin, Calendar, Building2, X } from "lucide-react";
 import MobileHeader from "../MobileHeader";
 import { getPublicProfile } from "../../lib/api";
 import { craftLabel, proDisplayName } from "../../components/PublishedProsDirectory";
@@ -18,6 +18,7 @@ export default function MobileProProfilePage() {
   const [pro, setPro] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   const handleBlock = async () => {
     if (!pro?.id || !window.confirm("Hide this professional from your app?")) return;
@@ -154,9 +155,9 @@ export default function MobileProProfilePage() {
           type="button"
           className="hm-m-btn-primary"
           style={{ width: "100%", marginBottom: 18, background: theme.accent, borderColor: theme.accent }}
-          onClick={() => navigate("/build?source=portfolio")}
+          onClick={() => navigate(`/build?source=portfolio&pro=${encodeURIComponent(pro.slug || pro.id)}`)}
         >
-          Start a project brief
+          Work With Me
         </button>
 
         {specialties.length > 0 ? (
@@ -176,10 +177,10 @@ export default function MobileProProfilePage() {
           <>
             <p className="hm-m-section-title" style={{ padding: 0 }}>Portfolio</p>
             <div className="hm-m-ideas-grid">
-              {photos.slice(0, 6).map((url, i) => (
-                <div key={i} className="hm-m-idea-thumb static">
+              {photos.slice(0, 10).map((url, i) => (
+                <button type="button" key={i} className="hm-m-idea-thumb static" style={{ border: 0, padding: 0 }} onClick={() => setSelectedPhoto({ url, index: i })} aria-label={`Open ${name} project ${i + 1}`}>
                   <img src={url} alt="" />
-                </div>
+                </button>
               ))}
             </div>
           </>
@@ -189,7 +190,17 @@ export default function MobileProProfilePage() {
           <button type="button" onClick={handleReport} style={{ border: 0, background: "transparent", color: "#78716C", textDecoration: "underline" }}>Report profile</button>
           <button type="button" onClick={handleBlock} style={{ border: 0, background: "transparent", color: "#78716C", textDecoration: "underline" }}>Block profile</button>
         </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+          <Link to="/craft" style={{ color: theme.accent, fontWeight: 800, fontSize: 13 }}>Want a portfolio like this? Create yours</Link>
+        </div>
       </div>
+
+      {selectedPhoto ? (
+        <div role="dialog" aria-modal="true" aria-label={`Project image ${selectedPhoto.index + 1}`} onClick={() => setSelectedPhoto(null)} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <button type="button" onClick={() => setSelectedPhoto(null)} aria-label="Close image" style={{ position: "absolute", top: 18, right: 18, border: 0, borderRadius: 999, background: "rgba(255,255,255,0.16)", color: "white", padding: 9 }}><X size={22} /></button>
+          <img src={selectedPhoto.url} alt={`${name} project ${selectedPhoto.index + 1}`} onClick={(event) => event.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain" }} />
+        </div>
+      ) : null}
     </>
   );
 }

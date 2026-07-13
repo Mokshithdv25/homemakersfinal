@@ -10,19 +10,19 @@ import HmUserMenu from "../HmUserMenu";
 import HmMarketingWordmark from "../HmMarketingWordmark";
 
 const HOMEOWNER_SOFTWARE = [
-  { label: "AI design & estimates", path: "/build" },
-  { label: "New home wizard", path: "/build/new-home" },
-  { label: "Remodel wizard", path: "/build/remodel" },
-  { label: "Project management hub", path: "/project" },
-  { label: "Documents & selections", path: "/documents" },
-  { label: "Materials shop", path: "/shop" },
+  { label: "Project management", path: "/project" },
+  { label: "New home design & estimate", path: "/build/new-home" },
+  { label: "Remodel design & estimate", path: "/build/remodel" },
+  { label: "Scheduling & site tracking", path: "/project?tab=Timeline" },
+  { label: "Documents, receipts & approvals", path: "/documents" },
+  { label: "Payments & budget", path: "/project/payments" },
+  { label: "Quantity takeoff & cost planning", path: null, comingSoon: true },
 ];
 
 const PRO_SOFTWARE = [
   { label: "Pro dashboard", path: "/pro/dashboard" },
   { label: "Leads & marketplace", path: "/browse" },
   { label: "Project management hub", path: "/project" },
-  { label: "Materials shop", path: "/shop" },
   { label: "CRM & pipeline", path: null, comingSoon: true },
   { label: "Invoicing & payouts", path: null, comingSoon: true },
 ];

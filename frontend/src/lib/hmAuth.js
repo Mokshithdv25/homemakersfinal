@@ -125,7 +125,7 @@ export function readProPortfolioState() {
     const hasId = Boolean(localStorage.getItem("hm_portfolio_id"));
     if (parsed?.published) {
       return {
-        status: parsed.moderation_status === "approved" ? "published" : "review",
+        status: "published",
         step: 5,
       };
     }
@@ -175,7 +175,7 @@ export function getProPublicProfilePath() {
   try {
     const raw = localStorage.getItem("hm_portfolio");
     const parsed = raw ? JSON.parse(raw) : null;
-    if (parsed?.published && parsed?.moderation_status === "approved" && parsed?.slug) {
+    if (parsed?.published && parsed?.slug) {
       return `/profile/${parsed.slug}`;
     }
   } catch {

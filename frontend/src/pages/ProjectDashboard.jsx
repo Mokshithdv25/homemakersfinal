@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import LandingNavbar from "../components/landing/LandingNavbar";
 import {
@@ -24,7 +24,9 @@ import {
   derivePhaseProgress,
   setProjectStageStatus,
   setProjectTaskDone,
+  setProjectTaskStatus,
 } from "../lib/projectFlowApi";
+import { listProjectDocuments, listProjectPayments, updateProjectTitle, uploadProjectDocument } from "../lib/projectWorkspaceApi";
 import { buildSignInRedirect } from "../lib/requireHomeownerAuth";
 import { buildHubAssistantContext } from "../lib/hubAssistantContext";
 import HmFormDialog from "../components/HmFormDialog";
@@ -388,7 +390,7 @@ export default function ProjectDashboard() {
     !dismissPostedBanner &&
     (searchParams.get("source") === "build-new" || searchParams.get("source") === "remodel") &&
     isProjectPostedPhase(postedPhase);
-  const [activeNav, setActiveNav] = useState("Overview");
+  const [activeNav, setActiveNav] = useState(() => searchParams.get("tab") || "Overview");
   const [selectedPhase, setSelectedPhase] = useState("Structure");
   const [phaseRows, setPhaseRows] = useState([]);
   const [briefData, setBriefData] = useState(null);
@@ -396,6 +398,12 @@ export default function ProjectDashboard() {
   const [msg, setMsg] = useState("");
   const [msgs, setMsgs] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [projectDocuments, setProjectDocuments] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [projectTitleDraft, setProjectTitleDraft] = useState("");
+  const [renamingProject, setRenamingProject] = useState(false);
+  const [siteUploading, setSiteUploading] = useState(false);
+  const sitePhotoPickerRef = useRef(null);
   const [boardError, setBoardError] = useState("");
   const [budgetDetailOpen, setBudgetDetailOpen] = useState(false);
   const [budgetDetailScope, setBudgetDetailScope] = useState("stage");
@@ -418,6 +426,11 @@ export default function ProjectDashboard() {
 
   const activeProjectId = searchParams.get("projectId") || "";
   const isLiveProject = Boolean(activeProjectId);
+
+  useEffect(() => {
+    const requestedTab = searchParams.get("tab");
+    if (requestedTab && NAV.some((item) => item.label === requestedTab && !item.path)) setActiveNav(requestedTab);
+  }, [searchParams]);
 
   const hubQuery = useMemo(() => {
     const pid = activeProjectId;
@@ -481,7 +494,10 @@ export default function ProjectDashboard() {
   }, [hmSession?.supabaseUserId, activeProjectId]);
   const liveStageDetail = useMemo(() => {
     if (!isLiveProject) return null;
-    const v0Images = (v0Pack?.images?.images || []).map((img) => img?.url).filter(Boolean);
+    const v0Images = [
+      ...(v0Pack?.images?.images || []),
+      ...(v0Pack?.images?.floor_plans || v0Pack?.images?.floorPlans || v0Pack?.floorPlans || []),
+    ].map((img) => img?.url).filter(Boolean);
     const estimate = v0Pack?.estimate;
     const budgetTotal =
       briefData?.budgetLabel ||
@@ -495,6 +511,9 @@ export default function ProjectDashboard() {
       line?.label || "Line item",
       line?.amount_inr != null ? formatInrShort(line.amount_inr) : "TBD",
     ]);
+    const selectedStageId = phaseRows.find((row) => row.name === selectedPhase)?.id;
+    const uploadedForStage = projectDocuments.filter((document) => !document.stage_id || document.stage_id === selectedStageId);
+    const uploadedPhotos = uploadedForStage.filter((document) => document.kind === "site_photo" && document.signed_url).map((document) => document.signed_url);
     return {
       siteImage: v0Images[0] || "",
       siteCaption:
@@ -511,13 +530,17 @@ export default function ProjectDashboard() {
       traffic: "green",
       docs: [
         { name: "AI v0 concept images", ext: "IMG" },
+        ...(v0Pack?.floorPlans?.length || v0Pack?.images?.floor_plans?.length
+          ? [{ name: "AI v0 floor plans", ext: "PLAN" }]
+          : []),
         { name: "Indicative estimate (v0)", ext: "EST" },
         { name: "Project brief snapshot", ext: "JSON" },
+        ...uploadedForStage.map((document) => ({ name: document.file_name, ext: String(document.kind || "FILE").replaceAll("_", " ").toUpperCase() })),
       ],
-      miniGallery: v0Images.slice(0, 4),
+      miniGallery: [...uploadedPhotos, ...v0Images].slice(0, 4),
       budgetLines: budgetLines.length ? budgetLines : [["Planning baseline", budgetTotal]],
     };
-  }, [isLiveProject, v0Pack, briefData, selectedPhase]);
+  }, [isLiveProject, v0Pack, briefData, selectedPhase, phaseRows, projectDocuments]);
   const stageDetail = isLiveProject && liveStageDetail ? liveStageDetail : STAGE_DETAILS[selectedPhase];
   useEffect(() => {
     if (!activeProjectId) {
@@ -538,6 +561,8 @@ export default function ProjectDashboard() {
       }
       setBriefData(null);
       setV0Pack(null);
+      setProjectDocuments([]);
+      setPayments([]);
       return;
     }
     const run = async () => {
@@ -551,7 +576,11 @@ export default function ProjectDashboard() {
       try {
         const source = searchParams.get("source") || "";
         const projectId = searchParams.get("projectId") || "";
-        const board = await loadProjectBoard({ source, projectId });
+        const [board, documents, paymentRows] = await Promise.all([
+          loadProjectBoard({ source, projectId }),
+          listProjectDocuments(projectId),
+          listProjectPayments(projectId),
+        ]);
         if (!board) throw new Error("This project could not be loaded for the signed-in account.");
         if (Array.isArray(board.phases)) {
           setPhaseRows(board.phases);
@@ -563,6 +592,8 @@ export default function ProjectDashboard() {
         setMsgs(Array.isArray(board.messages) ? board.messages : []);
         setBriefData(board.brief || null);
         setV0Pack(board.v0Pack || null);
+        setProjectDocuments(documents || []);
+        setPayments(paymentRows || []);
         const ms = board.v0Pack?.estimate?.milestones;
         if (Array.isArray(ms) && ms.length) {
           setMilestonesByPhase({
@@ -596,22 +627,25 @@ export default function ProjectDashboard() {
         ? `₹${briefData.budgetAmount} ${briefData.budgetUnit === "Crores" ? "Cr" : "L"}`
         : "TBD");
     const indicative = v0Pack?.estimate?.total_indicative_inr;
+    const paidTotal = payments.filter((row) => row.status === "paid").reduce((sum, row) => sum + Number(row.amount_inr || 0), 0);
+    const committedTotal = payments.filter((row) => row.status === "due" || row.status === "planned").reduce((sum, row) => sum + Number(row.amount_inr || 0), 0);
+    const budgetTotal = Number(userProjects.find((row) => row.id === activeProjectId)?.budget_max || briefData?.budgetInr || 0);
     return {
       totalBudget: totalLabel,
-      spentToDate: "Not recorded",
-      pctOfTotalSpent: 0,
+      spentToDate: paidTotal ? formatInrShort(paidTotal) : "₹0",
+      pctOfTotalSpent: budgetTotal > 0 ? Math.min(100, Math.round((paidTotal / budgetTotal) * 100)) : 0,
       ownEquityBudgeted: totalLabel,
       bankLoanSanctioned: null,
       spentFromOwnPocket: "—",
       spentFromLoanDisbursements: null,
       loanTrancheReleasedPct: null,
       monthlyBurnPlanned: "To be planned",
-      monthlyBurnActual: "To be planned",
+      monthlyBurnActual: paidTotal ? `${formatInrShort(paidTotal)} recorded` : "No paid entries",
       runwayNote: indicative
-        ? `Saved AI v0 estimate: ${formatInrShort(indicative)}. This is an estimate, not recorded spend.`
-        : "No spend has been recorded for this project.",
+        ? `Saved AI v0 estimate: ${formatInrShort(indicative)}. Paid: ${paidTotal ? formatInrShort(paidTotal) : "₹0"}; planned or due: ${committedTotal ? formatInrShort(committedTotal) : "₹0"}.`
+        : `${payments.length} ledger entr${payments.length === 1 ? "y" : "ies"}; paid: ${paidTotal ? formatInrShort(paidTotal) : "₹0"}.`,
     };
-  }, [isLiveProject, briefData, v0Pack]);
+  }, [isLiveProject, briefData, v0Pack, payments, userProjects, activeProjectId]);
 
   const isSignedIn = AUTH_UI_ENABLED ? Boolean(hmSession?.supabaseUserId) : true;
   const needsSignIn = AUTH_UI_ENABLED && !isSignedIn;
@@ -626,6 +660,9 @@ export default function ProjectDashboard() {
     () => userProjects.find((p) => p.id === activeProjectId) || null,
     [userProjects, activeProjectId],
   );
+  useEffect(() => {
+    setProjectTitleDraft(activeProjectMeta?.title || "");
+  }, [activeProjectMeta?.title]);
   const signInRedirectPath = buildSignInRedirect(
     activeProjectId ? `/project?projectId=${encodeURIComponent(activeProjectId)}` : "/project",
   );
@@ -705,13 +742,25 @@ export default function ProjectDashboard() {
   const siteFeedEntries = useMemo(
     () => {
       if (isLiveProject) {
-        const images = (v0Pack?.images?.images || []).map((image) => image?.url).filter(Boolean);
-        if (!images.length) return [];
-        return images.map((image, index) => ({
-          phase: "Design & Approval",
-          image,
-          caption: index === 0 ? (v0Pack?.estimate?.project_summary || "Saved AI v0 concept") : `Saved concept ${index + 1}`,
-          time: "Saved with this project",
+        const media = [
+          ...(v0Pack?.images?.images || []).map((image) => ({ ...image, kind: "concept" })),
+          ...(v0Pack?.images?.floor_plans || v0Pack?.images?.floorPlans || v0Pack?.floorPlans || []).map((image) => ({ ...image, kind: "floor" })),
+          ...projectDocuments
+            .filter((document) => document.kind === "site_photo" && document.signed_url)
+            .map((document) => ({
+              url: document.signed_url,
+              label: document.file_name,
+              kind: "site",
+              created_at: document.created_at,
+              stage_id: document.stage_id,
+            })),
+        ].filter((image) => image?.url);
+        if (!media.length) return [];
+        return media.map((item, index) => ({
+          phase: phaseRows.find((phase) => phase.id === item.stage_id)?.name || "Design & Approval",
+          image: item.url,
+          caption: item.label || (item.kind === "floor" ? `Saved floor plan ${index + 1}` : index === 0 ? (v0Pack?.estimate?.project_summary || "Saved AI v0 concept") : `Saved concept ${index + 1}`),
+          time: item.created_at ? new Date(item.created_at).toLocaleDateString("en-IN") : "Saved with this project",
         }));
       }
       return phaseOrder.map((name) => {
@@ -719,7 +768,7 @@ export default function ProjectDashboard() {
         return { phase: name, image: d.siteImage, caption: d.siteCaption, time: d.siteTime };
       });
     },
-    [phaseOrder, isLiveProject, v0Pack]
+    [phaseOrder, phaseRows, isLiveProject, v0Pack, projectDocuments]
   );
 
   const allBudgetLines = useMemo(() => {
@@ -768,7 +817,7 @@ export default function ProjectDashboard() {
         id = await addProjectTask({ projectId: activeProjectId, title, phaseName: phase });
       }
       setTasks((prev) => {
-        const next = [...prev, { id, done: false, name: title, phase, date: today, assignee: "You" }];
+        const next = [...prev, { id, done: false, status: "todo", name: title, phase, date: today, assignee: "You" }];
         setPhaseRows((rows) => derivePhaseProgress(rows, next));
         return next;
       });
@@ -783,12 +832,62 @@ export default function ProjectDashboard() {
     try {
       if (isLiveProject) await setProjectTaskDone(task.id, nextDone);
       setTasks((prev) => {
-        const next = prev.map((x) => (x.id === task.id ? { ...x, done: nextDone } : x));
+        const next = prev.map((x) => (x.id === task.id ? { ...x, done: nextDone, status: nextDone ? "done" : "todo" } : x));
         setPhaseRows((rows) => derivePhaseProgress(rows, next));
         return next;
       });
     } catch (err) {
       setBoardError(err?.message || "Could not update the task.");
+    }
+  };
+
+  const changeTaskStatus = async (task, status) => {
+    setBoardError("");
+    try {
+      if (isLiveProject) await setProjectTaskStatus(task.id, status);
+      setTasks((prev) => {
+        const next = prev.map((row) => row.id === task.id ? { ...row, status, done: status === "done" } : row);
+        setPhaseRows((rows) => derivePhaseProgress(rows, next));
+        return next;
+      });
+    } catch (err) {
+      setBoardError(err?.message || "Could not update the task status.");
+    }
+  };
+
+  const renameActiveProject = async () => {
+    if (!activeProjectId || !projectTitleDraft.trim()) return;
+    setRenamingProject(true);
+    setBoardError("");
+    try {
+      const updated = await updateProjectTitle(activeProjectId, projectTitleDraft);
+      setUserProjects((rows) => rows.map((row) => row.id === updated.id ? { ...row, ...updated } : row));
+    } catch (err) {
+      setBoardError(err?.message || "Could not rename the project.");
+    } finally {
+      setRenamingProject(false);
+    }
+  };
+
+  const uploadSitePhoto = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !activeProjectId) return;
+    const stage = phaseRows.find((row) => row.name === selectedPhase);
+    setSiteUploading(true);
+    setBoardError("");
+    try {
+      const saved = await uploadProjectDocument({
+        projectId: activeProjectId,
+        stageId: stage?.id || null,
+        file,
+        category: "site_photo",
+      });
+      setProjectDocuments((rows) => [saved, ...rows]);
+    } catch (err) {
+      setBoardError(err?.message || "Could not upload the site photo.");
+    } finally {
+      setSiteUploading(false);
     }
   };
 
@@ -839,7 +938,11 @@ export default function ProjectDashboard() {
   };
 
   const openVaultForStage = () => {
-    navigate(`/documents?stage=${encodeURIComponent(selectedPhase)}`);
+    const stage = phaseRows.find((row) => row.name === selectedPhase);
+    const params = new URLSearchParams(hubQuery.replace(/^\?/, ""));
+    if (stage?.id) params.set("stageId", stage.id);
+    params.set("stage", selectedPhase);
+    navigate(`/documents?${params.toString()}`);
   };
 
   const addMilestone = () => {
@@ -1377,6 +1480,15 @@ export default function ProjectDashboard() {
           {hubReady && activeNav === "Overview" && (
           <>
           <div className="px-5 md:px-10">
+            {isLiveProject ? (
+              <div style={{ ...panel, padding: "14px 16px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <label htmlFor="project-title" style={{ fontSize: 12, fontWeight: 800, color: "#57534E" }}>Project name</label>
+                <input id="project-title" value={projectTitleDraft} onChange={(event) => setProjectTitleDraft(event.target.value.slice(0, 120))} onKeyDown={(event) => event.key === "Enter" && renameActiveProject()} style={{ flex: "1 1 260px", border: "1px solid #D4CEC6", borderRadius: 8, padding: "9px 11px", fontSize: 15, fontWeight: 700 }} />
+                <button type="button" onClick={renameActiveProject} disabled={renamingProject || !projectTitleDraft.trim() || projectTitleDraft.trim() === activeProjectMeta?.title} style={{ border: 0, borderRadius: 8, background: OR, color: "#fff", padding: "9px 14px", fontWeight: 700, cursor: "pointer", opacity: renamingProject || !projectTitleDraft.trim() || projectTitleDraft.trim() === activeProjectMeta?.title ? 0.5 : 1 }}>
+                  {renamingProject ? "Saving…" : "Rename"}
+                </button>
+              </div>
+            ) : null}
             <HmMorningBriefing
               context={assistantContext}
               pendingTasks={pendingTasks}
@@ -1504,7 +1616,7 @@ export default function ProjectDashboard() {
                       <div key={`${t.phase}-${t.name}-${t.date}`} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid #EDEAE6" }}>
                         <button
                           type="button"
-                          onClick={() => setTasks((prev) => prev.map((x) => (x === t ? { ...x, done: !x.done } : x)))}
+                          onClick={() => toggleTaskDone(t)}
                           style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
                         >
                           {t.done ? (
@@ -1525,6 +1637,12 @@ export default function ProjectDashboard() {
                           <span>📅</span>
                           <span>{t.date}</span>
                         </div>
+                        <select value={t.status || (t.done ? "done" : "todo")} onChange={(event) => changeTaskStatus(t, event.target.value)} aria-label={`Status for ${t.name}`} style={{ border: "1px solid #D4CEC6", borderRadius: 8, background: "#fff", padding: "7px 8px", fontSize: 12 }}>
+                          <option value="todo">To-do</option>
+                          <option value="in_progress">In progress</option>
+                          <option value="blocked">Blocked</option>
+                          <option value="done">Completed</option>
+                        </select>
                         <Avatar name={t.assignee} size={32} color={taskAssigneeColor(t.assignee)} />
                       </div>
                     ))}
@@ -1716,11 +1834,15 @@ export default function ProjectDashboard() {
                 <div style={{ borderLeft: "3px solid #E8E6E3", marginLeft: 10, paddingLeft: 20 }}>
                   {phaseOrder.map((ph) => (
                     <div key={ph} style={{ marginBottom: 20 }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: OR, letterSpacing: "0.06em", marginBottom: 10 }}>{ph}</div>
-                      {(milestonesByPhase[ph] || []).length === 0 ? (
-                        <div style={{ fontSize: 13, color: "#9A8F87" }}>No milestones yet.</div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: OR, letterSpacing: "0.06em" }}>{ph}</div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: phaseRows.find((row) => row.name === ph)?.statusColor || "#78716C" }}>{phaseRows.find((row) => row.name === ph)?.status || "Upcoming"} · {phaseRows.find((row) => row.name === ph)?.pct || 0}%</span>
+                      </div>
+                      {(milestonesByPhase[ph] || []).length === 0 && tasks.filter((task) => task.phase === ph).length === 0 ? (
+                        <div style={{ fontSize: 13, color: "#9A8F87" }}>No milestones or scheduled tasks yet.</div>
                       ) : (
-                        (milestonesByPhase[ph] || []).map((m) => (
+                        <>
+                        {(milestonesByPhase[ph] || []).map((m) => (
                           <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0 12px 6px", borderBottom: "1px solid #F0EBE3", position: "relative" }}>
                             <div
                               style={{
@@ -1752,7 +1874,15 @@ export default function ProjectDashboard() {
                               </>
                             ) : null}
                           </div>
-                        ))
+                        ))}
+                        {tasks.filter((task) => task.phase === ph).map((task) => (
+                          <div key={`timeline-${task.id}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0 10px 6px", borderBottom: "1px solid #F0EBE3" }}>
+                            <span aria-hidden>{task.done ? "✅" : task.status === "in_progress" ? "🟠" : "☐"}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{task.name}</div><div style={{ fontSize: 12, color: "#78716C", marginTop: 3 }}>{task.date || "No due date"}</div></div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: task.done ? "#15803D" : task.status === "in_progress" ? "#B45309" : "#78716C" }}>{task.done ? "Completed" : task.status === "in_progress" ? "In progress" : "To-do"}</span>
+                          </div>
+                        ))}
+                        </>
                       )}
                     </div>
                   ))}
@@ -1827,7 +1957,7 @@ export default function ProjectDashboard() {
                     <div key={`${t.phase}-${t.name}-${t.date}`} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 0", borderBottom: "1px solid #EDEAE6" }}>
                       <button
                         type="button"
-                        onClick={() => setTasks((prev) => prev.map((x) => (x === t ? { ...x, done: !x.done } : x)))}
+                        onClick={() => toggleTaskDone(t)}
                         style={{ background: "none", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}
                       >
                         {t.done ? (
@@ -1852,6 +1982,12 @@ export default function ProjectDashboard() {
                         <span>📅</span>
                         <span>{t.date}</span>
                       </div>
+                      <select value={t.status || (t.done ? "done" : "todo")} onChange={(event) => changeTaskStatus(t, event.target.value)} aria-label={`Status for ${t.name}`} style={{ border: "1px solid #D4CEC6", borderRadius: 8, background: "#fff", padding: "7px 8px", fontSize: 12 }}>
+                        <option value="todo">To-do</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="done">Completed</option>
+                      </select>
                       <Avatar name={t.assignee} size={32} color={taskAssigneeColor(t.assignee)} />
                     </div>
                   ))
@@ -1887,7 +2023,7 @@ export default function ProjectDashboard() {
                     <div style={{ width: `${fundingSnapshot.pctOfTotalSpent}%`, height: "100%", background: `linear-gradient(90deg,#22A36B,${OR})`, borderRadius: 6 }} />
                   </div>
                   <div style={{ fontSize: 12, color: "#9A8F87", marginTop: 6 }}>
-                    {isLiveProject ? "No spend ledger entries recorded" : `${fundingSnapshot.pctOfTotalSpent}% of total budget used (illustrative)`}
+                    {isLiveProject ? `${fundingSnapshot.pctOfTotalSpent}% of total budget paid from ${payments.length} ledger entr${payments.length === 1 ? "y" : "ies"}` : `${fundingSnapshot.pctOfTotalSpent}% of total budget used (illustrative)`}
                   </div>
                 </div>
                 <div style={{ ...panel, padding: "18px 20px" }}>
@@ -1949,8 +2085,9 @@ export default function ProjectDashboard() {
                 <div style={{ ...panel, padding: "22px 24px", marginBottom: 18 }}>
                   <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 6 }}>Recorded payments</div>
                   <p style={{ fontSize: 13, color: "#7A6E62", margin: 0, lineHeight: 1.5 }}>
-                    No owner payments, loan disbursements, or vendor transactions have been recorded for this project.
+                    {payments.length ? `${payments.length} persistent ledger entr${payments.length === 1 ? "y" : "ies"} are included in the spend totals above.` : "No owner payments, loan disbursements, or vendor transactions have been recorded for this project."}
                   </p>
+                  <button type="button" onClick={() => navigate(`/project/payments${hubQuery}`)} style={{ marginTop: 14, border: 0, borderRadius: 9, background: OR, color: "#fff", padding: "10px 15px", fontWeight: 700, cursor: "pointer" }}>{payments.length ? "Edit spending & receipts" : "Add spending"}</button>
                 </div>
               )}
             </div>
@@ -1958,7 +2095,10 @@ export default function ProjectDashboard() {
 
           {hubReady && activeNav === "Site Feed" && (
             <div style={{ maxWidth: 900 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Site feed</h2>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Site feed</h2>
+                {isLiveProject ? <><input ref={sitePhotoPickerRef} type="file" hidden accept="image/jpeg,image/png,image/webp" onChange={uploadSitePhoto} /><button type="button" disabled={siteUploading} onClick={() => sitePhotoPickerRef.current?.click()} style={{ border: 0, borderRadius: 9, background: OR, color: "#fff", padding: "9px 14px", fontWeight: 700, cursor: "pointer" }}>{siteUploading ? "Uploading…" : `Upload to ${selectedPhase}`}</button></> : null}
+              </div>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
                 Latest site photos and notes from each stage, newest updates first within this project.
               </p>
@@ -1968,8 +2108,8 @@ export default function ProjectDashboard() {
                     No saved site photos or concept images yet.
                   </div>
                 ) : null}
-                {[...siteFeedEntries].reverse().map((entry) => (
-                  <div key={entry.phase} style={{ ...panel, padding: 0, overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(200px, 1fr) minmax(0, 1.2fr)", gap: 0 }} className="project-site-feed-card">
+                {[...siteFeedEntries].reverse().map((entry, index) => (
+                  <div key={`${entry.phase}-${entry.caption}-${index}`} style={{ ...panel, padding: 0, overflow: "hidden", display: "grid", gridTemplateColumns: "minmax(200px, 1fr) minmax(0, 1.2fr)", gap: 0 }} className="project-site-feed-card">
                     <div style={{ position: "relative", minHeight: 200, background: "#E8E6E3" }}>
                       <img src={entry.image} alt="" style={{ width: "100%", height: "100%", minHeight: 200, objectFit: "cover", display: "block" }} />
                       <div style={{ position: "absolute", top: 12, left: 12, background: "rgba(28,25,23,0.75)", color: "#fff", fontSize: 11, fontWeight: 700, padding: "5px 12px", borderRadius: 20 }}>{entry.phase}</div>
@@ -1996,7 +2136,7 @@ export default function ProjectDashboard() {
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <div style={{ ...panel, padding: "18px 20px" }}>
                   <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8 }}>Project profile</div>
-                  <div style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55 }}>Name, address, and remodel type sync with your brief. Edit flows will hook to saved project JSON.</div>
+                  <div style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55 }}>The project name can be changed from Overview and is saved immediately to your Supabase project. Location and project type continue to come from the saved brief.</div>
                 </div>
                 <div style={{ ...panel, padding: "18px 20px" }}>
                   <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8 }}>Notifications</div>

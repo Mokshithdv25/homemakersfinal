@@ -235,6 +235,11 @@
   overflow: hidden;
   background: #f5f2ee;
   aspect-ratio: 1 / 1;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  cursor: zoom-in;
 }
 .hm-pf-shot--feature {
   grid-column: span 2;
@@ -336,3 +341,36 @@
   text-decoration: none;
 }
 .hm-pf-footer a:hover { text-decoration: underline; }
+
+.hm-pf-create-cta {
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 10px 17px;
+  background: var(--hm-portfolio-accent);
+  color: #fff !important;
+  box-shadow: 0 6px 18px rgba(28, 25, 23, 0.14);
+}
+.hm-pf-create-cta:hover { text-decoration: none !important; filter: brightness(1.05); }
+.hm-pf-safety { font-size: 11px; color: #aaa19a; }
+.hm-pf-safety summary { cursor: pointer; }
+.hm-pf-safety[open] { display: flex; align-items: center; gap: 8px; }
+.hm-pf-safety button { border: 0; background: transparent; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font-size: 11px; }
+
+.hm-pf-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(12, 10, 9, 0.94);
+  backdrop-filter: blur(8px);
+  cursor: zoom-out;
+}
+.hm-pf-lightbox img { max-width: 94vw; max-height: 90vh; object-fit: contain; border-radius: 12px; box-shadow: 0 30px 100px rgba(0, 0, 0, 0.5); }
+.hm-pf-lightbox-close { position: fixed; top: 20px; right: 20px; z-index: 1; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(255,255,255,.1); color: #fff; cursor: pointer; }
+
+@media (max-width: 640px) {
+  .hm-pf-create-cta { width: 100%; margin-left: 0; text-align: center; }
+}

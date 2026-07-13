@@ -24,7 +24,8 @@ import {
   sanitizeV0Bundle,
   sanitizePlanBundle,
 } from "../lib/aiApi";
-import { createFlowProjectRecord, persistFlowAfterV0 } from "../lib/projectFlowApi";
+import { createFlowProjectRecord, loadProjectBoard, persistFlowAfterV0, upsertFlowProject } from "../lib/projectFlowApi";
+import { fetchBillingSummary } from "../lib/billingApi";
 import { buildSignInRedirect, isHomeownerSignedIn } from "../lib/requireHomeownerAuth";
 import {
   ColourHexSwatch,
@@ -344,7 +345,9 @@ export default function BuildNewHome() {
   const navigate = useNavigate();
   const location = useLocation();
   const flowMainRef = useRef(null);
+  const formAutosaveReadyRef = useRef(false);
   const [searchParams] = useSearchParams();
+  const referredProSlug = searchParams.get("pro") || "";
   const [activeStep, setActiveStep] = useState(1);
 
   const [maxStepReached, setMaxStepReached] = useState(1);
@@ -355,6 +358,9 @@ export default function BuildNewHome() {
   const [projectSaving, setProjectSaving] = useState(false);
   const [v0ImageBundle, setV0ImageBundle] = useState(null);
   const [v0PlanBundle, setV0PlanBundle] = useState(null);
+  const [projectPassActive, setProjectPassActive] = useState(false);
+  const [revisionPrompt, setRevisionPrompt] = useState("");
+  const [revisionTarget, setRevisionTarget] = useState("exterior");
   const [flowProjectId, setFlowProjectId] = useState(null);
   const [hasArchitect, setHasArchitect] = useState(false);
   const [architectHandoffNote, setArchitectHandoffNote] = useState("");
@@ -418,6 +424,9 @@ export default function BuildNewHome() {
 
   useEffect(() => {
     const f = getBuildFlow();
+    if (f.formSnapshot && typeof f.formSnapshot === "object") {
+      setForm((current) => ({ ...current, ...f.formSnapshot }));
+    }
     const hasRealV0 = bundleHasGrokConcepts(f.v0Images);
     if (hasRealV0) {
       setV0Generated(!!f.v0);
@@ -444,6 +453,121 @@ export default function BuildNewHome() {
   }, [searchParams]);
 
   useEffect(() => {
+    setBuildFlow({ activeStep, step: activeStep });
+  }, [activeStep]);
+
+  useEffect(() => {
+    if (!formAutosaveReadyRef.current) {
+      formAutosaveReadyRef.current = true;
+      return undefined;
+    }
+    const timeoutId = setTimeout(() => {
+      setBuildFlow({ formSnapshot: form, activeStep, step: activeStep });
+    }, 250);
+    return () => clearTimeout(timeoutId);
+  }, [form, activeStep]);
+
+  useEffect(() => {
+    if (!isHomeownerSignedIn() || v0Generating) return undefined;
+    const timeoutId = setTimeout(async () => {
+      try {
+        const local = getBuildFlow();
+        const saved = await upsertFlowProject({
+          projectId: flowProjectId || local.projectId,
+          flowType: "new_home",
+          brief: {
+            ...form,
+            resolvedArchStyle: archResolved,
+            budgetLabel: budgetSingleLabel(form),
+            activeStep,
+            step: activeStep,
+          },
+          source: "build-new",
+          flowStep: "draft",
+        });
+        if (saved?.projectId) {
+          setFlowProjectId(saved.projectId);
+          setBuildFlow({ projectId: saved.projectId, formSnapshot: form, activeStep, step: activeStep });
+        }
+      } catch (error) {
+        console.warn("Could not autosave new-home progress:", error?.message || error);
+      }
+    }, 1200);
+    return () => clearTimeout(timeoutId);
+  }, [form, activeStep, archResolved, flowProjectId, v0Generating]);
+
+  useEffect(() => {
+    if (!isHomeownerSignedIn()) return;
+    let cancelled = false;
+    fetchBillingSummary()
+      .then((summary) => {
+        if (cancelled) return;
+        const entitlement = summary?.entitlements?.find(
+          (item) => item.plan_id === "homeowner_project_pass" && item.status === "active",
+        );
+        const active = Boolean(
+          entitlement &&
+            (!entitlement.active_until || new Date(entitlement.active_until).getTime() > Date.now()),
+        );
+        setProjectPassActive(active);
+      })
+      .catch(() => setProjectPassActive(false));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isHomeownerSignedIn()) return;
+    const local = getBuildFlow();
+    let cancelled = false;
+    loadProjectBoard({ projectId: local.projectId || "", source: "build-new" })
+      .then((board) => {
+        if (cancelled || !board?.projectId) return;
+        const savedBundle = sanitizeV0Bundle(board.v0Pack?.images || null);
+        const savedPlan = sanitizePlanBundle(board.v0Pack?.estimate || null);
+        const localBrief = local.formSnapshot && typeof local.formSnapshot === "object" ? local.formSnapshot : {};
+        const resumedBrief = board.brief && typeof board.brief === "object"
+          ? { ...board.brief, ...localBrief }
+          : localBrief;
+        if (Object.keys(resumedBrief).length) setForm((current) => ({ ...current, ...resumedBrief }));
+        setFlowProjectId(board.projectId);
+        if (bundleHasGrokConcepts(savedBundle)) {
+          setV0ImageBundle(savedBundle);
+          setV0PlanBundle(savedPlan);
+          setV0Generated(true);
+          setActiveStep(5);
+          setMaxStepReached((step) => Math.max(step, 5));
+          setBuildFlow({
+            projectId: board.projectId,
+            v0: true,
+            v0Images: savedBundle,
+            v0Plan: savedPlan,
+            activeStep: 5,
+            step: 5,
+            formSnapshot: board.brief,
+          });
+        } else {
+          const savedStep = Number(local.activeStep || local.step || board.brief?.activeStep || board.brief?.step);
+          if (savedStep >= 1 && savedStep <= 4) {
+            setActiveStep(savedStep);
+            setMaxStepReached((step) => Math.max(step, savedStep));
+            setBuildFlow({
+              projectId: board.projectId,
+              activeStep: savedStep,
+              step: savedStep,
+              formSnapshot: resumedBrief,
+            });
+          }
+        }
+      })
+      .catch((error) => console.warn("Could not resume saved AI v0:", error?.message || error));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     const timeoutId = setTimeout(() => {
       // Use instant behavior to prevent scroll interruption
       if (flowMainRef.current) {
@@ -459,22 +583,25 @@ export default function BuildNewHome() {
     return () => clearTimeout(timeoutId);
   }, [activeStep]);
 
-  const runV0Generation = async () => {
+  const runV0Generation = async (mode = "concept", requestedRevision = "", requestedRevisionTarget = "exterior") => {
     if (!isHomeownerSignedIn()) {
       setStepBlockError("Sign in to generate and save your v0 design and estimate to your account.");
       navigate(buildSignInRedirect(`${location.pathname}${location.search}`));
       return;
     }
     setV0Generating(true);
-    setV0Generated(false);
-    setV0ImageBundle(null);
-    setV0PlanBundle(null);
+    if (mode === "concept") {
+      setV0Generated(false);
+      setV0ImageBundle(null);
+      setV0PlanBundle(null);
+    }
     setStepBlockError("");
     setV0GenStatus("");
     try {
       const { inspirationItems = [], ...briefForm } = form;
       const brief = {
         ...briefForm,
+        referredProSlug,
         resolvedArchStyle: archResolved,
         flowWizard: "build_new_home",
         budgetLabel: budgetSingleLabel(form),
@@ -488,14 +615,41 @@ export default function BuildNewHome() {
           .map((x) => x.value)
           .slice(0, 3),
       };
-      setV0GenPhase("images");
+      setV0GenPhase(mode === "floor_plans" ? "floor_plans" : mode === "revision" ? "revision" : "images");
+      const revisionReferences = requestedRevisionTarget === "floor_plan"
+        ? (v0ImageBundle?.floor_plans || v0ImageBundle?.floorPlans || [])
+        : (v0ImageBundle?.images || []);
       const imagesPayload = await requestV0Images("new_home", brief, {
         onStatus: (msg) => setV0GenStatus(msg),
+        mode,
+        referenceImages: (mode === "revision" ? revisionReferences : (v0ImageBundle?.images || []))
+          .map((item) => item?.url).filter(Boolean).slice(-1),
+        revisionPrompt: requestedRevision,
+        revisionKind: requestedRevisionTarget,
       });
-      setV0GenPhase("estimate");
-      setV0GenStatus("Building your estimate…");
-      const planPayload = await requestEstimatePlan("new_home", brief, imagesPayload);
-      setV0ImageBundle(imagesPayload);
+      let nextImages = imagesPayload;
+      let planPayload = v0PlanBundle;
+      if (mode === "floor_plans") {
+        nextImages = {
+          ...(v0ImageBundle || {}),
+          floor_plans: imagesPayload?.floor_plans || [],
+          floorPlans: imagesPayload?.floor_plans || [],
+        };
+      } else if (mode === "revision") {
+        nextImages = {
+          ...(v0ImageBundle || {}),
+          images: [...(v0ImageBundle?.images || []), ...(imagesPayload?.images || [])],
+          floor_plans: [
+            ...(v0ImageBundle?.floor_plans || v0ImageBundle?.floorPlans || []),
+            ...(imagesPayload?.floor_plans || imagesPayload?.floorPlans || []),
+          ],
+        };
+      } else {
+        setV0GenPhase("estimate");
+        setV0GenStatus("Exterior ready. Building your indicative estimate…");
+        planPayload = await requestEstimatePlan("new_home", brief, imagesPayload);
+      }
+      setV0ImageBundle(nextImages);
       setV0PlanBundle(planPayload);
       setV0Generated(true);
       const briefForSave = {
@@ -513,13 +667,26 @@ export default function BuildNewHome() {
         flowType: "new_home",
         brief: briefForSave,
         source: "build-new",
-        v0Images: imagesPayload,
+        v0Images: nextImages,
         v0Plan: planPayload,
       });
       const pid = saved?.projectId || null;
       if (pid) setFlowProjectId(pid);
-      setBuildFlow({ v0: true, v0Images: imagesPayload, v0Plan: planPayload, projectId: pid });
+      setBuildFlow({
+        v0: true,
+        v0Images: nextImages,
+        v0Plan: planPayload,
+        projectId: pid,
+        activeStep: 5,
+        step: 5,
+        formSnapshot: form,
+      });
+      if (mode === "revision") setRevisionPrompt("");
     } catch (e) {
+      if (e?.response?.status === 402) {
+        setStepBlockError("Project Pass is required for floor plans, regeneration, and design revisions.");
+        return;
+      }
       setStepBlockError(formatAiApiError(e));
     } finally {
       setV0Generating(false);
@@ -558,6 +725,7 @@ export default function BuildNewHome() {
       try {
         const briefPayload = {
           ...form,
+          referredProSlug,
           resolvedArchStyle: archResolved,
           dreamVision: form.homeVision,
           architectHandoffNote,
@@ -1737,9 +1905,9 @@ export default function BuildNewHome() {
             </div>
             {!v0Generated && !v0Generating && (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Run AI v0 (uses all wizard inputs)</div>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Create your free exterior concept</div>
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.55, margin: "0 0 12px" }}>
-                  Floor-plan direction, key elevations, and indicative cost — saved with your project when you continue.
+                  Your first holistic front-view design is free. It is generated first and saved with an indicative estimate.
                 </p>
                 {!isHomeownerSignedIn() ? (
                   <div style={{ padding: "12px 14px", borderRadius: 10, background: "#FDF4EF", border: "1px solid #EEDCCB", marginBottom: 12, fontSize: 13, color: "#57534E", lineHeight: 1.5 }}>
@@ -1755,11 +1923,11 @@ export default function BuildNewHome() {
                 ) : null}
                 <button
                   type="button"
-                  onClick={runV0Generation}
+                  onClick={() => runV0Generation("concept")}
                   disabled={!isHomeownerSignedIn()}
                   className="btn-continue !rounded-xl !px-6 !py-3.5 text-sm disabled:opacity-50"
                 >
-                  Generate v0 designs
+                  Generate my free exterior
                 </button>
               </div>
             )}
@@ -1770,17 +1938,67 @@ export default function BuildNewHome() {
                   <div style={{ fontWeight: 700, fontSize: 15 }}>Your v0 pack</div>
                   <button
                     type="button"
-                    onClick={runV0Generation}
+                    onClick={() =>
+                      projectPassActive
+                        ? runV0Generation("revision", "Create a fresh exterior direction from the same brief while preserving the site and room requirements.")
+                        : navigate("/subscriptions")
+                    }
                     disabled={v0Generating}
                     style={{ background: "none", border: "none", cursor: "pointer", color: "#C85F2B", fontSize: 13, fontWeight: 600 }}
                   >
-                    {v0Generating ? "Regenerating..." : "Regenerate designs"}
+                    {v0Generating ? "Working…" : projectPassActive ? "Regenerate exterior" : "Regenerate · Project Pass"}
                   </button>
                 </div>
                 <p style={{ fontSize: 13, color: "#57534E", lineHeight: 1.5, margin: "0 0 14px" }}>
-                  AI floor plans (by storey), complementary design images, and a line-item estimate you can send to your architect — not sanction-grade drawings.
+                  Your free exterior is saved first. Floor plans and design revisions are available with Project Pass.
                 </p>
                 <V0VisualBundleSections bundle={v0ImageBundle} />
+                {!(v0ImageBundle?.floor_plans || v0ImageBundle?.floorPlans)?.length ? (
+                  <div style={{ marginBottom: 20, padding: "16px", borderRadius: 14, border: "1px solid #EEDCCB", background: "#FFFBF7" }}>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: "#1C1917" }}>Next: generate the floor plan</div>
+                    <p style={{ margin: "6px 0 12px", fontSize: 13, color: "#57534E", lineHeight: 1.5 }}>
+                      We will use this exact exterior as the reference, then draw each floor sequentially so the footprint and stair core stay aligned.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => (projectPassActive ? runV0Generation("floor_plans") : navigate("/subscriptions"))}
+                      className="btn-continue !rounded-xl !px-5 !py-3 text-sm"
+                    >
+                      {projectPassActive ? "Generate floor plan" : "Unlock floor plans · Project Pass"}
+                    </button>
+                  </div>
+                ) : null}
+                <div style={{ marginBottom: 20, padding: "16px", borderRadius: 14, border: "1px solid #E7E5E4", background: "#fff" }}>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: "#1C1917" }}>Suggest a design change</div>
+                  <p style={{ margin: "6px 0 10px", fontSize: 12, color: "#78716C", lineHeight: 1.5 }}>
+                    Choose the exterior or latest floor plan as the visual reference. Available with Project Pass.
+                  </p>
+                  {(v0ImageBundle?.floor_plans || v0ImageBundle?.floorPlans || []).length ? (
+                    <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                      {[{ value: "exterior", label: "Exterior" }, { value: "floor_plan", label: "Floor plan" }].map((option) => (
+                        <button key={option.value} type="button" onClick={() => setRevisionTarget(option.value)} style={{ border: revisionTarget === option.value ? "1.5px solid #C85F2B" : "1px solid #D6D3D1", background: revisionTarget === option.value ? "#FFF4EC" : "#fff", color: revisionTarget === option.value ? "#9A3F18" : "#57534E", borderRadius: 999, padding: "6px 11px", fontSize: 12, fontWeight: 700 }}>
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  <textarea
+                    value={revisionPrompt}
+                    onChange={(event) => setRevisionPrompt(event.target.value.slice(0, 1200))}
+                    placeholder={revisionTarget === "floor_plan" ? "Example: enlarge the kitchen, keep the stair core, and add a pantry" : "Example: use warmer stone, widen the entrance canopy, and keep the same roofline"}
+                    rows={3}
+                    disabled={!projectPassActive}
+                    style={{ width: "100%", boxSizing: "border-box", border: "1px solid #D6D3D1", borderRadius: 10, padding: "10px 12px", resize: "vertical", fontFamily: "inherit", fontSize: 13, background: projectPassActive ? "#fff" : "#F5F5F4" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => (projectPassActive ? runV0Generation("revision", revisionPrompt, revisionTarget) : navigate("/subscriptions"))}
+                    disabled={projectPassActive && !revisionPrompt.trim()}
+                    style={{ marginTop: 10, border: "1.5px solid #C85F2B", background: "#fff", color: "#C85F2B", borderRadius: 10, padding: "9px 14px", fontWeight: 700, cursor: "pointer", opacity: projectPassActive && !revisionPrompt.trim() ? 0.5 : 1 }}
+                  >
+                    {projectPassActive ? `Revise ${revisionTarget === "floor_plan" ? "floor plan" : "exterior"}` : "Unlock revisions · Project Pass"}
+                  </button>
+                </div>
                 <V0EstimateSection planBundle={v0PlanBundle} />
                 <V0MilestonesSection planBundle={v0PlanBundle} />
                 <ProQuotesEngagementCallout

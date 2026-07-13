@@ -133,18 +133,13 @@ The published-path request should return a short-lived signed URL. The draft-pat
 
 Finally, create two disposable authenticated accounts. Each account must be able to read and modify its own project, but an attempted read using the other account's project ID must return no rows. Delete both accounts and their test data after verification.
 
-## Portfolio moderation operations
+## Portfolio safety operations
 
-New and materially edited portfolios remain private with `moderation_status =
-'pending'`. Review the text and every referenced image in Supabase before approval:
+Professionals self-publish immediately with `moderation_status = 'approved'`.
+Run `homemakers_portfolio_self_publish.sql` once on installations that used the
+older review-gated schema. Continue to review user reports after publication:
 
 ```sql
-select id, slug, full_name, business_name, short_bio, photos, cover_photo,
-       profile_photo, moderation_status, updated_at
-from public.portfolios
-where published = true and moderation_status in ('pending', 'rejected')
-order by updated_at;
-
 select r.*, p.slug, p.full_name
 from public.portfolio_reports r
 join public.portfolios p on p.id = r.portfolio_id
@@ -152,12 +147,13 @@ where r.status in ('open', 'reviewing')
 order by r.created_at;
 ```
 
-Approve only reviewed content with a trusted SQL Editor/service-role operation:
+Quarantine a reported portfolio with a trusted SQL Editor/service-role operation
+while it is investigated:
 
 ```sql
 update public.portfolios
-set moderation_status = 'approved', updated_at = now()
-where id = 'REVIEWED_PORTFOLIO_ID';
+set moderation_status = 'pending', updated_at = now()
+where id = 'REPORTED_PORTFOLIO_ID';
 ```
 
 Resolve or reject reports promptly and record the outcome in

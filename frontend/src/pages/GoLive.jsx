@@ -1,17 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CheckCircle2, Copy, Eye, LayoutGrid, Link2, QrCode, ShieldCheck } from "lucide-react";
 import { StepRail, ProfileStrength, LivePreview } from "../components/SharedUI";
-import { Copy, Eye, LayoutGrid, CheckCircle2, Link2, QrCode, ShieldCheck } from "lucide-react";
 import { HmHeaderBrandLockup } from "../components/HmBrandLockup";
 import HmUserMenu from "../components/HmUserMenu";
 import { HM_HEADER_BAR_CLASS, HM_TAGLINE_PORTFOLIO } from "../lib/hmBrand";
-import {
-  getPortfolioBase,
-  getPortfolioMedia,
-  migrateLegacyPortfolioMedia,
-  setPortfolioBase,
-  setPortfolioMedia,
-} from "../lib/portfolioStorage";
+import { getPortfolioBase, getPortfolioMedia, migrateLegacyPortfolioMedia, setPortfolioBase, setPortfolioMedia } from "../lib/portfolioStorage";
 import { publishPortfolio } from "../lib/api";
 import { publicProfileUrl } from "../lib/publicWebUrl";
 
@@ -22,19 +16,17 @@ export default function GoLive() {
   const [slug, setSlug] = useState("");
   const [craft, setCraft] = useState("");
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    const pid = localStorage.getItem("hm_portfolio_id");
-    if (!pid) {
+    const portfolioId = localStorage.getItem("hm_portfolio_id");
+    if (!portfolioId) {
       navigate("/craft");
       return;
     }
-
-    migrateLegacyPortfolioMedia(pid);
+    migrateLegacyPortfolioMedia(portfolioId);
     const saved = getPortfolioBase();
     if (!saved.full_name) {
-      alert("Please fill in your details first.");
       navigate("/details");
       return;
     }
@@ -42,35 +34,28 @@ export default function GoLive() {
       navigate("/portfolio-theme");
       return;
     }
-
-    const media = getPortfolioMedia(pid);
+    const media = getPortfolioMedia(portfolioId);
     (async () => {
       try {
         const { syncPortfolioMediaForSave } = await import("../lib/portfolioMediaSync");
-        const mediaForDb = await syncPortfolioMediaForSave(pid, media);
-        setPortfolioMedia(pid, mediaForDb);
         const { updatePortfolio } = await import("../lib/api");
-        await updatePortfolio(pid, {
+        const mediaForDb = await syncPortfolioMediaForSave(portfolioId, media);
+        setPortfolioMedia(portfolioId, mediaForDb);
+        await updatePortfolio(portfolioId, {
           photos: mediaForDb.photos,
           cover_photo: mediaForDb.cover_photo,
           profile_photo: mediaForDb.profile_photo,
         });
-        const published = await publishPortfolio(pid);
-        setPortfolioBase({
-          ...saved,
-          slug: published.slug,
-          published: true,
-          moderation_status: published.moderation_status || "pending",
-          step: 5,
-          profile_strength: 100,
-        });
-        setForm({ ...published, ...mediaForDb });
-        setSlug(published.slug || "");
-        setCraft(published.craft || saved.craft || "");
-        setLoading(false);
-      } catch (err) {
-        console.error("Portfolio publish failed:", err);
-        setError(err?.message || "Could not publish your portfolio. Check your connection and try again.");
+        const published = await publishPortfolio(portfolioId);
+        const liveRecord = { ...saved, ...published, ...mediaForDb, published: true, moderation_status: "approved", step: 5, profile_strength: 100 };
+        setPortfolioBase(liveRecord);
+        setForm(liveRecord);
+        setSlug(liveRecord.slug || "");
+        setCraft(liveRecord.craft || "");
+      } catch (publishError) {
+        console.error("Portfolio publish failed:", publishError);
+        setError(publishError?.message || "Could not publish your portfolio. Check your connection and try again.");
+      } finally {
         setLoading(false);
       }
     })();
@@ -78,245 +63,73 @@ export default function GoLive() {
 
   const profileUrl = publicProfileUrl(slug);
   const profileHost = (() => {
-    try {
-      return new URL(profileUrl).host;
-    } catch {
-      return "www.homemakers.online";
-    }
+    try { return new URL(profileUrl).host; } catch { return "www.homemakers.online"; }
   })();
+  const shareMessage = `View my professional portfolio on HomeMakers: ${profileUrl}`;
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(profileUrl);
+  const copyLink = async () => {
+    try { await navigator.clipboard.writeText(profileUrl); } catch { window.prompt("Copy your portfolio link:", profileUrl); }
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopied(false), 1800);
   };
-
-  const shareMessage = `Check out my professional portfolio on HomeMakers: ${profileUrl}`;
-
-  const handleWhatsAppShare = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener");
-  };
-
-  const handleFacebookShare = () => {
-    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(profileUrl)}`, "_blank", "noopener");
-  };
-
-  const handleNativeShare = async () => {
+  const nativeShare = async () => {
     if (navigator.share) {
-      try {
-        await navigator.share({ title: "My HomeMakers portfolio", url: profileUrl });
-        return;
-      } catch {
-        /* user cancelled */
-      }
+      try { await navigator.share({ title: `${form?.full_name || "My"} portfolio`, url: profileUrl }); return; } catch { return; }
     }
-    handleCopy();
-  };
-
-  const handleQrCode = () => {
-    window.open(
-      `https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(profileUrl)}`,
-      "_blank",
-      "noopener",
-    );
+    copyLink();
   };
 
   if (loading) return null;
-  if (error) {
-    return (
-      <div className="min-h-screen bg-[#FBF7F2] p-10 text-center">
-        <p className="text-red-600">{error}</p>
-        <button type="button" className="hm-primary-btn mt-5" onClick={() => window.location.reload()}>
-          Try publishing again
-        </button>
-      </div>
-    );
-  }
+  if (error) return <div className="min-h-screen bg-[#FBF7F2] p-10 text-center"><p className="text-red-600">{error}</p><button type="button" className="hm-primary-btn mt-5" onClick={() => window.location.reload()}>Try publishing again</button></div>;
 
-  const firstName = form?.full_name?.split(" ")[0] || "User";
-  const isApproved = form?.moderation_status === "approved";
-
+  const firstName = form?.full_name?.split(" ")[0] || "there";
   return (
-    <div className="relative min-h-screen bg-[#FBF7F2] overflow-x-hidden">
-      {/* Background accents matching the homepage */}
+    <div className="relative min-h-screen overflow-x-hidden bg-[#FBF7F2]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(193,132,78,0.08),transparent_50%)]" aria-hidden />
-
       <header className={`${HM_HEADER_BAR_CLASS} hm-desktop-only`} data-testid="hm-header">
         <HmHeaderBrandLockup tagline={HM_TAGLINE_PORTFOLIO} />
-
-        <div className="hidden md:block">
-          <StepRail currentStep={5} />
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <ProfileStrength value={100} subtext={isApproved ? "Approved and live" : "Submitted for review"} />
-          <HmUserMenu />
-        </div>
+        <div className="hidden md:block"><StepRail currentStep={5} /></div>
+        <div className="flex shrink-0 items-center gap-3"><ProfileStrength value={100} subtext="Live and shareable" /><HmUserMenu /></div>
       </header>
+      <div className="mb-2 flex justify-center px-6 md:hidden"><StepRail currentStep={5} /></div>
 
-      {/* Mobile step rail */}
-      <div className="md:hidden px-6 mb-2 flex justify-center">
-        <StepRail currentStep={5} />
-      </div>
+      <div className="relative z-10 grid grid-cols-1 gap-8 px-6 pb-32 md:px-12 lg:grid-cols-2 lg:gap-0">
+        <section className="pt-8 lg:border-r lg:border-[#EFE3D2] lg:pr-12">
+          <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-green-700"><CheckCircle2 size={14} /> Published instantly</div>
+          <h1 className="mt-6 font-serif-display text-4xl font-medium leading-[1.05] text-[#1C1917] md:text-5xl">You&apos;re live, <span className="italic font-semibold text-[#C85F2B]">{firstName}!</span></h1>
+          <p className="mt-4 max-w-md text-[15px] leading-relaxed text-[#6A5E53]">Your work is public now. Share the link anywhere and let every inquiry begin through HomeMakers.</p>
 
-      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-0 px-6 md:px-12 pb-32">
-        {/* LEFT */}
-        <section className="lg:pr-12 lg:border-r lg:border-[#EFE3D2] pt-8">
-          <div className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] uppercase px-3 py-1.5 rounded-full bg-[#FBE5D4] text-[#B04F20]">
-            Step 5 of 5
+          <div className="mt-8 rounded-2xl border border-[#EFE3D2] bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2"><span className="text-sm font-semibold text-[#1C1917]">Your live portfolio link</span><span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-bold text-green-700">Live</span></div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="min-w-0 flex-1 select-all truncate rounded-xl border border-[#EFE3D2] bg-[#F9F5F0] px-4 py-3 font-medium text-[#1C1917]"><span className="text-[#C85F2B]">{profileHost}/profile/</span>{slug}</div>
+              <button type="button" onClick={copyLink} className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#C85F2B] px-5 py-3 font-semibold text-white hover:bg-[#B04F20]">{copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}{copied ? "Copied" : "Copy link"}</button>
+            </div>
+            <div className="mt-3 flex items-center gap-1.5 text-[12px] text-[#7A6E62]"><ShieldCheck size={14} /> Your phone, email, address, and licence details are never shown publicly.</div>
           </div>
-
-          <h1 className="mt-6 font-serif-display text-4xl md:text-5xl leading-[1.05] text-[#1C1917] font-medium">
-            <span className="text-3xl inline-block -ml-2 mr-1">{isApproved ? "🎉" : "✓"}</span> {isApproved ? "You're live" : "Submitted for review"}, <span className="italic font-semibold text-[#C85F2B]">{firstName}!</span>
-          </h1>
-
-          <p className="mt-4 text-[15px] text-[#6A5E53] max-w-md leading-relaxed">
-            {isApproved ? "Your portfolio is approved and visible in the directory." : "HomeMakers reviews portfolio text and images before they become public."}<br/>
-            {isApproved ? "Share your link and start getting discovered." : "You can keep editing; material changes will be reviewed again."}
-          </p>
-
-          {isApproved ? <>
-          <div className="mt-8 bg-white border border-[#EFE3D2] rounded-2xl p-5 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-sm font-semibold text-[#1C1917]">Your Live Portfolio Link</span>
-              <span className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> It's live!</span>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <div className="flex-1 bg-[#F9F5F0] border border-[#EFE3D2] rounded-xl px-4 py-3 font-medium text-[#1C1917] truncate select-all">
-                <span className="text-[#C85F2B]">{profileHost}/profile/</span>{slug}
-              </div>
-              <button 
-                onClick={handleCopy}
-                className="bg-[#C85F2B] text-white px-5 py-3 rounded-xl font-semibold flex items-center gap-2 hover:bg-[#B04F20] transition-colors shrink-0"
-              >
-                {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                {copied ? "Copied" : "Copy Link"}
-              </button>
-            </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[12px] text-[#7A6E62]">
-              <ShieldCheck size={14} /> This is your unique link. Share it anywhere!
-            </div>
-          </div>
-          </> : (
-            <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm leading-relaxed text-amber-900">
-              Your public link stays unavailable until moderation is approved. Reports are reviewed through the launch moderation queue; contact support@homemakers.online if you need help.
-            </div>
-          )}
-
-          {isApproved && <div className="mt-8">
-            <div className="text-sm font-semibold text-[#1C1917] mb-1">Share your portfolio</div>
-            <div className="text-[12px] text-[#7A6E62] mb-4">More shares = more clients 🚀</div>
-            
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              <button type="button" onClick={handleWhatsAppShare} className="flex flex-col items-center justify-center gap-2 w-20 h-20 bg-white border border-[#EFE3D2] rounded-2xl hover:border-green-500 hover:bg-green-50 transition-colors shrink-0">
-                 <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg></div>
-                 <span className="text-[11px] font-semibold text-[#1C1917]">WhatsApp</span>
-              </button>
-              <button type="button" onClick={handleFacebookShare} className="flex flex-col items-center justify-center gap-2 w-20 h-20 bg-white border border-[#EFE3D2] rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-colors shrink-0">
-                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></div>
-                 <span className="text-[11px] font-semibold text-[#1C1917]">Facebook</span>
-              </button>
-              <button type="button" onClick={handleNativeShare} className="flex flex-col items-center justify-center gap-2 w-20 h-20 bg-white border border-[#EFE3D2] rounded-2xl hover:border-pink-500 hover:bg-pink-50 transition-colors shrink-0">
-                 <div className="w-8 h-8 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-500 rounded-xl flex items-center justify-center text-white"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></div>
-                 <span className="text-[11px] font-semibold text-[#1C1917]">Instagram</span>
-              </button>
-              <button type="button" onClick={handleNativeShare} className="flex flex-col items-center justify-center gap-2 w-20 h-20 bg-white border border-[#EFE3D2] rounded-2xl hover:border-[#C85F2B] hover:bg-[#FBE5D4] transition-colors shrink-0">
-                 <div className="w-8 h-8 bg-[#EFE3D2] rounded-full flex items-center justify-center text-[#1C1917]"><Link2 size={16} /></div>
-                 <span className="text-[11px] font-semibold text-[#1C1917]">Share Link</span>
-              </button>
-              <button type="button" onClick={handleQrCode} className="flex flex-col items-center justify-center gap-2 w-20 h-20 bg-white border border-[#EFE3D2] rounded-2xl hover:border-[#C85F2B] hover:bg-[#FBE5D4] transition-colors shrink-0">
-                 <div className="w-8 h-8 bg-[#EFE3D2] rounded-full flex items-center justify-center text-[#1C1917]"><QrCode size={16} /></div>
-                 <span className="text-[11px] font-semibold text-[#1C1917]">QR Code</span>
-              </button>
-            </div>
-            
-            <div className="mt-3 bg-[#FFFBF6] border border-[#EFE3D2] rounded-xl px-4 py-2.5 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[12px] font-medium text-[#B04F20]">
-                <span className="text-lg">⭐</span> Share your profile where potential clients can find your work.
-              </div>
-              <div className="text-[11px] font-semibold text-[#C85F2B]">Let's get you more clients 🚀</div>
-            </div>
-          </div>}
 
           <div className="mt-8">
-            <div className="text-sm font-semibold text-[#1C1917] mb-4">What's next?</div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-white border border-[#EFE3D2] rounded-xl p-4 text-center hover:shadow-sm transition-shadow">
-                <div className="w-10 h-10 bg-[#FBE5D4] rounded-full flex items-center justify-center mx-auto mb-3 text-[#C85F2B]">✏️</div>
-                <div className="text-[13px] font-semibold text-[#1C1917] mb-1">Keep your profile fresh</div>
-                <div className="text-[11px] text-[#7A6E62] leading-relaxed">Update projects and photos regularly to stay ahead.</div>
-              </div>
-              <div className="bg-white border border-[#EFE3D2] rounded-xl p-4 text-center hover:shadow-sm transition-shadow">
-                <div className="w-10 h-10 bg-[#FBE5D4] rounded-full flex items-center justify-center mx-auto mb-3 text-[#C85F2B]">📈</div>
-                <div className="text-[13px] font-semibold text-[#1C1917] mb-1">Help people discover your work</div>
-                <div className="text-[11px] text-[#7A6E62] leading-relaxed">Share your link in groups, with past clients & on social media.</div>
-              </div>
-              <div className="bg-white border border-[#EFE3D2] rounded-xl p-4 text-center hover:shadow-sm transition-shadow">
-                <div className="w-10 h-10 bg-[#FBE5D4] rounded-full flex items-center justify-center mx-auto mb-3 text-[#C85F2B]">🌟</div>
-                <div className="text-[13px] font-semibold text-[#1C1917] mb-1">Build your reputation</div>
-                <div className="text-[11px] text-[#7A6E62] leading-relaxed">Happy clients bring more clients. Keep delivering great work!</div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="mt-10 pt-6 border-t border-[#EFE3D2] flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-[12px] font-medium text-[#7A6E62]">
-              <ShieldCheck size={14} /> {isApproved ? "Your approved portfolio is visible in the directory" : "Your portfolio is private while moderation is pending"}
-            </div>
-            <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-              {isApproved ? <button
-                onClick={() => {
-                  // Use slug from state, fallback to saved localStorage slug
-                  const saved = JSON.parse(localStorage.getItem("hm_portfolio") || "{}");
-                  const targetSlug = slug || saved.slug || "preview";
-                  window.open(`/profile/${targetSlug}`, "_blank");
-                }}
-                className="w-full md:w-auto flex items-center justify-center gap-2 bg-white border border-[#EFE3D2] text-[#1C1917] font-semibold px-6 py-3 rounded-xl hover:bg-[#F9F5F0] transition-colors"
-              >
-                <Eye size={18} /> Preview as Client
-              </button> : <span className="text-sm text-[#7A6E62]">Public preview becomes available after approval.</span>}
-              <button
-                onClick={() => navigate("/pro/dashboard")}
-                className="w-full md:w-auto btn-continue"
-              >
-                Go to My Dashboard
-                <LayoutGrid size={18} className="ml-1" />
-              </button>
+            <div className="mb-1 text-sm font-semibold text-[#1C1917]">Share your work</div>
+            <div className="mb-4 text-[12px] text-[#7A6E62]">A portfolio this good should travel.</div>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              <button type="button" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener")} className="h-20 w-24 shrink-0 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-green-500">WhatsApp</button>
+              <button type="button" onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(profileUrl)}`, "_blank", "noopener")} className="h-20 w-24 shrink-0 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-blue-500">Facebook</button>
+              <button type="button" onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(profileUrl)}`, "_blank", "noopener")} className="h-20 w-24 shrink-0 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-blue-700">LinkedIn</button>
+              <button type="button" onClick={nativeShare} className="flex h-20 w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-[#C85F2B]"><Link2 size={18} /> Share</button>
+              <button type="button" onClick={() => window.open(`https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(profileUrl)}`, "_blank", "noopener")} className="flex h-20 w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-[#C85F2B]"><QrCode size={18} /> QR code</button>
             </div>
           </div>
 
+          <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-[#EFE3D2] pt-6 sm:flex-row">
+            <button type="button" onClick={() => window.open(`/profile/${slug}`, "_blank", "noopener")} className="flex items-center gap-2 rounded-xl border border-[#EFE3D2] bg-white px-6 py-3 font-semibold text-[#1C1917]"><Eye size={18} /> Preview as client</button>
+            <button type="button" onClick={() => navigate("/pro/dashboard")} className="btn-continue flex items-center">Go to dashboard <LayoutGrid size={18} className="ml-2" /></button>
+          </div>
         </section>
 
-        {/* RIGHT */}
-        <section className="lg:pl-12 lg:pt-8 pt-4 pb-20 lg:pb-0">
-          <LivePreview
-            craftId={craft}
-            formValues={form}
-            themeId={form?.portfolio_theme}
-            layoutId={form?.portfolio_layout}
-            title="Live Preview"
-            subtitle="This is how clients will see your portfolio"
-            showTestimonial={true}
-          />
-          
-          <div className="mt-6 bg-[#F0FDF4] border border-green-200 rounded-2xl p-5 flex items-start gap-4 mx-auto max-w-[440px]">
-            <div className="w-11 h-11 bg-green-500 rounded-full flex items-center justify-center shrink-0 text-white">
-              <CheckCircle2 size={24} />
-            </div>
-            <div>
-              <div className="font-semibold text-[#1C1917]">{isApproved ? "Congratulations! You're officially live." : "Your portfolio is in review."}</div>
-              <div className="text-sm text-[#7A6E62] mt-1 leading-relaxed">
-                {isApproved ? "People can now discover your profile and start a project brief." : "It will appear in the directory only after approval."}<br/>
-                Check your dashboard anytime to manage your profile.
-              </div>
-            </div>
-            <div className="text-4xl absolute bottom-4 right-4 opacity-50 grayscale select-none">🎉</div>
-          </div>
+        <section className="pt-4 pb-20 lg:pt-8 lg:pl-12 lg:pb-0">
+          <LivePreview craftId={craft} formValues={form} themeId={form?.portfolio_theme} layoutId={form?.portfolio_layout} title="Your live portfolio" subtitle="Exactly how homeowners see your work" showTestimonial />
         </section>
       </div>
-
-
     </div>
   );
 }

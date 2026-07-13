@@ -40,7 +40,7 @@ export default function ProDashboard() {
   const media = cache?.id ? getPortfolioMedia(cache.id) : { photos: [] };
   const firstName = (session?.profile?.name || cache?.full_name || session?.profile?.email?.split("@")[0] || "there").split(" ")[0];
   const isSubmitted = Boolean(cache?.published && cache?.slug);
-  const isApproved = isSubmitted && cache?.moderation_status === "approved";
+  const isApproved = isSubmitted;
   const profilePath = isApproved ? getProPublicProfilePath() : null;
   const profileStrength = Math.min(100, Number(cache?.profile_strength) || (isSubmitted ? 100 : portfolioState.step * 20));
   const craft = findCraft(cache?.craft);
@@ -122,8 +122,6 @@ export default function ProDashboard() {
               <div style={{ fontSize: 13, color: "#57534E", marginTop: 4 }}>
                 {isApproved
                   ? "Your published portfolio is available in the professional directory."
-                  : isSubmitted
-                    ? "Your portfolio is in review and stays private until it is approved."
                   : "Complete and publish your portfolio to appear in the professional directory."}
               </div>
             </div>
@@ -149,7 +147,7 @@ export default function ProDashboard() {
         </section>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 16 }}>
-          <Metric label="Directory status" value={isApproved ? "Live" : isSubmitted ? "In review" : "Draft"} detail={isApproved ? "Visible to homeowners" : isSubmitted ? "Private until approved" : "Not public yet"} />
+          <Metric label="Directory status" value={isApproved ? "Live" : "Draft"} detail={isApproved ? "Visible to homeowners" : "Not public yet"} />
           <Metric label="Profile strength" value={`${profileStrength}%`} detail={`${portfolioState.step || 0} of 5 onboarding steps`} />
           <Metric label="Portfolio media" value={String(galleryCount)} detail={galleryCount === 1 ? "gallery image saved" : "gallery images saved"} />
           <Metric label="Location" value={cache?.city || "Not added"} detail={craft?.name || cache?.craft || "Professional"} />
@@ -167,12 +165,6 @@ export default function ProDashboard() {
               </button>
             </div>
           </section>
-        ) : isSubmitted ? (
-          <section style={{ border: "1px solid #E8D19B", background: "#FFFBEB", borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
-            <div style={{ fontWeight: 800 }}>Your profile is in review</div>
-            <p style={{ color: "#57534E", fontSize: 14, lineHeight: 1.5, margin: "7px 0 14px" }}>Your submission is saved, but no public profile link is available until moderation approves it. You can still edit or unpublish it.</p>
-            <button type="button" onClick={() => navigate("/details")} style={{ border: 0, background: OR, color: "#fff", borderRadius: 10, padding: "10px 15px", fontWeight: 700, cursor: "pointer" }}>Edit portfolio</button>
-          </section>
         ) : (
           <section style={{ border: "1px solid #F1C9B5", background: "#FFF8F3", borderRadius: 14, padding: "18px 20px", marginBottom: 16 }}>
             <div style={{ fontWeight: 800 }}>Your profile is not public yet</div>
@@ -184,7 +176,7 @@ export default function ProDashboard() {
         <section style={{ border: "1px solid #E8E4DE", background: "#fff", borderRadius: 14, padding: "18px 20px" }}>
           <div style={{ fontWeight: 800, fontSize: 16 }}>What is live in this first version</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, marginTop: 14 }}>
-            {["Portfolio details and media are saved to your account", "Approved profiles appear automatically in discovery", "Approved public links can be viewed and shared across devices"].map((text) => (
+            {["Portfolio details and media are saved to your account", "Published profiles appear immediately in discovery", "Public links can be viewed and shared across devices"].map((text) => (
               <div key={text} style={{ border: "1px solid #F0E8DF", background: "#FFFCFA", borderRadius: 10, padding: "13px 14px", fontSize: 13, lineHeight: 1.5 }}><span style={{ color: "#16845B", fontWeight: 900 }}>✓</span> {text}</div>
             ))}
           </div>

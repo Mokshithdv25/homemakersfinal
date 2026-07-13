@@ -29,7 +29,7 @@ const forProfessionals = [
     title: "Keep Project Details Together",
     benefit: "Saved workspace",
     description:
-      "Homeowners can keep tasks, documents, team contacts, and project notes together instead of scattering them across chats.",
+      "Keep tasks, documents, team contacts, and project notes together instead of scattering them across chats. Smart reminders and client follow-ups are the next layer.",
   },
 ];
 

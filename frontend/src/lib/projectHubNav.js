@@ -4,10 +4,11 @@
  */
 export const PROJECT_HUB_NAV = [
   { icon: "⊞", label: "Overview", path: "/project" },
-  { icon: "📅", label: "Timeline", path: "#" },
-  { icon: "✓", label: "Tasks", path: "#" },
-  { icon: "₹", label: "Budget", path: "#" },
-  { icon: "📸", label: "Site Feed", path: "#" },
+  { icon: "📅", label: "Timeline", path: "#", tab: "Timeline" },
+  { icon: "✓", label: "Tasks", path: "#", tab: "Tasks" },
+  { icon: "₹", label: "Budget", path: "#", tab: "Budget" },
+  { icon: "💳", label: "Payments", path: "/project/payments" },
+  { icon: "📸", label: "Site Feed", path: "#", tab: "Site Feed" },
   { icon: "📄", label: "Documents", path: "/documents" },
   { icon: "🧭", label: "Design journey", path: "/project/journey" },
   { icon: "🛒", label: "Shop", path: "/project/shop" },
@@ -17,7 +18,8 @@ export const PROJECT_HUB_NAV = [
 ];
 
 /** Whether a sidebar item should render as active for the current pathname. */
-export function hubNavActive(pathname, itemPath) {
+export function hubNavActive(pathname, itemPath, itemTab = "", currentTab = "") {
+  if (itemTab) return pathname === "/project" && currentTab === itemTab;
   if (!itemPath || itemPath === "#") return false;
   if (itemPath === "/project/browse") return pathname === "/project/browse" || pathname === "/marketplace";
   return pathname === itemPath;

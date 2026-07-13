@@ -41,7 +41,7 @@ services:
       - key: GROK_IMAGE_TIMEOUT
         value: "90"
       - key: GROK_INLINE_IMAGES
-        value: "0"
+        value: "1"
       - key: GROK_V0_FLOOR_PLANS
         value: "1"
       - key: GROK_V0_REMODEL_FLOOR_PLANS

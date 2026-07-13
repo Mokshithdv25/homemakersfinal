@@ -25,6 +25,19 @@ This document captures **what still needs to be designed, specified, and impleme
 | **Documents** | Deep link from nav; folder ACL | Route exists at `/documents` |
 | **Auth & project access** | Multi-tenant project membership, roles | Blocks most features above |
 
+### AI product roadmap — validated ideas, not current UI promises
+
+These ideas should ship only after the persistent project workspace is stable and the underlying artifact permissions, audit trail, and evaluation quality are proven.
+
+- [ ] **Project-artifact copilot (RAG):** answer homeowner and pro questions from approved briefs, drawings, BOQs, contracts, receipts, site photos, and discussion history, with citations back to the exact artifact.
+- [ ] **Quantity takeoff and cost estimation agents:** extract quantities from approved drawings, maintain BOQ revisions, flag variance against actual payments, and require human sign-off before replacing a baseline.
+- [ ] **Scheduling agent:** propose dependencies, update forecasts from task/site evidence, explain slippage, and draft reminders without silently changing contractual dates.
+- [ ] **Drawing and documentation agents:** maintain floor-plan/elevation revision histories and draft RFIs, work orders, meeting minutes, approval trackers, and handover packs.
+- [ ] **Site-photo intelligence:** compare dated progress photos with stages and drawings, surface possible delays or quality questions, and clearly label all observations as advisory.
+- [ ] **Contractor matching:** match project scope, location, budget, availability, credentials, and portfolio evidence; keep homeowner choice and transparent ranking controls.
+- [ ] **Agent-assisted shopping:** build material shortlists from the BOQ and design intent, compare compatible products and delivery constraints, and require confirmation before any cart or purchase action.
+- [ ] **Professional portfolio product:** give pros a polished public portfolio, verified project evidence, service coverage, inquiry management, and an optional paid visibility tier without degrading organic relevance.
+
 ---
 
 ## Product backlog (your requested themes)

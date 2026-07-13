@@ -706,6 +706,7 @@ export async function loadProjectBoard({ projectId, source }) {
   const taskRows = (tasks || []).map((t) => ({
     id: t.id,
     done: t.status === "done",
+    status: t.status || "todo",
     name: t.title,
     phase: stageById[t.stage_id] || "Design & Approval",
     date: shortDate(t.due_date) || shortDate(t.created_at) || "Planned",
@@ -791,6 +792,20 @@ export async function setProjectTaskDone(taskId, done) {
       .eq("id", taskId)
       .select("project_id")
       .maybeSingle();
+  if (error) throw error;
+  if (!data?.project_id) throw new Error("The task was not found in this account.");
+  await syncProjectProgress(data.project_id);
+}
+
+export async function setProjectTaskStatus(taskId, status) {
+  const allowed = ["todo", "in_progress", "blocked", "done"];
+  if (!supabase || !taskId || !allowed.includes(status)) throw new Error("Choose a valid task status.");
+  const { data, error } = await supabase
+    .from("project_tasks")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", taskId)
+    .select("project_id")
+    .maybeSingle();
   if (error) throw error;
   if (!data?.project_id) throw new Error("The task was not found in this account.");
   await syncProjectProgress(data.project_id);
