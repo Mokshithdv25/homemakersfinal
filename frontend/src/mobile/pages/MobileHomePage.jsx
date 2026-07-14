@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Hammer, Paintbrush, Users, FolderKanban, Sparkles, CalendarClock, WalletCards, Bot, ArrowRight } from "lucide-react";
+import { Search, Hammer, Paintbrush, Users, FolderKanban, Sparkles, CalendarClock, WalletCards, Bot, ArrowRight, ChevronRight } from "lucide-react";
 import MobileCategoryRail from "../components/MobileCategoryRail";
 import MobilePhotoGrid from "../components/MobilePhotoGrid";
 import MobileSaveToast from "../components/MobileSaveToast";
@@ -27,11 +27,17 @@ const FLOW_IMAGES = {
 };
 
 const MOBILE_INTELLIGENCE = [
-  { icon: Sparkles, title: "AI design memory", text: "Briefs, concepts, floor plans and revisions stay attached to the project." },
-  { icon: CalendarClock, title: "Timeline awareness", text: "Stages, task progress and delays remain visible without opening desktop." },
-  { icon: WalletCards, title: "Budget continuity", text: "Estimates, spending records and receipts live in the same workspace." },
-  { icon: Bot, title: "Project-aware Homi", text: "Ask questions with the current project, stage and saved artifacts in context." },
+  { icon: Sparkles, title: "AI design memory", text: "Briefs, concepts and revisions stay together." },
+  { icon: CalendarClock, title: "Timeline awareness", text: "Stages, tasks and delay signals at a glance." },
+  { icon: WalletCards, title: "Budget continuity", text: "Estimates, spending and receipts in one place." },
+  { icon: Bot, title: "Project-aware Homi", text: "Answers grounded in your live project." },
 ];
+
+function resumeImage(card) {
+  if (card.id === "remodel-resume") return FLOW_IMAGES.remodel;
+  if (card.id === "project-active") return FLOW_IMAGES.project;
+  return FLOW_IMAGES.build;
+}
 
 function prosToFeed(pros, craftFilter) {
   const out = [];
@@ -86,6 +92,7 @@ export default function MobileHomePage() {
   }, [craftFilter]);
 
   const feed = useMemo(() => prosToFeed(pros, craftFilter), [pros, craftFilter]);
+  const continuationCards = useMemo(() => resumeCards.filter((card) => card.id !== "pros-nearby"), [resumeCards]);
 
   const onSearchSubmit = (e) => {
     e.preventDefault();
@@ -107,12 +114,25 @@ export default function MobileHomePage() {
           />
           <button type="submit" aria-label="Search"><ArrowRight size={18} /></button>
         </form>
-        <p className="hm-m-search-context">Search published portfolios by trade, professional, or city.</p>
       </header>
 
-      <div className="hm-m-section-heading">
-        <div><span>Start here</span><h2>Your home, one clear flow</h2><p>Plan, design, find professionals and manage delivery without losing context.</p></div>
-      </div>
+      {continuationCards.length > 0 ? (
+        <section className="hm-m-resume-section">
+          <div className="hm-m-section-row"><div><span>Welcome back</span><h2>Continue where you left off</h2></div></div>
+          <div className="hm-m-resume-rail">
+            {continuationCards.map((card) => (
+              <button key={card.id} type="button" className="hm-m-resume-card" style={{ backgroundImage: `linear-gradient(90deg,rgba(19,15,12,.86),rgba(19,15,12,.18)),url(${resumeImage(card)})` }} onClick={() => navigate(card.path)}>
+                <span className="hm-m-resume-kicker">Saved to your workspace</span>
+                <strong>{card.label}</strong>
+                <small>{card.sub}</small>
+                <span className="hm-m-resume-action">Resume <ChevronRight size={16} /></span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="hm-m-section-row"><div><span>Start here</span><h2>What do you want to do?</h2></div></div>
       <div className="hm-m-grid-2" style={{ padding: "0 16px 8px" }}>
         {HM_CORE_FLOWS.map((flow) => {
           const Icon = FLOW_ICONS[flow.icon];
@@ -125,36 +145,11 @@ export default function MobileHomePage() {
         })}
       </div>
 
-      <div className="hm-m-section-heading" style={{ marginTop: 8 }}>
-        <div><span>Project intelligence</span><h2>One connected project</h2><p>Your decisions remain useful after the first concept is generated.</p></div>
-      </div>
-      <div className="hm-m-intelligence-rail">
-        {MOBILE_INTELLIGENCE.map((item) => {
-          const Icon = item.icon;
-          return <article key={item.title} className="hm-m-intelligence-card"><Icon size={20} /><strong>{item.title}</strong><p>{item.text}</p></article>;
-        })}
-      </div>
-
-      {resumeCards.length > 0 ? (
-        <>
-          <p className="hm-m-section-title">Continue</p>
-          <div className="hm-m-latest-scroll">
-            {resumeCards.map((card) => (
-              <button key={card.id} type="button" className="hm-m-latest-card" onClick={() => navigate(card.path)}>
-                <span className="hm-m-latest-title">{card.label}</span>
-                <span className="hm-m-latest-sub">{card.sub}</span>
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
-
-      <MobileCategoryRail categories={INDIAN_ROOM_FILTERS} activeId={filter} onSelect={setFilter} />
-
-      <div className="hm-m-section-heading" style={{ marginTop: 8 }}>
-        <div><span>Portfolio discovery</span><h2>Real work from professionals</h2><p>Save evidence you like, then carry it into your own brief.</p></div>
+      <div className="hm-m-section-row" style={{ marginTop: 8 }}>
+        <div><span>Get inspired</span><h2>Real work. Real professionals.</h2></div>
         <button type="button" onClick={() => navigate("/browse")}>See all</button>
       </div>
+      <MobileCategoryRail categories={INDIAN_ROOM_FILTERS} activeId={filter} onSelect={setFilter} />
       {feedError ? (
         <p role="alert" style={{ padding: "0 16px 24px", fontSize: 14, color: "#B42318" }}>{feedError}</p>
       ) : loadingFeed ? (
@@ -171,6 +166,16 @@ export default function MobileHomePage() {
       ) : (
         <MobilePhotoGrid photos={feed} />
       )}
+
+      <div className="hm-m-section-row">
+        <div><span>Always connected</span><h2>Intelligence that stays useful</h2></div>
+      </div>
+      <div className="hm-m-intelligence-rail">
+        {MOBILE_INTELLIGENCE.map((item) => {
+          const Icon = item.icon;
+          return <article key={item.title} className="hm-m-intelligence-card"><span><Icon size={19} /></span><strong>{item.title}</strong><p>{item.text}</p></article>;
+        })}
+      </div>
 
       <MobileSaveToast toast={toast} onViewIdeas={() => { clearToast(); navigate("/design"); }} />
     </>
