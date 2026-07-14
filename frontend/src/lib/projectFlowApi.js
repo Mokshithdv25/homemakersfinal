@@ -166,7 +166,7 @@ export async function listUserProjects() {
   if (!userId) return [];
   const { data, error } = await supabase
     .from("projects")
-    .select("id, title, flow_type, status, source, location, city, budget_min, budget_max, created_at, updated_at")
+    .select("id, title, flow_type, status, source, location, city, timeline_completion, budget_min, budget_max, created_at, updated_at")
     .eq("owner_user_id", userId)
     .order("updated_at", { ascending: false });
   if (error) {

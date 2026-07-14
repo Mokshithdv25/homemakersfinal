@@ -13,10 +13,6 @@ const HIDE_TAB_PATHS = [
   "/portfolio",
   "/live",
   "/photo/",
-  "/documents",
-  "/team",
-  "/project/journey",
-  "/project/shop",
 ];
 
 export default function MobileShell({ children, hideTabs = false }) {

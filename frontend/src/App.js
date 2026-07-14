@@ -1,6 +1,6 @@
 import "@/App.css";
 import "./mobile/mobile.css";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 import { getSupabase } from "./lib/supabaseClient";
@@ -9,34 +9,39 @@ import { AUTH_UI_ENABLED } from "./lib/authMode";
 import { clearHmSessionState, establishHmSession } from "./lib/hmAuth";
 import { warmAiBackend } from "./lib/aiApi";
 import { useMobileNative } from "./hooks/useMobileNative";
-import MobileAppRoutes from "./mobile/MobileAppRoutes";
-import HomePage from "./pages/HomePage";
-import SignInPage from "./pages/SignInPage";
-import AccountPage from "./pages/AccountPage";
-import SubscriptionsPage from "./pages/SubscriptionsPage";
 import SignInErrorBoundary from "./components/SignInErrorBoundary";
-import CraftSelection from "./pages/CraftSelection";
-import YourDetails from "./pages/YourDetails";
-import YourPortfolio from "./pages/YourPortfolio";
-import GoLive from "./pages/GoLive";
-import PortfolioThemeStep from "./pages/PortfolioThemeStep";
-import PortfolioPage from "./pages/PortfolioPage";
-import WhatAreYouBuilding from "./pages/WhatAreYouBuilding";
-import BuildNewHome from "./pages/BuildNewHome";
-import RemodelHome from "./pages/RemodelHome";
-import ProjectDashboard from "./pages/ProjectDashboard";
-import Marketplace from "./pages/Marketplace";
-import ShopPage from "./pages/ShopPage";
-import DocumentVault from "./pages/DocumentVault";
-import ProjectDesignJourney from "./pages/ProjectDesignJourney";
-import TeamPage from "./pages/TeamPage";
-import ProjectPayments from "./pages/ProjectPayments";
-import StageDashboard from "./pages/StageDashboard";
-import ProDashboard from "./pages/ProDashboard";
-import LegalPage from "./pages/LegalPage";
 import ProOnboardingGuard from "./components/ProOnboardingGuard";
 import ProDashboardGuard from "./components/ProDashboardGuard";
 import HomeownerFlowGuard from "./components/HomeownerFlowGuard";
+
+const MobileAppRoutes = lazy(() => import("./mobile/MobileAppRoutes"));
+const HomePage = lazy(() => import("./pages/HomePage"));
+const SignInPage = lazy(() => import("./pages/SignInPage"));
+const AccountPage = lazy(() => import("./pages/AccountPage"));
+const SubscriptionsPage = lazy(() => import("./pages/SubscriptionsPage"));
+const CraftSelection = lazy(() => import("./pages/CraftSelection"));
+const YourDetails = lazy(() => import("./pages/YourDetails"));
+const YourPortfolio = lazy(() => import("./pages/YourPortfolio"));
+const GoLive = lazy(() => import("./pages/GoLive"));
+const PortfolioThemeStep = lazy(() => import("./pages/PortfolioThemeStep"));
+const PortfolioPage = lazy(() => import("./pages/PortfolioPage"));
+const WhatAreYouBuilding = lazy(() => import("./pages/WhatAreYouBuilding"));
+const BuildNewHome = lazy(() => import("./pages/BuildNewHome"));
+const RemodelHome = lazy(() => import("./pages/RemodelHome"));
+const ProjectDashboard = lazy(() => import("./pages/ProjectDashboard"));
+const Marketplace = lazy(() => import("./pages/Marketplace"));
+const ShopPage = lazy(() => import("./pages/ShopPage"));
+const DocumentVault = lazy(() => import("./pages/DocumentVault"));
+const ProjectDesignJourney = lazy(() => import("./pages/ProjectDesignJourney"));
+const TeamPage = lazy(() => import("./pages/TeamPage"));
+const ProjectPayments = lazy(() => import("./pages/ProjectPayments"));
+const StageDashboard = lazy(() => import("./pages/StageDashboard"));
+const ProDashboard = lazy(() => import("./pages/ProDashboard"));
+const LegalPage = lazy(() => import("./pages/LegalPage"));
+
+function RouteLoading() {
+  return <div className="hm-route-loading" role="status" aria-live="polite"><span />Loading HomeMakers…</div>;
+}
 
 function ScrollToTopOnRouteChange() {
   const { pathname, search, hash } = useLocation();
@@ -190,8 +195,11 @@ function DesktopRoutes() {
 
 function AppRoutes() {
   const mobileNative = useMobileNative();
-  if (mobileNative) return <MobileAppRoutes />;
-  return <DesktopRoutes />;
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      {mobileNative ? <MobileAppRoutes /> : <DesktopRoutes />}
+    </Suspense>
+  );
 }
 
 function App() {

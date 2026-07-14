@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Hammer, Paintbrush, Users, FolderKanban } from "lucide-react";
+import { Search, Hammer, Paintbrush, Users, FolderKanban, Sparkles, CalendarClock, WalletCards, Bot, ArrowRight } from "lucide-react";
 import MobileCategoryRail from "../components/MobileCategoryRail";
 import MobilePhotoGrid from "../components/MobilePhotoGrid";
 import MobileSaveToast from "../components/MobileSaveToast";
@@ -9,6 +9,8 @@ import { useMobileHub } from "../hooks/useMobileHub";
 import { HM_CORE_FLOWS, INDIAN_ROOM_FILTERS } from "../mobileIA";
 import { listPublishedPortfolios } from "../../lib/api";
 import { craftLabel, proCardImage, proDisplayName } from "../../components/PublishedProsDirectory";
+import { hmLogoMarkSrc } from "../../lib/hmBrand";
+import { publicAsset } from "../../lib/publicAsset";
 
 const FLOW_ICONS = {
   build: Hammer,
@@ -16,6 +18,20 @@ const FLOW_ICONS = {
   pros: Users,
   project: FolderKanban,
 };
+
+const FLOW_IMAGES = {
+  build: publicAsset("mobile_flow_build.jpg"),
+  remodel: publicAsset("mobile_flow_remodel.jpg"),
+  pros: publicAsset("mobile_flow_pros.jpg"),
+  project: publicAsset("mobile_flow_project.jpg"),
+};
+
+const MOBILE_INTELLIGENCE = [
+  { icon: Sparkles, title: "AI design memory", text: "Briefs, concepts, floor plans and revisions stay attached to the project." },
+  { icon: CalendarClock, title: "Timeline awareness", text: "Stages, task progress and delays remain visible without opening desktop." },
+  { icon: WalletCards, title: "Budget continuity", text: "Estimates, spending records and receipts live in the same workspace." },
+  { icon: Bot, title: "Project-aware Homi", text: "Ask questions with the current project, stage and saved artifacts in context." },
+];
 
 function prosToFeed(pros, craftFilter) {
   const out = [];
@@ -41,7 +57,7 @@ function prosToFeed(pros, craftFilter) {
 export default function MobileHomePage() {
   const navigate = useNavigate();
   const { toast, clearToast } = useMobileIdeabooks();
-  const { resumeCards } = useMobileHub();
+  const { resumeCards } = useMobileHub({ includeProCount: true });
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [pros, setPros] = useState([]);
@@ -80,32 +96,42 @@ export default function MobileHomePage() {
   return (
     <>
       <header className="hm-m-home-header">
-        <div className="hm-m-home-brand">HomeMakers</div>
-        <p className="hm-m-home-tagline">Design · Build · Manage — for Indian homes</p>
+        <div className="hm-m-home-lockup"><img src={hmLogoMarkSrc} alt="" /><div><div className="hm-m-home-brand">HomeMakers</div><p className="hm-m-home-tagline">Design · Build · Manage — for Indian homes</p></div></div>
         <form className="hm-m-home-search" onSubmit={onSearchSubmit}>
           <Search size={18} color="#78716C" />
           <input
-            placeholder="Find architects, contractors, painters…"
+            placeholder="Architects, contractors, painters…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Search professionals"
           />
+          <button type="submit" aria-label="Search"><ArrowRight size={18} /></button>
         </form>
+        <p className="hm-m-search-context">Search published portfolios by trade, professional, or city.</p>
       </header>
 
-      <p className="hm-m-section-title">Your flows</p>
+      <div className="hm-m-section-heading">
+        <div><span>Start here</span><h2>Your home, one clear flow</h2><p>Plan, design, find professionals and manage delivery without losing context.</p></div>
+      </div>
       <div className="hm-m-grid-2" style={{ padding: "0 16px 8px" }}>
         {HM_CORE_FLOWS.map((flow) => {
           const Icon = FLOW_ICONS[flow.icon];
           return (
             <button key={flow.id} type="button" className="hm-m-quick" onClick={() => navigate(flow.path)}>
-              <span className="hm-m-quick-icon">
-                <Icon size={22} color="#C85F2B" />
-              </span>
-              <span className="hm-m-quick-label">{flow.label}</span>
-              <span className="hm-m-quick-sub">{flow.sub}</span>
+              <span className="hm-m-quick-media"><img src={FLOW_IMAGES[flow.id]} alt="" loading={flow.id === "build" ? "eager" : "lazy"} decoding="async" /><span><Icon size={20} /></span></span>
+              <span className="hm-m-quick-content"><span className="hm-m-quick-label">{flow.label}</span><span className="hm-m-quick-sub">{flow.sub}</span></span>
             </button>
           );
+        })}
+      </div>
+
+      <div className="hm-m-section-heading" style={{ marginTop: 8 }}>
+        <div><span>Project intelligence</span><h2>One connected project</h2><p>Your decisions remain useful after the first concept is generated.</p></div>
+      </div>
+      <div className="hm-m-intelligence-rail">
+        {MOBILE_INTELLIGENCE.map((item) => {
+          const Icon = item.icon;
+          return <article key={item.title} className="hm-m-intelligence-card"><Icon size={20} /><strong>{item.title}</strong><p>{item.text}</p></article>;
         })}
       </div>
 
@@ -125,13 +151,16 @@ export default function MobileHomePage() {
 
       <MobileCategoryRail categories={INDIAN_ROOM_FILTERS} activeId={filter} onSelect={setFilter} />
 
-      <p className="hm-m-section-title" style={{ marginTop: 8 }}>
-        From pros on HomeMakers
-      </p>
+      <div className="hm-m-section-heading" style={{ marginTop: 8 }}>
+        <div><span>Portfolio discovery</span><h2>Real work from professionals</h2><p>Save evidence you like, then carry it into your own brief.</p></div>
+        <button type="button" onClick={() => navigate("/browse")}>See all</button>
+      </div>
       {feedError ? (
         <p role="alert" style={{ padding: "0 16px 24px", fontSize: 14, color: "#B42318" }}>{feedError}</p>
       ) : loadingFeed ? (
-        <p style={{ padding: "0 16px 24px", fontSize: 14, color: "#78716C" }}>Loading portfolios…</p>
+        <div className="hm-m-feed-skeleton" role="status" aria-label="Loading professional portfolios">
+          {[0, 1, 2, 3].map((item) => <span key={item} />)}
+        </div>
       ) : feed.length === 0 ? (
         <div className="hm-m-empty" style={{ margin: "0 16px 24px" }}>
           <p>No published portfolios yet for this filter. Be the first pro — or start your own project.</p>

@@ -31,7 +31,7 @@ export default function MobileDocumentsPage() {
     catch (err) { setError(err?.message || "Could not delete the document."); }
   };
 
-  return <><MobileHeader title="Project documents" subtitle={project?.title || "Private saved files"} />
+  return <><MobileHeader title="Project documents" subtitle={project?.title || "Private saved files"} backTo="/project" />
     {projectError || error ? <p role="alert" style={{ padding: "0 16px", color: "#B42318" }}>{projectError || error}</p> : null}
     {!projectsLoading && !project ? <div className="hm-m-empty" style={{ margin: 16 }}>Create a project before uploading documents.</div> : <div style={{ padding: 16 }}>
       <input ref={picker} type="file" hidden onChange={upload} accept=".pdf,.jpg,.jpeg,.png,.webp,.txt,.csv,.docx,.xlsx" />

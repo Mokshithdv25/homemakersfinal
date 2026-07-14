@@ -4,12 +4,12 @@ import { Bookmark, Home, Paintbrush, Compass } from "lucide-react";
 import MobileHeader from "../MobileHeader";
 import { useMobileIdeabooks } from "../MobileIdeabooksContext";
 import { useMobileHub } from "../hooks/useMobileHub";
-import { HM_CORE_FLOWS } from "../mobileIA";
+import { publicAsset } from "../../lib/publicAsset";
 
 export default function MobileDesignPage() {
   const navigate = useNavigate();
   const { totalSaved, books } = useMobileIdeabooks();
-  const { build, remodel, activeProject, resumeCards } = useMobileHub();
+  const { activeProject, resumeCards } = useMobileHub();
   const items = books[0]?.items || [];
 
   const inProgress =
@@ -18,6 +18,12 @@ export default function MobileDesignPage() {
   return (
     <>
       <MobileHeader title="Design" subtitle="Build · remodel · saved ideas" />
+
+      <section className="hm-m-design-hero" style={{ backgroundImage: `linear-gradient(90deg,rgba(28,25,23,.82),rgba(28,25,23,.28)),url(${publicAsset("mobile_design_hero.jpg")})` }}>
+        <span>HomeMakers Design</span>
+        <h1>From inspiration to a build-ready project.</h1>
+        <p>Shape the brief, generate the first concept, preserve every decision and bring the right professionals into one workspace.</p>
+      </section>
 
       {inProgress ? (
         <section style={{ padding: "0 16px 12px" }}>
@@ -88,13 +94,12 @@ export default function MobileDesignPage() {
         </div>
       )}
 
-      {!build?.v0 && !remodel?.v0 ? (
-        <div style={{ padding: "0 16px 24px" }}>
-          <button type="button" className="hm-m-btn-primary" onClick={() => navigate(HM_CORE_FLOWS[0].path)}>
-            Start new home project
-          </button>
-        </div>
-      ) : null}
+      <div className="hm-m-dock-spacer" />
+      <div className="hm-m-primary-dock">
+        <button type="button" onClick={() => navigate(inProgress?.path || "/build")}>
+          {inProgress ? "Resume design journey" : "Start a design journey"}
+        </button>
+      </div>
     </>
   );
 }

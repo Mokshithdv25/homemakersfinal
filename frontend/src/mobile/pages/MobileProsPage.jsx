@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { MapPin, Search } from "lucide-react";
+import { MapPin, Search, RotateCcw } from "lucide-react";
 import MobileHeader from "../MobileHeader";
 import { craftLabel, proCardImage, proDisplayName } from "../../components/PublishedProsDirectory";
 import { listPublishedPortfolios } from "../../lib/api";
@@ -41,11 +41,11 @@ export default function MobileProsPage() {
   const [all, setAll] = useState([]);
   const [directoryError, setDirectoryError] = useState("");
 
-  const fetchPros = useCallback(async (craftFilter) => {
+  const fetchPros = useCallback(async (craftFilter, cityFilter = city) => {
     setLoading(true);
     setDirectoryError("");
     try {
-      const rows = await listPublishedPortfolios({ craft: craftFilter || null, city: city.trim() || null, limit: 100 });
+      const rows = await listPublishedPortfolios({ craft: craftFilter || null, city: cityFilter.trim() || null, limit: 100 });
       setAll(rows);
     } catch (err) {
       setDirectoryError(err?.message || "Could not load professionals. Try again.");
@@ -56,7 +56,7 @@ export default function MobileProsPage() {
 
   useEffect(() => {
     setHasSearched(true);
-    fetchPros(null);
+    fetchPros(null, "");
     // Initial directory load intentionally runs once; searches are explicit after that.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -76,26 +76,41 @@ export default function MobileProsPage() {
     fetchPros(cat.craft);
   };
 
+  const resetSearch = () => {
+    setService("");
+    setCity("");
+    setCraft(null);
+    setHasSearched(true);
+    fetchPros(null, "");
+  };
+
   return (
     <>
-      <MobileHeader title="Marketplace" subtitle="Published professionals" />
-      <form className="hm-m-search-bar" onSubmit={onSearch}>
-        <Search size={18} color="#78716C" />
-        <input placeholder="Service — architect, painter…" value={service} onChange={(e) => setService(e.target.value)} />
-      </form>
-      <div className="hm-m-search-bar" style={{ marginTop: 0 }}>
-        <MapPin size={18} color="#78716C" />
-        <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
-        <button type="button" className="hm-m-pill active" style={{ margin: 0 }} onClick={onSearch}>
-          Go
-        </button>
-      </div>
+      <MobileHeader title="Find professionals" subtitle="Real work · direct project handoff" />
+      <section className="hm-m-pro-search-panel">
+        <span className="hm-m-search-eyebrow">HomeMakers professional network</span>
+        <h1>Find someone whose work already feels right.</h1>
+        <p>Compare published portfolios, then start a structured project with the professional attached.</p>
+        <form onSubmit={onSearch}>
+          <label><span>Service</span><div><Search size={18} /><input aria-label="Service" placeholder="Architect, contractor, painter…" value={service} onChange={(e) => setService(e.target.value)} /></div></label>
+          <label><span>Location</span><div><MapPin size={18} /><input aria-label="City" placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} /></div></label>
+          <button type="submit">Search professionals</button>
+        </form>
+      </section>
+      <p className="hm-m-section-title">Browse by trade</p>
       <div className="hm-m-pill-row" style={{ marginBottom: 12 }}>
         {CATEGORIES.map((cat) => (
           <button key={cat.craft} type="button" className={`hm-m-pill${craft === cat.craft ? " active" : ""}`} onClick={() => pickCategory(cat)}>
             {cat.label}
           </button>
         ))}
+      </div>
+      <div className="hm-m-results-header" aria-live="polite">
+        <div>
+          <strong>{loading ? "Finding portfolio matches…" : `${results.length} professional${results.length === 1 ? "" : "s"}`}</strong>
+          <span>{craft || service || city ? "Matching your current search" : "Published work you can compare"}</span>
+        </div>
+        {craft || service || city ? <button type="button" onClick={resetSearch}><RotateCcw size={15} /> Reset</button> : null}
       </div>
       {directoryError ? (
         <p role="alert" style={{ padding: 16, color: "#B42318" }}>{directoryError}</p>
@@ -104,7 +119,9 @@ export default function MobileProsPage() {
           Search or tap a trade to see professionals who completed their portfolio on HomeMakers.
         </p>
       ) : loading ? (
-        <p style={{ padding: 16, color: "#78716C" }}>Searching…</p>
+        <div className="hm-m-pro-skeleton" role="status" aria-label="Loading professionals">
+          {[0, 1, 2].map((item) => <div key={item}><span /><p><i /><i /></p></div>)}
+        </div>
       ) : results.length === 0 ? (
         <p style={{ padding: 16, color: "#78716C" }}>No matches yet. Try another service or city.</p>
       ) : (

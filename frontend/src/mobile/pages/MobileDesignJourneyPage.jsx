@@ -7,7 +7,7 @@ import { useMobileHub } from "../hooks/useMobileHub";
 export default function MobileDesignJourneyPage() {
   const navigate = useNavigate();
   const { activeProject, loadingProjects, projectError } = useMobileHub();
-  const [steps, setSteps] = useState([]);
+  const [board, setBoard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -15,7 +15,7 @@ export default function MobileDesignJourneyPage() {
     let cancelled = false;
     if (loadingProjects) return () => { cancelled = true; };
     if (!activeProject?.id) {
-      setSteps([]);
+      setBoard(null);
       setLoading(false);
       return () => { cancelled = true; };
     }
@@ -23,7 +23,7 @@ export default function MobileDesignJourneyPage() {
     setError("");
     loadProjectBoard({ projectId: activeProject.id, source: activeProject.source })
       .then((board) => {
-        if (!cancelled) setSteps(board?.phases || []);
+        if (!cancelled) setBoard(board || null);
       })
       .catch((loadError) => {
         if (!cancelled) setError(loadError?.message || "Could not load the saved design journey.");
@@ -33,6 +33,13 @@ export default function MobileDesignJourneyPage() {
       });
     return () => { cancelled = true; };
   }, [activeProject?.id, activeProject?.source, loadingProjects]);
+
+  const steps = board?.phases || [];
+  const brief = board?.brief || {};
+  const visualCount = [
+    ...(board?.v0Pack?.images?.images || []),
+    ...(board?.v0Pack?.images?.floor_plans || board?.v0Pack?.images?.floorPlans || board?.v0Pack?.floorPlans || []),
+  ].length;
 
   return (
     <>
@@ -46,6 +53,14 @@ export default function MobileDesignJourneyPage() {
             <button type="button" className="hm-m-btn-primary" onClick={() => navigate("/build")}>Start a project</button>
           </div>
         ) : null}
+        {!loading && board ? (
+          <div className="hm-m-journey-summary">
+            <div><span>Project brief</span><strong>{brief.location || brief.city || activeProject?.city || "Location saved in your brief"}</strong></div>
+            <div><span>AI v0</span><strong>{visualCount ? `${visualCount} saved visual${visualCount === 1 ? "" : "s"}` : board?.v0Pack?.estimate ? "Estimate ready" : "Not generated yet"}</strong></div>
+            <div><span>Budget</span><strong>{brief.budgetLabel || (brief.budgetInr ? `₹${Number(brief.budgetInr).toLocaleString("en-IN")}` : "Add during planning")}</strong></div>
+          </div>
+        ) : null}
+        {!loading && board?.v0Pack?.estimate?.project_summary ? <p className="hm-m-journey-note">{board.v0Pack.estimate.project_summary}</p> : null}
         {steps.map((s, i) => (
           <div key={s.id || s.name || s.title || i} className="hm-m-journey-step">
             <div className="hm-m-journey-dot">{i + 1}</div>

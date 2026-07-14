@@ -107,6 +107,7 @@ export default function MobileProProfilePage() {
     exp && { icon: Calendar, text: exp },
     business && { icon: Building2, text: business },
   ].filter(Boolean);
+  const startWithPro = () => navigate(`/build?source=portfolio&pro=${encodeURIComponent(pro.slug || pro.id)}`);
 
   return (
     <>
@@ -134,7 +135,7 @@ export default function MobileProProfilePage() {
             type="button"
             className="hm-m-btn-primary"
             style={{ width: "100%", marginTop: 16, background: theme.accent, borderColor: theme.accent }}
-            onClick={() => navigate(`/build?source=portfolio&pro=${encodeURIComponent(pro.slug || pro.id)}`)}
+            onClick={startWithPro}
           >
             Work With Me
           </button>
@@ -192,6 +193,11 @@ export default function MobileProProfilePage() {
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
           <Link className="hm-m-create-portfolio-link" to="/craft" style={{ color: theme.accent }}>Want a portfolio like this? Create yours</Link>
         </div>
+      </div>
+
+      <div className="hm-m-dock-spacer" />
+      <div className="hm-m-primary-dock hm-m-primary-dock--portfolio">
+        <button type="button" onClick={startWithPro}>Work With Me</button>
       </div>
 
       {selectedPhoto ? (

@@ -29,7 +29,7 @@ function remodelResume(remodel) {
 }
 
 /** Aggregates real HomeMakers state for mobile home / design hubs. */
-export function useMobileHub() {
+export function useMobileHub({ includeProCount = false } = {}) {
   const session = useHmSession();
   const [projects, setProjects] = useState([]);
   const [proCount, setProCount] = useState(0);
@@ -67,6 +67,7 @@ export function useMobileHub() {
   }, [session?.supabaseUserId]);
 
   useEffect(() => {
+    if (!includeProCount) return undefined;
     let cancelled = false;
     (async () => {
       try {
@@ -79,7 +80,7 @@ export function useMobileHub() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [includeProCount]);
 
   const activeProject = projects[0] || null;
 

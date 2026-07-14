@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Pencil, Plus, X } from "lucide-react";
 import MobileHeader from "../MobileHeader";
 import { useMobileHub } from "../hooks/useMobileHub";
 import { flowTypeLabel, projectStatusLabel } from "../mobileIA";
@@ -18,10 +18,11 @@ import { buildHubAssistantContext } from "../../lib/hubAssistantContext";
 import HmProjectAssistant from "../../components/HmProjectAssistant";
 import HmCommandCenter from "../../components/HmCommandCenter";
 import HmMorningBriefing from "../../components/HmMorningBriefing";
+import { updateProjectTitle } from "../../lib/projectWorkspaceApi";
 
 const PROJECT_TOOLS = [
   { label: "Documents", path: "/documents", icon: "📄" },
-  { label: "Design journey", path: "/project/journey", icon: "🧭" },
+  { label: "Timeline & stages", path: "/project/journey", icon: "🧭" },
   { label: "Find pros", path: "/project/browse", icon: "👷" },
   { label: "Team", path: "/team", icon: "👥" },
   { label: "Payments", path: "/project/payments", icon: "💳" },
@@ -31,6 +32,12 @@ export default function MobileProjectPage() {
   const navigate = useNavigate();
   const { session, projects, activeProject, loadingProjects } = useMobileHub();
   const [selectedId, setSelectedId] = useState(null);
+  const overviewRef = useRef(null);
+  const designsRef = useRef(null);
+  const stagesRef = useRef(null);
+  const tasksRef = useRef(null);
+  const toolsRef = useRef(null);
+  const taskInputRef = useRef(null);
 
   useEffect(() => {
     if (activeProject && !selectedId) setSelectedId(activeProject.id);
@@ -39,7 +46,12 @@ export default function MobileProjectPage() {
   const project = projects.find((p) => p.id === selectedId) || activeProject;
   const isDemoHub = PROJECT_HUB_DEMO_MODE && !project && !loadingProjects;
   const needsProjectPick = !project && !loadingProjects && !isDemoHub;
-  const title = project?.title || "Your project";
+  const [projectTitle, setProjectTitle] = useState("");
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState(null);
+  const title = projectTitle || project?.title || "Your project";
   const subtitle = project
     ? `${flowTypeLabel(project.flow_type, project.source)} · ${projectStatusLabel(project.status)}`
     : needsProjectPick
@@ -56,6 +68,13 @@ export default function MobileProjectPage() {
   const [boardError, setBoardError] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskSaving, setTaskSaving] = useState(false);
+
+  useEffect(() => {
+    const nextTitle = project?.title || "Your project";
+    setProjectTitle(nextTitle);
+    setRenameDraft(nextTitle);
+    setRenameOpen(false);
+  }, [project?.id, project?.title]);
 
   useEffect(() => {
     if (!project?.id) {
@@ -87,6 +106,39 @@ export default function MobileProjectPage() {
   const boardMsgs = useMemo(() => board?.messages || [], [board?.messages]);
   const boardPhases = useMemo(() => board?.phases || [], [board?.phases]);
   const activePhase = boardPhases.find((p) => p.status === "In Progress")?.name || boardPhases[0]?.name || "";
+  const v0Media = useMemo(() => [
+    ...(board?.v0Pack?.images?.images || []),
+    ...(board?.v0Pack?.images?.floor_plans || board?.v0Pack?.images?.floorPlans || board?.v0Pack?.floorPlans || []),
+  ].map((item, index) => ({
+    url: typeof item === "string" ? item : item?.url,
+    label: item?.label || (index === 0 ? "Exterior concept" : `AI design ${index + 1}`),
+  })).filter((item) => item.url), [board?.v0Pack]);
+  const openTasks = boardTasks.filter((task) => !task.done).length;
+  const overallProgress = boardPhases.length
+    ? Math.round(boardPhases.reduce((sum, phase) => sum + Number(phase.pct || 0), 0) / boardPhases.length)
+    : 0;
+
+  const renameProject = async (event) => {
+    event.preventDefault();
+    if (!project?.id || !renameDraft.trim() || renameDraft.trim() === title) return;
+    setRenaming(true);
+    setBoardError("");
+    try {
+      const saved = await updateProjectTitle(project.id, renameDraft);
+      setProjectTitle(saved.title);
+      setRenameDraft(saved.title);
+      setRenameOpen(false);
+    } catch (error) {
+      setBoardError(error?.message || "Could not rename this project.");
+    } finally {
+      setRenaming(false);
+    }
+  };
+
+  const goToSection = (ref, { focus = false } = {}) => {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (focus) window.setTimeout(() => taskInputRef.current?.focus(), 350);
+  };
 
   const saveTask = async (event) => {
     event.preventDefault();
@@ -190,11 +242,21 @@ export default function MobileProjectPage() {
         title={title}
         subtitle={subtitle}
         right={(
-          <button type="button" className="hm-m-icon-btn" aria-label="Start a new project" onClick={() => navigate("/build")}>
-            <Plus size={22} />
-          </button>
+          <div className="hm-m-header-actions">
+            {project?.id ? <button type="button" className="hm-m-icon-btn" aria-label="Rename project" onClick={() => setRenameOpen((open) => !open)}><Pencil size={19} /></button> : null}
+            <button type="button" className="hm-m-icon-btn" aria-label="Start a new project" onClick={() => navigate("/build")}><Plus size={22} /></button>
+          </div>
         )}
       />
+      {project?.id ? (
+        <nav className="hm-m-project-nav" aria-label="Project sections">
+          <button type="button" onClick={() => goToSection(overviewRef)}>Overview</button>
+          <button type="button" onClick={() => goToSection(designsRef)}>Designs</button>
+          <button type="button" onClick={() => goToSection(stagesRef)}>Stages</button>
+          <button type="button" onClick={() => goToSection(tasksRef)}>Tasks</button>
+          <button type="button" onClick={() => goToSection(toolsRef)}>Tools</button>
+        </nav>
+      ) : null}
       {AUTH_UI_ENABLED && !session?.supabaseUserId ? (
         <div style={{ padding: 16 }}>
           <p style={{ fontSize: 14, color: "#78716C", marginBottom: 16, lineHeight: 1.5 }}>
@@ -249,7 +311,13 @@ export default function MobileProjectPage() {
         </div>
       ) : (
         <>
-          <div style={{ padding: "0 16px" }}>
+          {renameOpen ? (
+            <form className="hm-m-inline-editor" onSubmit={renameProject}>
+              <label htmlFor="hm-mobile-project-title">Project name</label>
+              <div><input id="hm-mobile-project-title" value={renameDraft} maxLength={120} onChange={(event) => setRenameDraft(event.target.value)} /><button type="submit" disabled={renaming || !renameDraft.trim() || renameDraft.trim() === title}>{renaming ? "Saving…" : "Save"}</button></div>
+            </form>
+          ) : null}
+          <div ref={overviewRef} className="hm-m-project-section-anchor" style={{ padding: "0 16px" }}>
             <HmMorningBriefing context={assistantContext} onNavigatePath={(path) => navigate(path)} />
             <HmCommandCenter />
           </div>
@@ -273,11 +341,29 @@ export default function MobileProjectPage() {
               <div style={{ fontSize: 12, color: "#78716C" }}>Budget band</div>
               <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{budget}</div>
               {project?.city ? <div style={{ fontSize: 13, color: "#78716C", marginTop: 6 }}>{project.city}</div> : null}
+              {project?.timeline_completion ? <div style={{ fontSize: 13, color: "#78716C", marginTop: 4 }}>Target: {project.timeline_completion}</div> : null}
+              <button type="button" className="hm-m-card-link" onClick={() => navigate(`/project/payments${hubQuery}`)}>View spending & receipts →</button>
             </div>
           ) : null}
 
+          <p className="hm-m-section-title">At a glance</p>
+          <div className="hm-m-metric-grid">
+            <div><strong>{overallProgress}%</strong><span>Overall progress</span></div>
+            <div><strong>{openTasks}</strong><span>Open tasks</span></div>
+            <div><strong>{v0Media.length}</strong><span>Saved AI visuals</span></div>
+          </div>
+
+          {v0Media.length > 0 || board?.v0Pack?.estimate ? (
+            <section ref={designsRef} className="hm-m-v0-card hm-m-project-section-anchor">
+              <div className="hm-m-v0-heading"><div><span>AI design pack</span><strong>{v0Media.length ? `${v0Media.length} saved visual${v0Media.length === 1 ? "" : "s"}` : "Estimate ready"}</strong></div><button type="button" onClick={() => navigate(`/project/journey${hubQuery}`)}>Open journey</button></div>
+              {board?.v0Pack?.estimate?.project_summary ? <p>{board.v0Pack.estimate.project_summary}</p> : null}
+              {board?.v0Pack?.estimate?.total_indicative_inr ? <div className="hm-m-v0-estimate">Indicative v0 estimate <strong>{formatInrShort(board.v0Pack.estimate.total_indicative_inr)}</strong></div> : null}
+              {v0Media.length > 0 ? <div className="hm-m-v0-media">{v0Media.slice(0, 6).map((media, index) => <button type="button" key={`${media.url}-${index}`} onClick={() => setSelectedMedia(media)} aria-label={`Open ${media.label}`}><img src={media.url} alt={media.label} loading="lazy" /><span>{media.label}</span></button>)}</div> : null}
+            </section>
+          ) : null}
+
           {boardError ? <p role="alert" style={{ padding: "10px 16px", color: "#B42318", fontSize: 13 }}>{boardError}</p> : null}
-          <p className="hm-m-section-title">Phases</p>
+          <div ref={stagesRef} className="hm-m-project-section-anchor"><p className="hm-m-section-title">Timeline & stages</p></div>
           {boardLoading ? (
             <p style={{ padding: "0 16px", color: "#78716C", fontSize: 13 }}>Loading saved project…</p>
           ) : boardPhases.length === 0 ? (
@@ -304,10 +390,11 @@ export default function MobileProjectPage() {
             </label>
           ) : null}
 
-          <p className="hm-m-section-title" style={{ marginTop: 16 }}>Tasks</p>
+          <div ref={tasksRef} className="hm-m-project-section-anchor"><p className="hm-m-section-title" style={{ marginTop: 16 }}>Tasks</p></div>
           <div style={{ padding: "0 16px" }}>
             <form onSubmit={saveTask} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <input
+                ref={taskInputRef}
                 value={taskTitle}
                 onChange={(event) => setTaskTitle(event.target.value)}
                 placeholder={activePhase ? `Add a task to ${activePhase}` : "Project phases are still loading"}
@@ -331,7 +418,7 @@ export default function MobileProjectPage() {
             ))}
           </div>
 
-          <p className="hm-m-section-title" style={{ marginTop: 16 }}>
+          <p ref={toolsRef} className="hm-m-section-title hm-m-project-section-anchor" style={{ marginTop: 16 }}>
             Project hub
           </p>
           <div className="hm-m-grid-2" style={{ padding: "0 16px 24px" }}>
@@ -351,6 +438,12 @@ export default function MobileProjectPage() {
           >
             ✨ Ask Homi (AI co-pilot)
           </button>
+          <div className="hm-m-dock-spacer" />
+          <div className="hm-m-project-dock" aria-label="Project quick actions">
+            <button type="button" onClick={() => goToSection(tasksRef, { focus: true })}><span>＋</span>Add task</button>
+            <button type="button" onClick={() => navigate(`/documents${hubQuery}`)}><span>↥</span>Upload</button>
+            <button type="button" className="primary" onClick={() => window.dispatchEvent(new CustomEvent("hm-open-assistant"))}><span>✦</span>Ask Homi</button>
+          </div>
         </>
       )}
       <HmProjectAssistant
@@ -358,6 +451,7 @@ export default function MobileProjectPage() {
         onNavigatePath={(path) => navigate(path)}
         defaultPhase="Design & approval"
       />
+      {selectedMedia ? <div className="hm-m-media-lightbox" role="dialog" aria-modal="true" onClick={() => setSelectedMedia(null)}><button type="button" aria-label="Close image" onClick={() => setSelectedMedia(null)}><X size={22} /></button><img src={selectedMedia.url} alt={selectedMedia.label} onClick={(event) => event.stopPropagation()} /><span>{selectedMedia.label}</span></div> : null}
     </>
   );
 }

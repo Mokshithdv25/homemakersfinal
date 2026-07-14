@@ -1,49 +1,54 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import MobileShell from "./MobileShell";
 import MobileWizardLayout from "./MobileWizardLayout";
-import MobileHomePage from "./pages/MobileHomePage";
-import MobileDesignPage from "./pages/MobileDesignPage";
-import MobileBuildPage from "./pages/MobileBuildPage";
-import MobileProsPage from "./pages/MobileProsPage";
-import MobileProjectPage from "./pages/MobileProjectPage";
-import MobileAccountPage from "./pages/MobileAccountPage";
-import MobilePhotoPage from "./pages/MobilePhotoPage";
-import MobileDocumentsPage from "./pages/MobileDocumentsPage";
-import MobileTeamPage from "./pages/MobileTeamPage";
-import MobilePaymentsPage from "./pages/MobilePaymentsPage";
-import MobileShopPage from "./pages/MobileShopPage";
-import MobileDesignJourneyPage from "./pages/MobileDesignJourneyPage";
-import MobileProProfilePage from "./pages/MobileProProfilePage";
-import SignInPage from "../pages/SignInPage";
 import SignInErrorBoundary from "../components/SignInErrorBoundary";
-import BuildNewHome from "../pages/BuildNewHome";
-import RemodelHome from "../pages/RemodelHome";
-import CraftSelection from "../pages/CraftSelection";
-import YourDetails from "../pages/YourDetails";
-import YourPortfolio from "../pages/YourPortfolio";
-import PortfolioThemeStep from "../pages/PortfolioThemeStep";
-import GoLive from "../pages/GoLive";
-import ProDashboard from "../pages/ProDashboard";
-import SubscriptionsPage from "../pages/SubscriptionsPage";
-import AccountPage from "../pages/AccountPage";
-import LegalPage from "../pages/LegalPage";
 import { AUTH_UI_ENABLED } from "../lib/authMode";
 import HomeownerFlowGuard from "../components/HomeownerFlowGuard";
 import ProOnboardingGuard from "../components/ProOnboardingGuard";
 import ProDashboardGuard from "../components/ProDashboardGuard";
 
+const MobileHomePage = lazy(() => import("./pages/MobileHomePage"));
+const MobileDesignPage = lazy(() => import("./pages/MobileDesignPage"));
+const MobileBuildPage = lazy(() => import("./pages/MobileBuildPage"));
+const MobileProsPage = lazy(() => import("./pages/MobileProsPage"));
+const MobileProjectPage = lazy(() => import("./pages/MobileProjectPage"));
+const MobileAccountPage = lazy(() => import("./pages/MobileAccountPage"));
+const MobilePhotoPage = lazy(() => import("./pages/MobilePhotoPage"));
+const MobileDocumentsPage = lazy(() => import("./pages/MobileDocumentsPage"));
+const MobileTeamPage = lazy(() => import("./pages/MobileTeamPage"));
+const MobilePaymentsPage = lazy(() => import("./pages/MobilePaymentsPage"));
+const MobileShopPage = lazy(() => import("./pages/MobileShopPage"));
+const MobileDesignJourneyPage = lazy(() => import("./pages/MobileDesignJourneyPage"));
+const MobileProProfilePage = lazy(() => import("./pages/MobileProProfilePage"));
+const SignInPage = lazy(() => import("../pages/SignInPage"));
+const BuildNewHome = lazy(() => import("../pages/BuildNewHome"));
+const RemodelHome = lazy(() => import("../pages/RemodelHome"));
+const CraftSelection = lazy(() => import("../pages/CraftSelection"));
+const YourDetails = lazy(() => import("../pages/YourDetails"));
+const YourPortfolio = lazy(() => import("../pages/YourPortfolio"));
+const PortfolioThemeStep = lazy(() => import("../pages/PortfolioThemeStep"));
+const GoLive = lazy(() => import("../pages/GoLive"));
+const ProDashboard = lazy(() => import("../pages/ProDashboard"));
+const SubscriptionsPage = lazy(() => import("../pages/SubscriptionsPage"));
+const AccountPage = lazy(() => import("../pages/AccountPage"));
+const LegalPage = lazy(() => import("../pages/LegalPage"));
+
+function MobileRouteLoading() {
+  return <div className="hm-m-route-loading" role="status"><span />Loading…</div>;
+}
+
 function withShell(Page) {
   return (
     <MobileShell>
-      <Page />
+      <Suspense fallback={<MobileRouteLoading />}><Page /></Suspense>
     </MobileShell>
   );
 }
 
 export default function MobileAppRoutes() {
   return (
-    <Routes>
+    <Suspense fallback={<MobileRouteLoading />}><Routes>
       <Route path="/" element={withShell(MobileHomePage)} />
       <Route path="/design" element={withShell(MobileDesignPage)} />
       <Route path="/ideas" element={<Navigate to="/design" replace />} />
@@ -114,6 +119,6 @@ export default function MobileAppRoutes() {
       <Route path="/terms" element={<MobileShell hideTabs><LegalPage kind="terms" /></MobileShell>} />
       <Route path="/privacy" element={<MobileShell hideTabs><LegalPage kind="privacy" /></MobileShell>} />
       <Route path="*" element={withShell(MobileHomePage)} />
-    </Routes>
+    </Routes></Suspense>
   );
 }
