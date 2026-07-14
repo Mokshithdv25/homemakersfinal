@@ -1,11 +1,11 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Hammer, Users, FolderKanban, UserCircle } from "lucide-react";
+import { Home, Sparkles, Users, FolderKanban, UserCircle } from "lucide-react";
 import { MOBILE_TABS } from "./mobileIA";
 
 const TAB_ICONS = {
   home: Home,
-  design: Hammer,
+  design: Sparkles,
   pros: Users,
   project: FolderKanban,
   you: UserCircle,

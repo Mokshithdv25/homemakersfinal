@@ -5,47 +5,56 @@
  *   bottom tabs · search-first discovery · saved boards · project hub · profile
  *
  * Our details (already on desktop):
- *   Build new home · Remodel · Marketplace (published portfolios) · Project PM · Pro portfolio onboarding
+ *   One project entry · Indian-home inspiration · Marketplace · Project PM · Pro portfolio onboarding
  */
 
 export const MOBILE_TABS = [
   { id: "home", label: "Home", path: "/" },
-  { id: "design", label: "Design", path: "/design" },
+  { id: "design", label: "Ideas", path: "/design" },
   { id: "pros", label: "Pros", path: "/browse" },
   { id: "project", label: "Project", path: "/project" },
   { id: "you", label: "You", path: "/account" },
 ];
 
-/** HomeMakers core flows — primary entry points on Home & Design tabs. */
-export const HM_CORE_FLOWS = [
+/** Curated directions from the same Indian-home library used on desktop. */
+export const INDIAN_HOME_STYLES = [
   {
-    id: "build",
-    label: "Build a new home",
-    sub: "Your brief → AI designs & budget",
-    path: "/build/new-home",
-    icon: "build",
+    id: "kerala",
+    title: "Kerala & coastal",
+    subtitle: "Sloping roofs, courtyards and breeze-friendly plans",
+    image: "arch_kerala.png",
   },
   {
-    id: "remodel",
-    label: "Remodel your home",
-    sub: "Room photos → AI concepts & costs",
-    path: "/build/remodel",
-    icon: "remodel",
+    id: "traditional",
+    title: "Traditional warmth",
+    subtitle: "Courtyards, jaalis and craft-forward facades",
+    image: "arch_traditional.png",
   },
   {
-    id: "pros",
-    label: "Find pros",
-    sub: "Published portfolios · Bengaluru & beyond",
-    path: "/browse",
-    icon: "pros",
+    id: "modern",
+    title: "Modern metro",
+    subtitle: "Clean lines for Bengaluru, Mumbai and Hyderabad",
+    image: "arch_modern.png",
   },
   {
-    id: "project",
-    label: "Manage project",
-    sub: "Saved phases, tasks & AI v0",
-    path: "/project",
-    icon: "project",
+    id: "colonial",
+    title: "Heritage & colonial",
+    subtitle: "Verandahs, lime finishes and timeless proportions",
+    image: "arch_colonial.png",
   },
+  {
+    id: "fusion",
+    title: "Fusion & eclectic",
+    subtitle: "Regional character with a contemporary shell",
+    image: "arch_fusion.png",
+  },
+];
+
+export const INDIAN_ROOM_IDEAS = [
+  { id: "living", title: "Living rooms", image: "theme_living_room.png" },
+  { id: "kitchen", title: "Kitchens", image: "theme_kitchen.png" },
+  { id: "bedroom", title: "Bedrooms", image: "theme_bedroom.png" },
+  { id: "puja", title: "Puja rooms", image: "theme_puja_room.png" },
 ];
 
 /** Pro-side flow (You tab). */

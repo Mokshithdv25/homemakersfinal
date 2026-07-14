@@ -1,105 +1,83 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Bookmark, Home, Paintbrush, Compass } from "lucide-react";
+import { ArrowRight, Search, ShoppingBag } from "lucide-react";
 import MobileHeader from "../MobileHeader";
-import { useMobileIdeabooks } from "../MobileIdeabooksContext";
-import { useMobileHub } from "../hooks/useMobileHub";
+import { INDIAN_HOME_STYLES, INDIAN_ROOM_IDEAS } from "../mobileIA";
 import { publicAsset } from "../../lib/publicAsset";
 
 export default function MobileDesignPage() {
   const navigate = useNavigate();
-  const { totalSaved, books } = useMobileIdeabooks();
-  const { activeProject, resumeCards } = useMobileHub();
-  const items = books[0]?.items || [];
-
-  const inProgress =
-    resumeCards.find((c) => c.id === "build-resume" || c.id === "remodel-resume") || null;
 
   return (
     <>
-      <MobileHeader title="Design" subtitle="Build · remodel · saved ideas" />
+      <MobileHeader title="Inspiration" subtitle="Indian homes, rooms & materials" />
 
-      <section className="hm-m-design-hero" style={{ backgroundImage: `linear-gradient(90deg,rgba(28,25,23,.82),rgba(28,25,23,.28)),url(${publicAsset("mobile_design_hero.jpg")})` }}>
-        <span>HomeMakers Design</span>
-        <h1>From inspiration to a build-ready project.</h1>
-        <p>Shape the brief, generate the first concept, preserve every decision and bring the right professionals into one workspace.</p>
+      <section
+        className="hm-m-design-hero"
+        style={{
+          backgroundImage: `linear-gradient(90deg,rgba(28,25,23,.84),rgba(28,25,23,.24)),url(${publicAsset("mobile_design_hero.jpg")})`,
+        }}
+      >
+        <span>Designed for how India lives</span>
+        <h1>Find a direction that feels like home.</h1>
+        <p>Explore regional architecture and practical room ideas, then turn the direction you like into one clear project brief.</p>
       </section>
 
-      {inProgress ? (
-        <section style={{ padding: "0 16px 12px" }}>
-          <button type="button" className="hm-m-start-banner" style={{ width: "100%", border: "none", cursor: "pointer", textAlign: "left" }} onClick={() => navigate(inProgress.path)}>
-            <div>
-              <p className="hm-m-start-eyebrow">In progress</p>
-              <h2 style={{ margin: "0 0 4px", fontSize: 16 }}>{inProgress.label}</h2>
-              <p style={{ margin: 0, fontSize: 12, color: "#78716C" }}>{inProgress.sub}</p>
-            </div>
-            <span style={{ color: "#C85F2B", fontWeight: 700, fontSize: 14 }}>Resume →</span>
-          </button>
-        </section>
-      ) : null}
-
-      <section style={{ padding: "0 16px 16px" }}>
-        <p className="hm-m-section-title" style={{ padding: 0, marginBottom: 10 }}>
-          HomeMakers flows
-        </p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <button type="button" className="hm-m-list-row" onClick={() => navigate("/build/new-home")}>
-            <span className="hm-m-list-icon"><Home size={20} color="#C85F2B" /></span>
-            <span>
-              <span className="hm-m-list-title">Build a new home</span>
-              <span className="hm-m-list-sub">Your brief → AI designs & budget</span>
-            </span>
-          </button>
-          <button type="button" className="hm-m-list-row" onClick={() => navigate("/build/remodel")}>
-            <span className="hm-m-list-icon"><Paintbrush size={20} color="#C85F2B" /></span>
-            <span>
-              <span className="hm-m-list-title">Remodel your home</span>
-              <span className="hm-m-list-sub">Room photos, AI concepts & costs</span>
-            </span>
-          </button>
-          {activeProject ? (
-            <button type="button" className="hm-m-list-row" onClick={() => navigate("/project/journey")}>
-              <span className="hm-m-list-icon"><Compass size={20} color="#C85F2B" /></span>
-              <span>
-                <span className="hm-m-list-title">Design journey</span>
-                <span className="hm-m-list-sub">{activeProject.title || "Your saved brief & v0"}</span>
-              </span>
-            </button>
-          ) : null}
+      <div className="hm-m-section-heading">
+        <div>
+          <span>Architecture</span>
+          <h2>Indian homes, by style</h2>
+          <p>Real directions from the same visual library used in your HomeMakers brief.</p>
         </div>
-      </section>
-
-      <p className="hm-m-section-title">Ideabooks · {totalSaved} saved</p>
-      {items.length === 0 ? (
-        <div className="hm-m-empty" style={{ margin: "0 16px 24px" }}>
-          <Bookmark size={32} color="#C85F2B" strokeWidth={1.5} />
-          <p>Save pro portfolio photos from Home or Marketplace while you plan.</p>
-          <button type="button" className="hm-m-btn-secondary" onClick={() => navigate("/")}>
-            Browse pro work
-          </button>
-        </div>
-      ) : (
-        <div className="hm-m-ideas-grid">
-          {items.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className="hm-m-idea-thumb"
-              onClick={() => navigate(`/photo/${item.id}`, { state: { photo: item } })}
-            >
-              <img src={item.url} alt={item.title} />
-              <span>{item.room || item.title}</span>
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="hm-m-dock-spacer" />
-      <div className="hm-m-primary-dock">
-        <button type="button" onClick={() => navigate(inProgress?.path || "/build")}>
-          {inProgress ? "Resume design journey" : "Start a design journey"}
-        </button>
       </div>
+      <div className="hm-m-style-stack">
+        {INDIAN_HOME_STYLES.map((style) => (
+          <button
+            key={style.id}
+            type="button"
+            className="hm-m-style-card"
+            onClick={() => navigate("/build", { state: { inspiration: style.id } })}
+          >
+            <img src={publicAsset(style.image)} alt="" loading={style.id === "kerala" ? "eager" : "lazy"} />
+            <span className="hm-m-style-overlay">
+              <strong>{style.title}</strong>
+              <small>{style.subtitle}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="hm-m-section-heading">
+        <div>
+          <span>Room ideas</span>
+          <h2>Plan one space at a time</h2>
+        </div>
+      </div>
+      <div className="hm-m-room-grid">
+        {INDIAN_ROOM_IDEAS.map((room) => (
+          <button key={room.id} type="button" onClick={() => navigate("/build", { state: { room: room.id } })}>
+            <img src={publicAsset(room.image)} alt="" loading="lazy" />
+            <span>{room.title}</span>
+          </button>
+        ))}
+      </div>
+
+      <section className="hm-m-idea-actions">
+        <span>Ready to move forward?</span>
+        <h2>Turn an idea into a real plan.</h2>
+        <p>Start one project brief, or find a professional who already works in the style you like.</p>
+        <div>
+          <button type="button" className="primary" onClick={() => navigate("/build")}>
+            Start a project <ArrowRight size={17} />
+          </button>
+          <button type="button" onClick={() => navigate("/browse")}>
+            <Search size={17} /> Find professionals
+          </button>
+          <button type="button" onClick={() => navigate("/shop")}>
+            <ShoppingBag size={17} /> Browse materials
+          </button>
+        </div>
+      </section>
     </>
   );
 }

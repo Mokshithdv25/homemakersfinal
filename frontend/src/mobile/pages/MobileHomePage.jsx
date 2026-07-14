@@ -1,42 +1,91 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Hammer, Paintbrush, Users, FolderKanban, Sparkles, CalendarClock, WalletCards, Bot, ArrowRight, ChevronRight } from "lucide-react";
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  CheckCircle2,
+  ChevronRight,
+  FolderKanban,
+  Search,
+  ShoppingBag,
+  Users,
+} from "lucide-react";
 import MobileCategoryRail from "../components/MobileCategoryRail";
 import MobilePhotoGrid from "../components/MobilePhotoGrid";
 import MobileSaveToast from "../components/MobileSaveToast";
 import { useMobileIdeabooks } from "../MobileIdeabooksContext";
 import { useMobileHub } from "../hooks/useMobileHub";
-import { HM_CORE_FLOWS, INDIAN_ROOM_FILTERS } from "../mobileIA";
+import { INDIAN_HOME_STYLES, INDIAN_ROOM_FILTERS } from "../mobileIA";
 import { listPublishedPortfolios } from "../../lib/api";
+import { getProEntryPath } from "../../lib/proEntryPath";
 import { craftLabel, proCardImage, proDisplayName } from "../../components/PublishedProsDirectory";
 import { hmLogoMarkSrc } from "../../lib/hmBrand";
 import { publicAsset } from "../../lib/publicAsset";
 
-const FLOW_ICONS = {
-  build: Hammer,
-  remodel: Paintbrush,
-  pros: Users,
-  project: FolderKanban,
-};
+const HOME_ACTIONS = [
+  {
+    id: "project",
+    label: "Start a project",
+    sub: "Build or remodel with one clear brief",
+    path: "/build",
+    icon: FolderKanban,
+    image: "mobile_flow_build.jpg",
+  },
+  {
+    id: "pros",
+    label: "Find professionals",
+    sub: "Browse real portfolios near you",
+    path: "/browse",
+    icon: Users,
+    image: "mobile_flow_pros.jpg",
+  },
+  {
+    id: "materials",
+    label: "Browse materials",
+    sub: "Compare practical picks for your project",
+    path: "/shop",
+    icon: ShoppingBag,
+    image: "shop_flooring.png",
+  },
+  {
+    id: "portfolio",
+    label: "Create a portfolio",
+    sub: "Publish your practice and get discovered",
+    icon: BriefcaseBusiness,
+    image: "pro_hero_banner.png",
+  },
+];
 
-const FLOW_IMAGES = {
-  build: publicAsset("mobile_flow_build.jpg"),
-  remodel: publicAsset("mobile_flow_remodel.jpg"),
-  pros: publicAsset("mobile_flow_pros.jpg"),
-  project: publicAsset("mobile_flow_project.jpg"),
-};
+const HOMEOWNER_BENEFITS = [
+  {
+    title: "See the direction before you hire",
+    text: "Turn your plot, rooms, style and budget into indicative layouts, visuals and estimate ranges.",
+  },
+  {
+    title: "Find professionals with proof of work",
+    text: "Compare local portfolios and share the same structured brief with the people you shortlist.",
+  },
+  {
+    title: "Keep the build in one project hub",
+    text: "Bring site photos, tasks, documents, team contacts and owner-recorded payments together.",
+  },
+  {
+    title: "Choose materials with context",
+    text: "Review material suggestions against your room, project stage and budget before you decide.",
+  },
+];
 
-const MOBILE_INTELLIGENCE = [
-  { icon: Sparkles, title: "AI design memory", text: "Briefs, concepts and revisions stay together." },
-  { icon: CalendarClock, title: "Timeline awareness", text: "Stages, tasks and delay signals at a glance." },
-  { icon: WalletCards, title: "Budget continuity", text: "Estimates, spending and receipts in one place." },
-  { icon: Bot, title: "Project-aware Homi", text: "Answers grounded in your live project." },
+const PROFESSIONAL_BENEFITS = [
+  "Create one polished, shareable portfolio",
+  "Get discovered by homeowners in your city",
+  "Receive clearer briefs before the first call",
+  "Keep client details and project work together",
 ];
 
 function resumeImage(card) {
-  if (card.id === "remodel-resume") return FLOW_IMAGES.remodel;
-  if (card.id === "project-active") return FLOW_IMAGES.project;
-  return FLOW_IMAGES.build;
+  if (card.id === "remodel-resume") return publicAsset("mobile_flow_remodel.jpg");
+  if (card.id === "project-active") return publicAsset("mobile_flow_project.jpg");
+  return publicAsset("mobile_flow_build.jpg");
 }
 
 function prosToFeed(pros, craftFilter) {
@@ -70,7 +119,7 @@ export default function MobileHomePage() {
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [feedError, setFeedError] = useState("");
 
-  const craftFilter = INDIAN_ROOM_FILTERS.find((f) => f.id === filter)?.craft || null;
+  const craftFilter = INDIAN_ROOM_FILTERS.find((item) => item.id === filter)?.craft || null;
 
   useEffect(() => {
     let cancelled = false;
@@ -80,8 +129,8 @@ export default function MobileHomePage() {
       try {
         const rows = await listPublishedPortfolios({ craft: craftFilter, limit: 24 });
         if (!cancelled) setPros(rows);
-      } catch (err) {
-        if (!cancelled) setFeedError(err?.message || "Could not load professional portfolios.");
+      } catch (error) {
+        if (!cancelled) setFeedError(error?.message || "Could not load professional portfolios.");
       } finally {
         if (!cancelled) setLoadingFeed(false);
       }
@@ -92,36 +141,72 @@ export default function MobileHomePage() {
   }, [craftFilter]);
 
   const feed = useMemo(() => prosToFeed(pros, craftFilter), [pros, craftFilter]);
-  const continuationCards = useMemo(() => resumeCards.filter((card) => card.id !== "pros-nearby"), [resumeCards]);
+  const continuationCards = useMemo(
+    () => resumeCards.filter((card) => card.id !== "pros-nearby"),
+    [resumeCards],
+  );
 
-  const onSearchSubmit = (e) => {
-    e.preventDefault();
-    const q = search.trim();
-    navigate(q ? `/browse?q=${encodeURIComponent(q)}` : "/browse");
+  const onSearchSubmit = (event) => {
+    event.preventDefault();
+    const query = search.trim();
+    navigate(query ? `/browse?q=${encodeURIComponent(query)}` : "/browse");
+  };
+
+  const openAction = (action) => {
+    navigate(action.id === "portfolio" ? getProEntryPath() : action.path);
   };
 
   return (
     <>
       <header className="hm-m-home-header">
-        <div className="hm-m-home-lockup"><img src={hmLogoMarkSrc} alt="" /><div><div className="hm-m-home-brand">HomeMakers</div><p className="hm-m-home-tagline">Design · Build · Manage — for Indian homes</p></div></div>
+        <div className="hm-m-home-lockup">
+          <img src={hmLogoMarkSrc} alt="" />
+          <div>
+            <div className="hm-m-home-brand">HomeMakers</div>
+            <p className="hm-m-home-tagline">Design · Build · Manage — for Indian homes</p>
+          </div>
+        </div>
         <form className="hm-m-home-search" onSubmit={onSearchSubmit}>
           <Search size={18} color="#78716C" />
           <input
-            placeholder="Architects, contractors, painters…"
+            placeholder="Search architects, contractors, painters…"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(event) => setSearch(event.target.value)}
             aria-label="Search professionals"
           />
           <button type="submit" aria-label="Search"><ArrowRight size={18} /></button>
         </form>
       </header>
 
+      <section
+        className="hm-m-home-hero"
+        style={{
+          backgroundImage: `linear-gradient(90deg,rgba(20,14,11,.90),rgba(20,14,11,.48) 62%,rgba(20,14,11,.12)),url(${publicAsset("landing-hero.png")})`,
+        }}
+      >
+        <span>For homeowners and professionals</span>
+        <h1>Your Indian home project, clear from idea to handover.</h1>
+        <p>Create a brief, explore real Indian homes, find professionals and materials, then keep the work organized in one place.</p>
+        <div>
+          <button type="button" className="primary" onClick={() => navigate("/build")}>
+            Start a project <ArrowRight size={17} />
+          </button>
+          <button type="button" onClick={() => navigate("/browse")}>Find professionals</button>
+        </div>
+      </section>
+
       {continuationCards.length > 0 ? (
         <section className="hm-m-resume-section">
           <div className="hm-m-section-row"><div><span>Welcome back</span><h2>Continue where you left off</h2></div></div>
           <div className="hm-m-resume-rail">
             {continuationCards.map((card) => (
-              <button key={card.id} type="button" className="hm-m-resume-card" style={{ backgroundImage: `linear-gradient(90deg,rgba(19,15,12,.86),rgba(19,15,12,.18)),url(${resumeImage(card)})` }} onClick={() => navigate(card.path)}>
+              <button
+                key={card.id}
+                type="button"
+                className="hm-m-resume-card"
+                style={{ backgroundImage: `linear-gradient(90deg,rgba(19,15,12,.86),rgba(19,15,12,.18)),url(${resumeImage(card)})` }}
+                onClick={() => navigate(card.path)}
+              >
                 <span className="hm-m-resume-kicker">Saved to your workspace</span>
                 <strong>{card.label}</strong>
                 <small>{card.sub}</small>
@@ -132,50 +217,117 @@ export default function MobileHomePage() {
         </section>
       ) : null}
 
-      <div className="hm-m-section-row"><div><span>Start here</span><h2>What do you want to do?</h2></div></div>
-      <div className="hm-m-grid-2" style={{ padding: "0 16px 8px" }}>
-        {HM_CORE_FLOWS.map((flow) => {
-          const Icon = FLOW_ICONS[flow.icon];
+      <div className="hm-m-section-heading">
+        <div>
+          <span>Start here</span>
+          <h2>What do you need today?</h2>
+          <p>Choose one clear path. You can bring everything together later.</p>
+        </div>
+      </div>
+      <div className="hm-m-grid-2 hm-m-home-actions">
+        {HOME_ACTIONS.map((action) => {
+          const Icon = action.icon;
           return (
-            <button key={flow.id} type="button" className="hm-m-quick" onClick={() => navigate(flow.path)}>
-              <span className="hm-m-quick-media"><img src={FLOW_IMAGES[flow.id]} alt="" loading={flow.id === "build" ? "eager" : "lazy"} decoding="async" /><span><Icon size={20} /></span></span>
-              <span className="hm-m-quick-content"><span className="hm-m-quick-label">{flow.label}</span><span className="hm-m-quick-sub">{flow.sub}</span></span>
+            <button key={action.id} type="button" className="hm-m-quick" onClick={() => openAction(action)}>
+              <span className="hm-m-quick-media">
+                <img src={publicAsset(action.image)} alt="" loading={action.id === "project" ? "eager" : "lazy"} decoding="async" />
+                <span><Icon size={20} /></span>
+              </span>
+              <span className="hm-m-quick-content">
+                <span className="hm-m-quick-label">{action.label}</span>
+                <span className="hm-m-quick-sub">{action.sub}</span>
+              </span>
             </button>
           );
         })}
       </div>
 
-      <div className="hm-m-section-row" style={{ marginTop: 8 }}>
-        <div><span>Get inspired</span><h2>Real work. Real professionals.</h2></div>
-        <button type="button" onClick={() => navigate("/browse")}>See all</button>
+      <div className="hm-m-section-heading">
+        <div>
+          <span>Get inspired</span>
+          <h2>Real Indian homes</h2>
+          <p>Start with a regional direction that suits your climate, city and way of living.</p>
+        </div>
+        <button type="button" onClick={() => navigate("/design")}>See all</button>
+      </div>
+      <div className="hm-m-inspiration-rail">
+        {INDIAN_HOME_STYLES.map((style) => (
+          <button key={style.id} type="button" onClick={() => navigate("/design")}>
+            <img src={publicAsset(style.image)} alt="" loading="lazy" />
+            <span>
+              <strong>{style.title}</strong>
+              <small>{style.subtitle}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div className="hm-m-section-heading">
+        <div>
+          <span>Why HomeMakers</span>
+          <h2>Built around your role</h2>
+          <p>A clear path for planning a home—and a clear path for growing a professional practice.</p>
+        </div>
+      </div>
+      <section className="hm-m-audience-section">
+        <article className="hm-m-audience-card homeowner">
+          <span>For homeowners</span>
+          <h3>Go from an idea to an organized build.</h3>
+          <div className="hm-m-benefit-list">
+            {HOMEOWNER_BENEFITS.map((benefit) => (
+              <div key={benefit.title}>
+                <CheckCircle2 size={20} />
+                <p><strong>{benefit.title}</strong><small>{benefit.text}</small></p>
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={() => navigate("/build")}>Create your project <ArrowRight size={17} /></button>
+        </article>
+
+        <article className="hm-m-audience-card professional">
+          <span>For professionals</span>
+          <h3>Turn your work into a visible practice.</h3>
+          <p>Architects, designers, engineers, contractors and skilled trades get one serious place to present their work and meet better-prepared homeowners.</p>
+          <ul>
+            {PROFESSIONAL_BENEFITS.map((benefit) => <li key={benefit}>{benefit}</li>)}
+          </ul>
+          <button type="button" onClick={() => navigate(getProEntryPath())}>Create your portfolio <ArrowRight size={17} /></button>
+        </article>
+      </section>
+
+      <div className="hm-m-section-heading">
+        <div>
+          <span>Professionals on HomeMakers</span>
+          <h2>See real work before you shortlist</h2>
+        </div>
+        <button type="button" onClick={() => navigate("/browse")}>Find pros</button>
       </div>
       <MobileCategoryRail categories={INDIAN_ROOM_FILTERS} activeId={filter} onSelect={setFilter} />
       {feedError ? (
-        <p role="alert" style={{ padding: "0 16px 24px", fontSize: 14, color: "#B42318" }}>{feedError}</p>
+        <p role="alert" className="hm-m-inline-error">{feedError}</p>
       ) : loadingFeed ? (
         <div className="hm-m-feed-skeleton" role="status" aria-label="Loading professional portfolios">
           {[0, 1, 2, 3].map((item) => <span key={item} />)}
         </div>
       ) : feed.length === 0 ? (
         <div className="hm-m-empty" style={{ margin: "0 16px 24px" }}>
-          <p>No published portfolios yet for this filter. Be the first pro — or start your own project.</p>
-          <button type="button" className="hm-m-btn-primary" onClick={() => navigate("/build")}>
-            Start a home project
+          <p>No published portfolios yet for this filter.</p>
+          <button type="button" className="hm-m-btn-primary" onClick={() => navigate(getProEntryPath())}>
+            Create the first portfolio
           </button>
         </div>
       ) : (
         <MobilePhotoGrid photos={feed} />
       )}
 
-      <div className="hm-m-section-row">
-        <div><span>Always connected</span><h2>Intelligence that stays useful</h2></div>
-      </div>
-      <div className="hm-m-intelligence-rail">
-        {MOBILE_INTELLIGENCE.map((item) => {
-          const Icon = item.icon;
-          return <article key={item.title} className="hm-m-intelligence-card"><span><Icon size={19} /></span><strong>{item.title}</strong><p>{item.text}</p></article>;
-        })}
-      </div>
+      <section className="hm-m-home-final-cta">
+        <span>One place to begin</span>
+        <h2>Ready to make the next decision clearer?</h2>
+        <div>
+          <button type="button" className="primary" onClick={() => navigate("/build")}>Start a home project</button>
+          <button type="button" onClick={() => navigate(getProEntryPath())}>Create a pro portfolio</button>
+        </div>
+      </section>
 
       <MobileSaveToast toast={toast} onViewIdeas={() => { clearToast(); navigate("/design"); }} />
     </>
