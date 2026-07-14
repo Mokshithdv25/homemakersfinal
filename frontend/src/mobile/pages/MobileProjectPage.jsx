@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import MobileHeader from "../MobileHeader";
 import { useMobileHub } from "../hooks/useMobileHub";
 import { flowTypeLabel, projectStatusLabel } from "../mobileIA";
@@ -185,7 +186,15 @@ export default function MobileProjectPage() {
 
   return (
     <>
-      <MobileHeader title={title} subtitle={subtitle} />
+      <MobileHeader
+        title={title}
+        subtitle={subtitle}
+        right={(
+          <button type="button" className="hm-m-icon-btn" aria-label="Start a new project" onClick={() => navigate("/build")}>
+            <Plus size={22} />
+          </button>
+        )}
+      />
       {AUTH_UI_ENABLED && !session?.supabaseUserId ? (
         <div style={{ padding: 16 }}>
           <p style={{ fontSize: 14, color: "#78716C", marginBottom: 16, lineHeight: 1.5 }}>
@@ -287,8 +296,8 @@ export default function MobileProjectPage() {
           </div>
           )}
           {activePhase ? (
-            <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", fontSize: 13, fontWeight: 700 }}>
-              {activePhase} status
+            <label className="hm-m-stage-status">
+              <span>{activePhase} status</span>
               <select value={boardPhases.find((row) => row.name === activePhase)?.status === "Done" ? "done" : boardPhases.find((row) => row.name === activePhase)?.status === "Blocked" ? "blocked" : boardPhases.find((row) => row.name === activePhase)?.status === "In Progress" ? "in_progress" : "upcoming"} onChange={changeStageStatus} style={{ flex: 1, padding: 9, border: "1px solid #E5DED6", borderRadius: 8, background: "#fff" }}>
                 <option value="upcoming">Upcoming</option><option value="in_progress">In progress</option><option value="blocked">Blocked</option><option value="done" disabled={(boardPhases.find((row) => row.name === activePhase)?.pct || 0) < 100}>Done — checklist complete</option>
               </select>
@@ -337,7 +346,7 @@ export default function MobileProjectPage() {
           <button
             type="button"
             className="hm-m-btn-secondary"
-            style={{ margin: "0 16px 16px" }}
+            style={{ width: "calc(100% - 32px)", margin: "0 16px 16px" }}
             onClick={() => window.dispatchEvent(new CustomEvent("hm-open-assistant"))}
           >
             ✨ Ask Homi (AI co-pilot)

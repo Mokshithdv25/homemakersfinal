@@ -419,6 +419,23 @@ class LaunchContractsTest(unittest.TestCase):
         self.assertIn("set moderation_status = 'approved'", migration)
         self.assertIn("still_waiting", migration)
 
+    def test_mobile_core_flows_preserve_context_and_phone_ui_contracts(self):
+        mobile_build = (ROOT / "frontend/src/mobile/pages/MobileBuildPage.jsx").read_text()
+        mobile_project = (ROOT / "frontend/src/mobile/pages/MobileProjectPage.jsx").read_text()
+        mobile_profile = (ROOT / "frontend/src/mobile/pages/MobileProProfilePage.jsx").read_text()
+        mobile_css = (ROOT / "frontend/src/mobile/mobile.css").read_text()
+        native_shell = (ROOT / "frontend/src/lib/capacitorPlatform.js").read_text()
+
+        self.assertIn('searchParams.get("pro")', mobile_build)
+        self.assertIn('flowParams.set("pro", referredPro)', mobile_build)
+        self.assertIn('aria-label="Start a new project"', mobile_project)
+        self.assertIn('width: "calc(100% - 32px)"', mobile_project)
+        self.assertIn("Work With Me", mobile_profile)
+        self.assertIn("hm-m-create-portfolio-link", mobile_profile)
+        self.assertIn("font-size: 16px !important", mobile_css)
+        self.assertIn("min-height: 44px", mobile_css)
+        self.assertIn('window.location.pathname === "/"', native_shell)
+
     def test_server_profile_signer_is_owner_prefix_scoped(self):
         server = (ROOT / "backend/server.py").read_text()
         self.assertIn("path.startswith(expected_prefix)", server)

@@ -83,7 +83,7 @@ export default function MobileProsPage() {
         <Search size={18} color="#78716C" />
         <input placeholder="Service — architect, painter…" value={service} onChange={(e) => setService(e.target.value)} />
       </form>
-      <div className="hm-m-search-bar" style={{ marginTop: 0, padding: "10px 14px" }}>
+      <div className="hm-m-search-bar" style={{ marginTop: 0 }}>
         <MapPin size={18} color="#78716C" />
         <input placeholder="City" value={city} onChange={(e) => setCity(e.target.value)} />
         <button type="button" className="hm-m-pill active" style={{ margin: 0 }} onClick={onSearch}>

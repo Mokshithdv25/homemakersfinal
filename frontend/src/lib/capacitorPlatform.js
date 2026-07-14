@@ -48,10 +48,12 @@ export async function initNativeShell() {
 
     if (Capacitor.getPlatform() === "android") {
       App.addListener("backButton", () => {
-        if (window.history.length > 1) {
+        if (window.location.pathname === "/") {
+          App.minimizeApp();
+        } else if (window.history.length > 1) {
           window.history.back();
         } else {
-          App.minimizeApp();
+          window.location.assign("/");
         }
       });
     }

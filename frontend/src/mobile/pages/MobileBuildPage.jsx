@@ -6,7 +6,11 @@ export default function MobileBuildPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromPortfolio = (searchParams.get("source") || "").toLowerCase() === "portfolio";
-  const q = fromPortfolio ? "?source=portfolio" : "";
+  const referredPro = searchParams.get("pro") || "";
+  const flowParams = new URLSearchParams();
+  if (fromPortfolio) flowParams.set("source", "portfolio");
+  if (referredPro) flowParams.set("pro", referredPro);
+  const q = flowParams.toString() ? `?${flowParams.toString()}` : "";
 
   return (
     <>

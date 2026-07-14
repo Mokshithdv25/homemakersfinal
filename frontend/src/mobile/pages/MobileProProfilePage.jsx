@@ -130,6 +130,14 @@ export default function MobileProProfilePage() {
               <div style={{ fontSize: 13, fontWeight: 700, marginTop: 2, color: theme.accentSoft, filter: "brightness(1.1)" }}>{label}</div>
             </div>
           </div>
+          <button
+            type="button"
+            className="hm-m-btn-primary"
+            style={{ width: "100%", marginTop: 16, background: theme.accent, borderColor: theme.accent }}
+            onClick={() => navigate(`/build?source=portfolio&pro=${encodeURIComponent(pro.slug || pro.id)}`)}
+          >
+            Work With Me
+          </button>
         </div>
       </div>
 
@@ -150,15 +158,6 @@ export default function MobileProProfilePage() {
         {bio ? (
           <p style={{ fontSize: 14, lineHeight: 1.6, color: "#44403C", margin: "0 0 16px" }}>{bio}</p>
         ) : null}
-
-        <button
-          type="button"
-          className="hm-m-btn-primary"
-          style={{ width: "100%", marginBottom: 18, background: theme.accent, borderColor: theme.accent }}
-          onClick={() => navigate(`/build?source=portfolio&pro=${encodeURIComponent(pro.slug || pro.id)}`)}
-        >
-          Work With Me
-        </button>
 
         {specialties.length > 0 ? (
           <>
@@ -191,7 +190,7 @@ export default function MobileProProfilePage() {
           <button type="button" onClick={handleBlock} style={{ border: 0, background: "transparent", color: "#78716C", textDecoration: "underline" }}>Block profile</button>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
-          <Link to="/craft" style={{ color: theme.accent, fontWeight: 800, fontSize: 13 }}>Want a portfolio like this? Create yours</Link>
+          <Link className="hm-m-create-portfolio-link" to="/craft" style={{ color: theme.accent }}>Want a portfolio like this? Create yours</Link>
         </div>
       </div>
 

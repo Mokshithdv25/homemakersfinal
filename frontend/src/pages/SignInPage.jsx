@@ -539,7 +539,7 @@ export default function SignInPage() {
         <button
           type="button"
           onClick={step === "otp" ? () => setStep("entry") : goBack}
-          className={`flex shrink-0 items-center gap-1.5 text-muted-foreground font-body text-sm hover:text-foreground transition-colors bg-transparent border-none cursor-pointer ${
+          className={`hm-mobile-auth-back flex shrink-0 items-center gap-1.5 text-muted-foreground font-body text-sm hover:text-foreground transition-colors bg-transparent border-none cursor-pointer ${
             step === "details" || step === "done" ? "invisible pointer-events-none" : ""
           }`}
         >
@@ -559,7 +559,7 @@ export default function SignInPage() {
             height={60}
             decoding="async"
           />
-          <span className={HM_WORDMARK_TITLE_CLASS}>HomeMakers</span>
+          <span className={`hm-mobile-auth-wordmark ${HM_WORDMARK_TITLE_CLASS}`}>HomeMakers</span>
         </button>
         <div className="flex-1" aria-hidden />
       </div>
@@ -597,7 +597,7 @@ export default function SignInPage() {
                       <button
                         type="button"
                         onClick={() => setAccountRole("homeowner")}
-                        className={`rounded-lg px-3 py-2 text-sm font-body font-semibold transition-colors ${
+                        className={`hm-mobile-auth-role rounded-lg px-3 py-2 text-sm font-body font-semibold transition-colors ${
                           accountRole === "homeowner"
                             ? "bg-accent/15 text-copper"
                             : "text-muted-foreground hover:bg-muted/40"
@@ -608,7 +608,7 @@ export default function SignInPage() {
                       <button
                         type="button"
                         onClick={() => setAccountRole("pro")}
-                        className={`rounded-lg px-3 py-2 text-sm font-body font-semibold transition-colors ${
+                        className={`hm-mobile-auth-role rounded-lg px-3 py-2 text-sm font-body font-semibold transition-colors ${
                           accountRole === "pro"
                             ? "bg-accent/15 text-copper"
                             : "text-muted-foreground hover:bg-muted/40"
@@ -782,7 +782,7 @@ export default function SignInPage() {
                                 type="button"
                                 onClick={handleForgotPassword}
                                 disabled={loading}
-                                className="text-copper font-body text-xs font-medium hover:underline disabled:opacity-50"
+                                className="hm-mobile-auth-link text-copper font-body text-xs font-medium hover:underline disabled:opacity-50"
                               >
                                 Forgot password?
                               </button>
@@ -868,9 +868,9 @@ export default function SignInPage() {
 
                   {!passwordRecovery && <p className="text-muted-foreground font-body text-[11px] text-center leading-relaxed">
                     By continuing, you agree to HomeMakers&apos;{" "}
-                    <button type="button" onClick={() => navigate("/terms")} className="text-copper hover:underline">Terms of Service</button>
+                    <button type="button" onClick={() => navigate("/terms")} className="hm-mobile-auth-legal text-copper hover:underline">Terms of Service</button>
                     {" "}and{" "}
-                    <button type="button" onClick={() => navigate("/privacy")} className="text-copper hover:underline">Privacy Policy</button>
+                    <button type="button" onClick={() => navigate("/privacy")} className="hm-mobile-auth-legal text-copper hover:underline">Privacy Policy</button>
                   </p>}
 
                   {/* Mode Toggle */}

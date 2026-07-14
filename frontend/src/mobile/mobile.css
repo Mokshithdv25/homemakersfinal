@@ -15,6 +15,31 @@
   overscroll-behavior-y: none;
 }
 
+.hm-mobile-app *,
+.hm-mobile-app *::before,
+.hm-mobile-app *::after {
+  box-sizing: border-box;
+}
+
+.hm-mobile-app button,
+.hm-mobile-app a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* iOS zooms form fields below 16px; keep forms stable when the keyboard opens. */
+.hm-mobile-app input:not([type="checkbox"]):not([type="radio"]),
+.hm-mobile-app select,
+.hm-mobile-app textarea {
+  min-width: 0;
+  max-width: 100%;
+  font-size: 16px !important;
+}
+
+.hm-mobile-app button {
+  min-height: 44px;
+}
+
 .hm-mobile-app .hm-project-sidebar {
   display: none !important;
 }
@@ -67,6 +92,9 @@
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hm-m-header-sub {
@@ -74,6 +102,9 @@
   font-weight: 500;
   color: var(--m-muted);
   margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hm-m-icon-btn {
@@ -135,6 +166,8 @@
   border-radius: var(--m-radius);
   padding: 16px;
   box-shadow: 0 1px 3px rgba(28, 25, 23, 0.04);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .hm-m-hero {
@@ -221,6 +254,7 @@
   font-size: 14px;
   font-weight: 700;
   color: var(--m-text);
+  overflow-wrap: anywhere;
 }
 
 .hm-m-quick-sub {
@@ -261,6 +295,65 @@
   font-weight: 600;
   color: var(--m-text);
   cursor: pointer;
+  min-height: 44px;
+  scroll-snap-align: start;
+}
+
+.hm-m-pill-row,
+.hm-m-phase-scroll,
+.hm-m-latest-scroll {
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.hm-m-stage-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hm-m-create-portfolio-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.hm-mobile-auth-back,
+.hm-mobile-auth-role,
+.hm-mobile-auth-link {
+  min-height: 44px;
+}
+
+.hm-mobile-auth-link {
+  padding: 8px 0;
+}
+
+.hm-mobile-auth-legal {
+  min-height: 36px;
+  padding: 6px 3px;
+}
+
+@media (max-width: 380px) {
+  .hm-m-stage-status {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hm-m-stage-status select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 340px) {
+  .hm-mobile-auth-wordmark {
+    display: none;
+  }
 }
 
 .hm-m-pill.active {
@@ -274,7 +367,8 @@
   align-items: center;
   gap: 10px;
   margin: 12px 16px;
-  padding: 12px 14px;
+  min-height: 48px;
+  padding: 0 14px;
   border-radius: 14px;
   border: 1px solid var(--m-border);
   background: var(--m-surface);
@@ -287,6 +381,7 @@
   font-size: 15px;
   background: transparent;
   color: var(--m-text);
+  min-height: 44px;
 }
 
 .hm-m-pro-card {
@@ -443,7 +538,8 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 14px;
+  min-height: 48px;
+  padding: 0 14px;
   border-radius: 14px;
   border: 1px solid var(--m-border);
   background: var(--m-surface);
@@ -455,6 +551,7 @@
   outline: none;
   font-size: 15px;
   background: transparent;
+  min-height: 44px;
 }
 
 .hm-m-start-banner {
