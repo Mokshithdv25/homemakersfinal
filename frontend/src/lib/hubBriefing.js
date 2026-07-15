@@ -42,6 +42,7 @@ export function buildHubBadges(ctx, { pendingTasks = 0, openQuotes = 0 } = {}) {
     });
   }
   if (ctx.hasV0) badges.push({ label: "AI v0", value: "On file", tone: "orange" });
+  if (ctx.materials?.length) badges.push({ label: "Material items", value: String(ctx.materials.length), tone: "sand" });
   if (ctx.postedBanner) badges.push({ label: "Marketplace", value: "Posted", tone: "green" });
   if (openQuotes > 0) badges.push({ label: "Quote replies", value: String(openQuotes), tone: "pink" });
   if (ctx.budgetLabel) badges.push({ label: "Budget band", value: ctx.budgetLabel, tone: "sand" });
@@ -65,6 +66,14 @@ export function buildHubAgenda(ctx, { pendingTasks = [], selectedPhase = "" } = 
     parts.push(`Next task: **${ctx.nextTask}**.`);
   } else {
     parts.push("No urgent tasks — good time to review budget or post for quotes.");
+  }
+  const blocked = (ctx.tasks || []).filter((task) => task.status === "blocked");
+  if (blocked.length) parts.push(`**${blocked.length} blocked** task${blocked.length === 1 ? " needs" : "s need"} attention.`);
+  const pendingApprovals = (ctx.agentActions || []).filter((action) => action.status === "suggested");
+  if (pendingApprovals.length) parts.push(`**${pendingApprovals.length} suggested action${pendingApprovals.length === 1 ? "" : "s"}** await approval.`);
+  if (ctx.materials?.length) {
+    const selected = ctx.materials.filter((item) => item.brand).length;
+    parts.push(`Material plan: ${ctx.materials.length} items; ${selected} brand selection${selected === 1 ? "" : "s"} saved.`);
   }
   return parts.join(" ");
 }
@@ -97,8 +106,11 @@ export function buildSuggestedActions(ctx) {
 
   const actions = [
     { label: "Give me today's project briefing", message: "latest" },
-    { label: "Show open tasks for this stage", message: "tasks" },
+    { label: "Ask about project risks & decisions", message: "What are the main risks and next decisions on this project?" },
   ];
+  if (ctx.materials?.length) {
+    actions.push({ label: "Review material takeoff & brands", message: "Show my material takeoff and selected brands" });
+  }
   if (ctx.wantsMarketplaceQuotes !== false && (ctx.postedBanner || !ctx.hasV0)) {
     actions.push({
       label: "Find pros & compare quotes",
@@ -129,10 +141,10 @@ export function buildSuggestedActions(ctx) {
 }
 
 export const COMMAND_CENTER_TRY_PROMPTS = [
-  { label: "What's new on my project?", message: "latest" },
-  { label: "Show open tasks this week", message: "tasks" },
-  { label: "Find pros for my posted scope", message: "quotes" },
-  { label: "What should I focus on today?", message: "latest" },
+  { label: "Give me today's briefing", message: "latest" },
+  { label: "What changed since the last update?", message: "What changed since the last site update?" },
+  { label: "Show material quantities & brands", message: "Show my material takeoff and selected brands" },
+  { label: "What needs my approval?", message: "What needs my approval?" },
 ];
 
 /** Plain text for optional speech synthesis (strip markdown). */

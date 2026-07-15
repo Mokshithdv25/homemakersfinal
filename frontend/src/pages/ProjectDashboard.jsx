@@ -25,6 +25,9 @@ import {
   setProjectStageStatus,
   setProjectTaskDone,
   setProjectTaskStatus,
+  updateProjectSchedule,
+  updateProjectStageSchedule,
+  updateProjectTaskDueDate,
 } from "../lib/projectFlowApi";
 import { listProjectDocuments, listProjectPayments, updateProjectTitle, uploadProjectDocument } from "../lib/projectWorkspaceApi";
 import { buildSignInRedirect } from "../lib/requireHomeownerAuth";
@@ -33,6 +36,15 @@ import HmFormDialog from "../components/HmFormDialog";
 import HmProjectAssistant from "../components/HmProjectAssistant";
 import HmCommandCenter from "../components/HmCommandCenter";
 import HmMorningBriefing from "../components/HmMorningBriefing";
+import HmProjectIntelligence from "../components/HmProjectIntelligence";
+import ProjectMaterialsPanel from "../components/ProjectMaterialsPanel";
+import ProjectTimelineEditor from "../components/ProjectTimelineEditor";
+import {
+  loadProjectIntelligence,
+  recordAgentDecision,
+  removeProjectMaterial,
+  saveProjectMaterial,
+} from "../lib/projectIntelligenceApi";
 import { browseQuotesUrl, isProjectPostedPhase } from "../lib/projectPostingFlow";
 
 const OR = "#C85F2B";
@@ -253,6 +265,7 @@ const NAV = [
   { icon: "📅", label: "Timeline", path: null },
   { icon: "✓", label: "Tasks", path: null },
   { icon: "₹", label: "Budget", path: null },
+  { icon: "🧱", label: "Materials", path: null },
   { icon: "💳", label: "Payments", path: "/project/payments" },
   { icon: "📸", label: "Site Feed", path: null },
   { icon: "📄", label: "Documents", path: "/documents" },
@@ -400,6 +413,9 @@ export default function ProjectDashboard() {
   const [tasks, setTasks] = useState([]);
   const [projectDocuments, setProjectDocuments] = useState([]);
   const [payments, setPayments] = useState([]);
+  const [materialItems, setMaterialItems] = useState([]);
+  const [agentActions, setAgentActions] = useState([]);
+  const [intelligenceConfigured, setIntelligenceConfigured] = useState(true);
   const [projectTitleDraft, setProjectTitleDraft] = useState("");
   const [renamingProject, setRenamingProject] = useState(false);
   const [siteUploading, setSiteUploading] = useState(false);
@@ -563,6 +579,9 @@ export default function ProjectDashboard() {
       setV0Pack(null);
       setProjectDocuments([]);
       setPayments([]);
+      setMaterialItems([]);
+      setAgentActions([]);
+      setIntelligenceConfigured(true);
       return;
     }
     const run = async () => {
@@ -594,6 +613,21 @@ export default function ProjectDashboard() {
         setV0Pack(board.v0Pack || null);
         setProjectDocuments(documents || []);
         setPayments(paymentRows || []);
+        try {
+          const intelligence = await loadProjectIntelligence({
+            projectId,
+            brief: board.brief || {},
+            v0Pack: board.v0Pack || null,
+          });
+          setMaterialItems(intelligence.materials || []);
+          setAgentActions(intelligence.actions || []);
+          setIntelligenceConfigured(intelligence.configured);
+        } catch (intelligenceError) {
+          console.warn("Could not load project intelligence:", intelligenceError?.message || intelligenceError);
+          setMaterialItems([]);
+          setAgentActions([]);
+          setIntelligenceConfigured(false);
+        }
         const ms = board.v0Pack?.estimate?.milestones;
         if (Array.isArray(ms) && ms.length) {
           setMilestonesByPhase({
@@ -696,6 +730,11 @@ export default function ProjectDashboard() {
           (activeProjectMeta?.budget_max ? formatInrShort(activeProjectMeta.budget_max) : null),
         hasV0: Boolean(v0Pack?.images || v0Pack?.estimate),
         v0Pack,
+        brief: briefData,
+        documents: projectDocuments,
+        payments,
+        materials: materialItems,
+        agentActions,
         location: activeProjectMeta?.location || briefData?.location || briefData?.city || "",
         timeline: activeProjectMeta?.timeline_completion || briefData?.timeline || "",
         postedBanner: showPostedBanner,
@@ -717,6 +756,10 @@ export default function ProjectDashboard() {
       pendingTasks.length,
       nextOpenTask,
       v0Pack,
+      projectDocuments,
+      payments,
+      materialItems,
+      agentActions,
       showPostedBanner,
       briefHasOwnPros,
       hubQuery,
@@ -728,6 +771,41 @@ export default function ProjectDashboard() {
     if (!title?.trim()) return;
     createTask(title, phase);
     setActiveNav("Tasks");
+  };
+
+  const saveMaterial = async (item) => {
+    const saved = await saveProjectMaterial(activeProjectId, item);
+    setMaterialItems((current) => current.map((row) => row.id === item.id ? saved : row));
+    return saved;
+  };
+
+  const removeMaterial = async (itemId) => {
+    await removeProjectMaterial(activeProjectId, itemId);
+    setMaterialItems((current) => current.filter((row) => row.id !== itemId));
+  };
+
+  const decideAgentAction = async (decision) => {
+    const saved = await recordAgentDecision({ projectId: activeProjectId, ...decision });
+    setAgentActions((current) => [saved, ...current]);
+    return saved;
+  };
+
+  const saveProjectSchedule = async (schedule) => {
+    const saved = await updateProjectSchedule(activeProjectId, schedule);
+    setUserProjects((rows) => rows.map((row) => row.id === activeProjectId ? { ...row, ...saved } : row));
+    return saved;
+  };
+
+  const saveStageSchedule = async (phase, schedule) => {
+    const saved = await updateProjectStageSchedule({ projectId: activeProjectId, stageId: phase.id, ...schedule });
+    setPhaseRows((rows) => rows.map((row) => row.id === phase.id ? { ...row, startDate: saved.start_date || "", dueDate: saved.due_date || "" } : row));
+    return saved;
+  };
+
+  const saveTaskDueDate = async (task, dueDate) => {
+    const saved = await updateProjectTaskDueDate({ projectId: activeProjectId, taskId: task.id, dueDate });
+    const label = saved.due_date ? new Date(`${saved.due_date}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "No due date";
+    setTasks((rows) => rows.map((row) => row.id === task.id ? { ...row, dueDate: saved.due_date || "", date: label } : row));
   };
 
   const allTasksSorted = useMemo(() => {
@@ -1495,6 +1573,20 @@ export default function ProjectDashboard() {
               onNavigatePath={(path) => navigate(path)}
             />
             <HmCommandCenter />
+            {isLiveProject ? (
+              <HmProjectIntelligence
+                context={assistantContext}
+                brief={briefData || {}}
+                materials={materialItems}
+                actions={agentActions}
+                documents={projectDocuments}
+                payments={payments}
+                configured={intelligenceConfigured}
+                onDecision={decideAgentAction}
+                onOpenMaterials={() => setActiveNav("Materials")}
+                onNavigatePath={(path) => navigate(path)}
+              />
+            ) : null}
             {boardError ? (
               <div role="alert" style={{ margin: "12px 0", padding: "11px 14px", borderRadius: 10, background: "#FEF3F2", color: "#B42318", fontSize: 13 }}>
                 {boardError}
@@ -1824,12 +1916,24 @@ export default function ProjectDashboard() {
           </>
           )}
 
+          {hubReady && activeNav === "Materials" && (
+            <ProjectMaterialsPanel
+              projectId={activeProjectId}
+              materials={materialItems}
+              configured={intelligenceConfigured}
+              onSave={saveMaterial}
+              onRemove={removeMaterial}
+              onNavigateShop={() => navigate(`/project/shop${hubQuery}`)}
+            />
+          )}
+
           {hubReady && activeNav === "Timeline" && (
             <div style={{ maxWidth: 800 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 8px" }}>Timeline</h2>
               <p style={{ fontSize: 14, color: "#7A6E62", margin: "0 0 22px", lineHeight: 1.55 }}>
-                Important milestones and reminders grouped by stage. Edit or remove from here, or add new ones from the Overview board for the selected stage.
+                Set the overall target, stage dates, and task due dates. Progress still comes from completed checklist tasks—not invented calendar dates.
               </p>
+              {isLiveProject ? <div style={{ marginBottom: 16 }}><ProjectTimelineEditor project={activeProjectMeta} brief={briefData} phases={phaseRows} onSaveProject={saveProjectSchedule} onSaveStage={saveStageSchedule} /></div> : null}
               <div style={{ ...panel, padding: "22px 24px" }}>
                 <div style={{ borderLeft: "3px solid #E8E6E3", marginLeft: 10, paddingLeft: 20 }}>
                   {phaseOrder.map((ph) => (
@@ -1879,6 +1983,7 @@ export default function ProjectDashboard() {
                           <div key={`timeline-${task.id}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0 10px 6px", borderBottom: "1px solid #F0EBE3" }}>
                             <span aria-hidden>{task.done ? "✅" : task.status === "in_progress" ? "🟠" : "☐"}</span>
                             <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{task.name}</div><div style={{ fontSize: 12, color: "#78716C", marginTop: 3 }}>{task.date || "No due date"}</div></div>
+                            {isLiveProject ? <label style={{ display: "grid", gap: 3, color: "#78716C", fontSize: 9, fontWeight: 700 }}>DUE DATE<input type="date" value={task.dueDate || ""} onChange={(event) => saveTaskDueDate(task, event.target.value)} style={{ border: "1px solid #D4CEC6", borderRadius: 7, padding: "6px 7px", fontSize: 11 }} /></label> : null}
                             <span style={{ fontSize: 11, fontWeight: 700, color: task.done ? "#15803D" : task.status === "in_progress" ? "#B45309" : "#78716C" }}>{task.done ? "Completed" : task.status === "in_progress" ? "In progress" : "To-do"}</span>
                           </div>
                         ))}

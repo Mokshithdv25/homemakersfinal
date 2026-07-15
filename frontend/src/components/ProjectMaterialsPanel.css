@@ -1,0 +1,18 @@
+.hm-material-plan { padding: 0 40px 60px; color: #1c1917; }
+.hm-material-plan__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; border: 1px solid #e9ded5; border-radius: 18px; background: linear-gradient(135deg,#fff3e8,#fffdfb); padding: 22px; }
+.hm-material-plan__head p { margin: 0 0 6px; color: #c85f2b; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.hm-material-plan__head h1 { margin: 0; font-size: 25px; }
+.hm-material-plan__head > div > span { display: block; max-width: 690px; margin-top: 8px; color: #71675f; font-size: 13px; line-height: 1.55; }
+.hm-material-plan__summary { flex: 0 0 auto; display: grid; grid-template-columns: auto auto; gap: 4px 8px; align-items: baseline; border: 1px solid #ecd7c4; border-radius: 14px; background: rgba(255,255,255,.8); padding: 12px 15px; }
+.hm-material-plan__summary strong { color: #c85f2b; font-size: 22px; }.hm-material-plan__summary span { color: #81766e; font-size: 11px; }
+.hm-material-plan__notice { display: flex; align-items: flex-start; gap: 8px; margin: 12px 0; border: 1px solid #fde68a; border-radius: 11px; background: #fffbeb; color: #854d0e; padding: 10px 12px; font-size: 11px; line-height: 1.45; }
+.hm-material-plan__notice svg { flex: 0 0 auto; margin-top: 1px; }
+.hm-material-plan__table-wrap { overflow-x: auto; border: 1px solid #e8e4de; border-radius: 15px; background: #fff; }
+.hm-material-plan table { width: 100%; min-width: 900px; border-collapse: collapse; }
+.hm-material-plan th { background: #faf8f5; color: #81766e; padding: 11px; text-align: left; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.hm-material-plan td { border-top: 1px solid #eee8e2; padding: 11px; vertical-align: top; }
+.hm-material-plan input,.hm-material-plan select { width: 100%; box-sizing: border-box; border: 1px solid #ded7d0; border-radius: 8px; background: #fff; padding: 8px; color: #292524; font: inherit; font-size: 12px; }
+.hm-material-plan td:first-child select { width: 120px; margin-bottom: 6px; }.hm-material-plan td:first-child input { font-weight: 750; }.hm-material-plan small { display: block; max-width: 320px; margin-top: 6px; color: #938981; font-size: 9px; line-height: 1.4; }
+.hm-material-plan__quantity { display: grid; grid-template-columns: 85px 100px; gap: 6px; }.hm-material-plan__actions { display: flex; gap: 5px; }.hm-material-plan__actions button { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid #e0d8d1; border-radius: 8px; background: #fff; color: #c85f2b; cursor: pointer; }.hm-material-plan__actions button:last-child { color: #b42318; }
+.hm-material-plan__footer { display: flex; justify-content: space-between; gap: 10px; margin-top: 13px; }.hm-material-plan__footer button { display: inline-flex; min-height: 42px; align-items: center; justify-content: center; gap: 7px; border-radius: 10px; padding: 9px 14px; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }.hm-material-plan__secondary { border: 1px solid #dfd6ce; background: #fff; color: #4b423a; }.hm-material-plan__primary { border: 1px solid #c85f2b; background: #c85f2b; color: #fff; }.hm-material-plan__error { color: #b42318; font-size: 12px; }.hm-material-plan__empty { padding: 35px; text-align: center; color: #81766e; }
+.hm-material-plan__add-actions{display:flex;gap:8px;flex-wrap:wrap}@media (max-width: 760px) { .hm-material-plan { padding: 0 14px 45px; }.hm-material-plan__head { flex-direction: column; }.hm-material-plan__summary { width: 100%; box-sizing: border-box; }.hm-material-plan__footer,.hm-material-plan__add-actions { flex-direction: column; }.hm-material-plan__footer button,.hm-material-plan__add-actions { width: 100%; } }

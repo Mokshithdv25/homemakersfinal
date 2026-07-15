@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { AUTH_UI_ENABLED } from "../lib/authMode";
 import { useHmSession } from "../hooks/useHmSession";
@@ -7,6 +7,7 @@ import { useHmSession } from "../hooks/useHmSession";
 /** Pro-only gate for dashboard and marketplace management tools. */
 export default function ProDashboardGuard({ children }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const session = useHmSession();
   const authLoading = session === undefined;
   const signedIn = Boolean(session?.supabaseUserId);
@@ -15,13 +16,14 @@ export default function ProDashboardGuard({ children }) {
     if (!AUTH_UI_ENABLED) return;
     if (authLoading) return;
     if (!signedIn) {
-      navigate("/sign-in?mode=signin&role=pro&redirect=%2Fpro%2Fdashboard", { replace: true });
+      const redirect = encodeURIComponent(`${location.pathname}${location.search}`);
+      navigate(`/sign-in?mode=signin&role=pro&redirect=${redirect}`, { replace: true });
       return;
     }
     if (session?.role !== "pro") {
       navigate("/build", { replace: true });
     }
-  }, [authLoading, signedIn, session?.role, navigate]);
+  }, [authLoading, signedIn, session?.role, navigate, location.pathname, location.search]);
 
   if (!AUTH_UI_ENABLED) return children;
 

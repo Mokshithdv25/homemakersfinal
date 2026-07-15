@@ -9,6 +9,34 @@ import { getPortfolioBase, getPortfolioMedia, migrateLegacyPortfolioMedia, setPo
 import { publishPortfolio } from "../lib/api";
 import { publicProfileUrl } from "../lib/publicWebUrl";
 
+function WhatsAppLogo() {
+  return (
+    <svg width="27" height="27" viewBox="0 0 32 32" aria-hidden>
+      <circle cx="16" cy="16" r="15" fill="#25D366" />
+      <path fill="#fff" d="M23.7 8.3A10.8 10.8 0 0 0 6.8 21.4L5.3 27l5.7-1.5a10.8 10.8 0 0 0 12.7-17.2Zm-7.6 15.4c-1.8 0-3.6-.5-5.1-1.4l-.4-.2-3.4.9.9-3.3-.2-.4a8.7 8.7 0 1 1 8.2 4.4Zm4.8-6.5c-.3-.1-1.6-.8-1.9-.9-.2-.1-.4-.1-.6.2l-.8 1c-.1.2-.3.2-.6.1-1.5-.7-2.6-1.4-3.6-3.1-.3-.5.3-.5.8-1.6.1-.2 0-.4 0-.5l-.9-2.1c-.2-.5-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1 2.9 1.2 3.1c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.6-.7 1.8-1.3.2-.6.2-1.1.1-1.3-.1-.1-.3-.2-.5-.3Z" />
+    </svg>
+  );
+}
+
+function FacebookLogo() {
+  return (
+    <svg width="27" height="27" viewBox="0 0 32 32" aria-hidden>
+      <circle cx="16" cy="16" r="15" fill="#1877F2" />
+      <path fill="#fff" d="M18.4 27V17.2h3.3l.5-3.8h-3.8V11c0-1.1.3-1.9 1.9-1.9h2V5.7c-.3 0-1.5-.2-2.9-.2-2.9 0-4.9 1.8-4.9 5.1v2.8h-3.3v3.8h3.3V27h3.9Z" />
+    </svg>
+  );
+}
+
+function LinkedInLogo() {
+  return (
+    <svg width="27" height="27" viewBox="0 0 32 32" aria-hidden>
+      <rect x="1" y="1" width="30" height="30" rx="6" fill="#0A66C2" />
+      <circle cx="9.5" cy="10" r="2.2" fill="#fff" />
+      <path fill="#fff" d="M7.6 13.4h3.8V25H7.6V13.4Zm6.1 0h3.6V15h.1c.5-1 1.7-2 3.5-2 3.8 0 4.5 2.5 4.5 5.7V25h-3.8v-5.6c0-1.3 0-3-1.9-3s-2.2 1.4-2.2 2.9V25h-3.8V13.4Z" />
+    </svg>
+  );
+}
+
 export default function GoLive() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -112,9 +140,9 @@ export default function GoLive() {
             <div className="mb-1 text-sm font-semibold text-[#1C1917]">Share your work</div>
             <div className="mb-4 text-[12px] text-[#7A6E62]">A portfolio this good should travel.</div>
             <div className="flex gap-3 overflow-x-auto pb-2">
-              <button type="button" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener")} className="h-20 w-24 shrink-0 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-green-500">WhatsApp</button>
-              <button type="button" onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(profileUrl)}`, "_blank", "noopener")} className="h-20 w-24 shrink-0 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-blue-500">Facebook</button>
-              <button type="button" onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(profileUrl)}`, "_blank", "noopener")} className="h-20 w-24 shrink-0 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-blue-700">LinkedIn</button>
+              <button type="button" aria-label="Share portfolio on WhatsApp" onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(shareMessage)}`, "_blank", "noopener")} className="flex h-20 w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-green-500"><WhatsAppLogo /> WhatsApp</button>
+              <button type="button" aria-label="Share portfolio on Facebook" onClick={() => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(profileUrl)}`, "_blank", "noopener")} className="flex h-20 w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-blue-500"><FacebookLogo /> Facebook</button>
+              <button type="button" aria-label="Share portfolio on LinkedIn" onClick={() => window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(profileUrl)}`, "_blank", "noopener")} className="flex h-20 w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-blue-700"><LinkedInLogo /> LinkedIn</button>
               <button type="button" onClick={nativeShare} className="flex h-20 w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-[#C85F2B]"><Link2 size={18} /> Share</button>
               <button type="button" onClick={() => window.open(`https://api.qrserver.com/v1/create-qr-code/?size=360x360&data=${encodeURIComponent(profileUrl)}`, "_blank", "noopener")} className="flex h-20 w-24 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-[#EFE3D2] bg-white text-xs font-bold hover:border-[#C85F2B]"><QrCode size={18} /> QR code</button>
             </div>

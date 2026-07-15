@@ -163,7 +163,7 @@ export function LivePreview({
       )}
 
       <div
-        className={`preview-card preview-card--${theme.layout} fade-up`}
+        className={`preview-card preview-card--${theme.layout} preview-card--theme-${theme.id} fade-up`}
         key={`${craftId || "default"}-${theme.id}-${theme.layout}`}
         data-testid="live-preview-card"
         style={themeStyle}
@@ -198,34 +198,34 @@ export function LivePreview({
           </div>
         </div>
 
-        <div className="pt-14 px-7 pb-7">
+        <div className="preview-card-content pt-14 px-7 pb-7">
           <div
-            className="font-serif-display text-3xl font-semibold text-[#1C1917]"
+            className="preview-name font-serif-display text-3xl font-semibold text-[#1C1917]"
             data-testid="live-preview-name"
           >
             {name}
           </div>
           <div
-            className="font-semibold text-[15px] mt-0.5 hm-portfolio-accent-text"
+            className="preview-business font-semibold text-[15px] mt-0.5 hm-portfolio-accent-text"
             data-testid="live-preview-craft"
           >
             {business}
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-sm text-[#7A6E62]">
+          <div className="preview-meta mt-2 flex items-center gap-1.5 text-sm text-[#7A6E62]">
             <MapPin size={14} strokeWidth={1.8} />
             <span>{city}</span>
           </div>
-          <div className="mt-6 h-px bg-[#EFE3D2]" />
+          <div className="preview-divider mt-6 h-px bg-[#EFE3D2]" />
 
           <div className="mt-5">
-            <div className="font-semibold text-[#1C1917] mb-3">About</div>
-            <div className="text-sm text-[#7A6E62] leading-relaxed">
+            <div className="preview-section-title font-semibold text-[#1C1917] mb-3">About</div>
+            <div className="preview-about text-sm text-[#7A6E62] leading-relaxed">
               {about}
             </div>
           </div>
 
           <div className="mt-6">
-            <div className="font-semibold text-[#1C1917] mb-3">Specialties</div>
+            <div className="preview-section-title font-semibold text-[#1C1917] mb-3">Specialties</div>
             <div className="flex flex-wrap gap-2">
               {specialties.slice(0, 5).map((s, i) => (
                 <div
@@ -244,11 +244,11 @@ export function LivePreview({
           </div>
 
           <div className="mt-6">
-            <div className="font-semibold text-[#1C1917] mb-3">{uploadedPhotos.length > 0 ? "Our Work" : "Projects"}</div>
+            <div className="preview-section-title font-semibold text-[#1C1917] mb-3">{uploadedPhotos.length > 0 ? "Our Work" : "Projects"}</div>
             {uploadedPhotos.length > 0 ? (
-               <div className="flex items-center gap-2 overflow-hidden relative">
+               <div className="preview-gallery flex items-center gap-2 overflow-hidden relative">
                  {uploadedPhotos.slice(0, 4).map((p, i) => (
-                    <img key={i} src={p} alt="portfolio" className="w-[84px] h-[84px] object-cover rounded-xl border border-[#EFE3D2]" />
+                    <img key={i} src={p} alt="portfolio" className="preview-gallery-item w-[84px] h-[84px] object-cover rounded-xl border border-[#EFE3D2]" />
                  ))}
                  {uploadedPhotos.length > 4 && (
                     <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-white via-white/80 to-transparent flex flex-col justify-center items-end pr-2">
@@ -269,7 +269,7 @@ export function LivePreview({
             )}
           </div>
           
-          <div className="mt-6 flex justify-between border border-[#EFE3D2] rounded-xl p-4 bg-[#FFFDFB]">
+          <div className="preview-stat-band mt-6 flex justify-between border border-[#EFE3D2] rounded-xl p-4 bg-[#FFFDFB]">
              <div className="flex flex-col items-center">
                 <div className="flex items-center text-[#B04F20] font-semibold gap-1"><ShieldCheckIcon /> {years.split(" ")[0]}</div>
                 <div className="text-[10px] text-[#A89A8C] font-medium uppercase mt-0.5">Years Exp.</div>

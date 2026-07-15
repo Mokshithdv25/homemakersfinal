@@ -2,6 +2,9 @@
 
 const MAX_TASKS = 40;
 const MAX_MESSAGES = 20;
+const MAX_DOCUMENTS = 20;
+const MAX_PAYMENTS = 20;
+const MAX_MATERIALS = 40;
 
 function trimText(text, max = 280) {
   const s = String(text || "").trim();
@@ -17,6 +20,7 @@ function compactTask(task) {
     id: task.id || null,
     title: trimText(title, 120),
     done: Boolean(task.done),
+    status: task.status || (task.done ? "done" : "todo"),
     phase: task.phase || null,
     date: task.date || null,
     assignee: task.assignee || null,
@@ -42,6 +46,68 @@ function compactPhase(phase) {
     name: phase.name,
     pct: Number(phase.pct ?? 0),
     status: phase.status || null,
+  };
+}
+
+function compactBrief(brief) {
+  if (!brief || typeof brief !== "object") return null;
+  const fields = [
+    "title", "homeType", "room", "mainGoal", "location", "city", "plotArea", "builtUpArea",
+    "floors", "styles", "style", "budgetLabel", "budgetInr", "timeline", "completionTime",
+    "startTimeline", "finishTier", "hasArchitect", "hasContractor", "dreamVision", "homeVision",
+  ];
+  const out = {};
+  fields.forEach((key) => {
+    const value = brief[key];
+    if (value == null || value === "") return;
+    out[key] = typeof value === "string" ? trimText(value, 500) : value;
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+function compactDocument(document) {
+  if (!document) return null;
+  return {
+    id: document.id || null,
+    name: trimText(document.file_name || document.name || "Project document", 140),
+    kind: document.kind || null,
+    stageId: document.stage_id || null,
+    createdAt: document.created_at || null,
+  };
+}
+
+function compactPayment(payment) {
+  if (!payment) return null;
+  return {
+    title: trimText(payment.title || "Payment", 120),
+    category: payment.category || null,
+    amountInr: Number(payment.amount_inr || 0),
+    status: payment.status || null,
+    dueDate: payment.due_date || null,
+  };
+}
+
+function compactMaterial(item) {
+  if (!item) return null;
+  return {
+    item: trimText(item.item_name || "Material", 120),
+    category: item.category || null,
+    quantity: Number(item.quantity || 0),
+    unit: item.unit || "unit",
+    brand: item.preferred_brand || null,
+    status: item.status || "suggested",
+    source: item.source_artifact || null,
+  };
+}
+
+function compactAction(action) {
+  if (!action) return null;
+  return {
+    type: action.action_type || null,
+    title: trimText(action.title || "Suggested action", 160),
+    status: action.status || "suggested",
+    rationale: trimText(action.rationale || "", 260),
+    approvedAt: action.approved_at || null,
   };
 }
 
@@ -90,12 +156,32 @@ export function buildHubAssistantContext({
   signInPath = "/sign-in",
   location = "",
   timeline = "",
+  brief = null,
+  documents = [],
+  payments = [],
+  materials = [],
+  agentActions = [],
 }) {
   const compactTasks = (tasks || []).map(compactTask).filter(Boolean).slice(0, MAX_TASKS);
   const compactMsgs = (messages || []).map(compactMessage).filter(Boolean).slice(-MAX_MESSAGES);
   const compactPhases = (phases || []).map(compactPhase).filter(Boolean);
   const pending = compactTasks.filter((t) => !t.done);
   const done = compactTasks.filter((t) => t.done);
+  const compactDocs = (documents || []).map(compactDocument).filter(Boolean).slice(0, MAX_DOCUMENTS);
+  const compactPayments = (payments || []).map(compactPayment).filter(Boolean).slice(0, MAX_PAYMENTS);
+  const compactMaterials = (materials || []).map(compactMaterial).filter(Boolean).slice(0, MAX_MATERIALS);
+  const compactActions = (agentActions || []).map(compactAction).filter(Boolean).slice(0, 20);
+  const artifactRefs = [
+    compactBrief(brief) ? "project brief" : null,
+    buildV0Summary(v0Pack)?.hasEstimate ? "AI v0 estimate" : null,
+    buildV0Summary(v0Pack)?.hasImages ? "AI design pack" : null,
+    compactTasks.length ? "task board" : null,
+    compactMsgs.length ? "site feed" : null,
+    compactDocs.length ? "document register" : null,
+    compactPayments.length ? "payment ledger" : null,
+    compactMaterials.length ? "material plan" : null,
+    compactActions.length ? "approval log" : null,
+  ].filter(Boolean);
 
   return {
     signedIn,
@@ -115,12 +201,18 @@ export function buildHubAssistantContext({
     budgetLabel,
     hasV0: hasV0 || Boolean(v0Pack?.images || v0Pack?.estimate),
     v0Summary: buildV0Summary(v0Pack),
+    brief: compactBrief(brief),
     phases: compactPhases,
     tasks: compactTasks,
     pendingTasks: pending.slice(0, 15),
     completedTasks: done.slice(-10),
     messages: compactMsgs,
     recentMessages: compactMsgs.slice(-8),
+    documents: compactDocs,
+    payments: compactPayments,
+    materials: compactMaterials,
+    agentActions: compactActions,
+    artifactRefs,
     postedBanner,
     wantsMarketplaceQuotes,
     hubQuery,

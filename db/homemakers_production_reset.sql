@@ -57,11 +57,14 @@ begin
 end;
 $$;
 
+drop view if exists public.pro_lead_opportunities cascade;
 drop view if exists public.published_portfolios cascade;
 
 drop table if exists
   public.project_team_members,
   public.project_payments,
+  public.project_agent_actions,
+  public.project_material_items,
   public.portfolio_reports,
   public.blocked_portfolios,
   public.ai_usage_daily,
@@ -78,10 +81,12 @@ drop table if exists
   public.project_professionals,
   public.projects,
   public.portfolios,
+  public.project_lead_responses,
   public.user_profiles
 cascade;
 
 drop function if exists public.launch_schema_ready() cascade;
+drop function if exists public.project_intelligence_ready() cascade;
 drop function if exists public.project_task_progress_trigger() cascade;
 drop function if exists public.recalculate_project_stage_progress(uuid, uuid) cascade;
 drop function if exists public.activate_billing_order(uuid, text, text) cascade;
@@ -95,5 +100,6 @@ drop function if exists public.get_my_session() cascade;
 drop function if exists public.handle_user_email_updated() cascade;
 drop function if exists public.handle_new_user() cascade;
 drop function if exists public.set_updated_at() cascade;
+drop function if exists public.can_respond_to_project(uuid, text) cascade;
 
 commit;

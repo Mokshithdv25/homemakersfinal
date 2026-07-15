@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Pencil, Plus, X } from "lucide-react";
 import MobileHeader from "../MobileHeader";
 import { useMobileHub } from "../hooks/useMobileHub";
@@ -12,13 +12,24 @@ import {
   loadProjectBoard,
   setProjectStageStatus,
   setProjectTaskDone,
+  updateProjectSchedule,
+  updateProjectStageSchedule,
 } from "../../lib/projectFlowApi";
 import { buildSignInRedirect } from "../../lib/requireHomeownerAuth";
 import { buildHubAssistantContext } from "../../lib/hubAssistantContext";
 import HmProjectAssistant from "../../components/HmProjectAssistant";
 import HmCommandCenter from "../../components/HmCommandCenter";
 import HmMorningBriefing from "../../components/HmMorningBriefing";
-import { updateProjectTitle } from "../../lib/projectWorkspaceApi";
+import HmProjectIntelligence from "../../components/HmProjectIntelligence";
+import ProjectMaterialsPanel from "../../components/ProjectMaterialsPanel";
+import ProjectTimelineEditor from "../../components/ProjectTimelineEditor";
+import { listProjectDocuments, listProjectPayments, updateProjectTitle } from "../../lib/projectWorkspaceApi";
+import {
+  loadProjectIntelligence,
+  recordAgentDecision,
+  removeProjectMaterial,
+  saveProjectMaterial,
+} from "../../lib/projectIntelligenceApi";
 
 const PROJECT_TOOLS = [
   { label: "Documents", path: "/documents", icon: "📄" },
@@ -26,22 +37,27 @@ const PROJECT_TOOLS = [
   { label: "Find pros", path: "/project/browse", icon: "👷" },
   { label: "Team", path: "/team", icon: "👥" },
   { label: "Payments", path: "/project/payments", icon: "💳" },
+  { label: "Materials & shopping", path: "/shop", icon: "🧱" },
 ];
 
 export default function MobileProjectPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { session, projects, activeProject, loadingProjects } = useMobileHub();
   const [selectedId, setSelectedId] = useState(null);
   const overviewRef = useRef(null);
   const designsRef = useRef(null);
   const stagesRef = useRef(null);
   const tasksRef = useRef(null);
+  const materialsRef = useRef(null);
   const toolsRef = useRef(null);
   const taskInputRef = useRef(null);
 
   useEffect(() => {
-    if (activeProject && !selectedId) setSelectedId(activeProject.id);
-  }, [activeProject, selectedId]);
+    const requestedId = searchParams.get("projectId");
+    if (requestedId && requestedId !== selectedId) setSelectedId(requestedId);
+    else if (activeProject && !selectedId) setSelectedId(activeProject.id);
+  }, [activeProject, searchParams, selectedId]);
 
   const project = projects.find((p) => p.id === selectedId) || activeProject;
   const isDemoHub = PROJECT_HUB_DEMO_MODE && !project && !loadingProjects;
@@ -68,6 +84,11 @@ export default function MobileProjectPage() {
   const [boardError, setBoardError] = useState("");
   const [taskTitle, setTaskTitle] = useState("");
   const [taskSaving, setTaskSaving] = useState(false);
+  const [documents, setDocuments] = useState([]);
+  const [payments, setPayments] = useState([]);
+  const [materialItems, setMaterialItems] = useState([]);
+  const [agentActions, setAgentActions] = useState([]);
+  const [intelligenceConfigured, setIntelligenceConfigured] = useState(false);
 
   useEffect(() => {
     const nextTitle = project?.title || "Your project";
@@ -79,6 +100,10 @@ export default function MobileProjectPage() {
   useEffect(() => {
     if (!project?.id) {
       setBoard(null);
+      setDocuments([]);
+      setPayments([]);
+      setMaterialItems([]);
+      setAgentActions([]);
       setBoardError("");
       return;
     }
@@ -90,6 +115,24 @@ export default function MobileProjectPage() {
         const data = await loadProjectBoard({ projectId: project.id, source: project.source });
         if (!data) throw new Error("This project could not be loaded for the signed-in account.");
         if (!cancelled) setBoard(data);
+        const [documentsResult, paymentsResult, intelligenceResult] = await Promise.allSettled([
+          listProjectDocuments(project.id),
+          listProjectPayments(project.id),
+          loadProjectIntelligence({ projectId: project.id, brief: data.brief, v0Pack: data.v0Pack }),
+        ]);
+        if (!cancelled) {
+          setDocuments(documentsResult.status === "fulfilled" ? documentsResult.value : []);
+          setPayments(paymentsResult.status === "fulfilled" ? paymentsResult.value : []);
+          if (intelligenceResult.status === "fulfilled") {
+            setMaterialItems(intelligenceResult.value.materials || []);
+            setAgentActions(intelligenceResult.value.actions || []);
+            setIntelligenceConfigured(Boolean(intelligenceResult.value.configured));
+          } else {
+            setMaterialItems([]);
+            setAgentActions([]);
+            setIntelligenceConfigured(false);
+          }
+        }
       } catch (err) {
         if (!cancelled) setBoardError(err?.message || "Could not load this project.");
       } finally {
@@ -100,6 +143,12 @@ export default function MobileProjectPage() {
       cancelled = true;
     };
   }, [project?.id, project?.source]);
+
+  useEffect(() => {
+    if (searchParams.get("tab") !== "Materials" || !project?.id) return;
+    const timer = window.setTimeout(() => materialsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 250);
+    return () => window.clearTimeout(timer);
+  }, [project?.id, materialItems.length, searchParams]);
 
   const hubQuery = project?.id ? `?projectId=${encodeURIComponent(project.id)}` : "";
   const boardTasks = useMemo(() => board?.tasks || [], [board?.tasks]);
@@ -196,6 +245,35 @@ export default function MobileProjectPage() {
     }
   };
 
+  const saveMaterial = async (item) => {
+    const saved = await saveProjectMaterial(project.id, item);
+    setMaterialItems((current) => current.map((row) => row.id === item.id ? saved : row));
+    return saved;
+  };
+
+  const removeMaterial = async (itemId) => {
+    await removeProjectMaterial(project.id, itemId);
+    setMaterialItems((current) => current.filter((row) => row.id !== itemId));
+  };
+
+  const decideAgentAction = async (decision) => {
+    const saved = await recordAgentDecision({ projectId: project.id, ...decision });
+    setAgentActions((current) => [saved, ...current]);
+    return saved;
+  };
+
+  const saveProjectSchedule = async (schedule) => {
+    const saved = await updateProjectSchedule(project.id, schedule);
+    setBoard((current) => ({ ...current, project: { ...(current?.project || {}), ...saved } }));
+    return saved;
+  };
+
+  const saveStageSchedule = async (phase, schedule) => {
+    const saved = await updateProjectStageSchedule({ projectId: project.id, stageId: phase.id, ...schedule });
+    setBoard((current) => ({ ...current, phases: (current?.phases || []).map((row) => row.id === phase.id ? { ...row, startDate: saved.start_date || "", dueDate: saved.due_date || "" } : row) }));
+    return saved;
+  };
+
   const assistantContext = useMemo(
     () =>
       buildHubAssistantContext({
@@ -214,9 +292,14 @@ export default function MobileProjectPage() {
         pendingTaskCount: boardTasks.filter((t) => !t.done).length,
         budgetLabel: budget,
         hasV0: Boolean(board?.v0Pack?.images || board?.v0Pack?.estimate),
+        brief: board?.brief,
         v0Pack: board?.v0Pack,
+        documents,
+        payments,
+        materials: materialItems,
+        agentActions,
         location: project?.location || project?.city || "",
-        timeline: project?.timeline_completion || "",
+        timeline: board?.project?.timeline_completion || project?.timeline_completion || "",
         hubQuery,
         signInPath: buildSignInRedirect("/project"),
       }),
@@ -231,6 +314,12 @@ export default function MobileProjectPage() {
       boardMsgs,
       boardPhases,
       board?.v0Pack,
+      board?.brief,
+      board?.project?.timeline_completion,
+      documents,
+      payments,
+      materialItems,
+      agentActions,
       budget,
       hubQuery,
     ],
@@ -254,6 +343,7 @@ export default function MobileProjectPage() {
           <button type="button" onClick={() => goToSection(designsRef)}>Designs</button>
           <button type="button" onClick={() => goToSection(stagesRef)}>Stages</button>
           <button type="button" onClick={() => goToSection(tasksRef)}>Tasks</button>
+          <button type="button" onClick={() => goToSection(materialsRef)}>Materials</button>
           <button type="button" onClick={() => goToSection(toolsRef)}>Tools</button>
         </nav>
       ) : null}
@@ -321,6 +411,18 @@ export default function MobileProjectPage() {
             <HmMorningBriefing context={assistantContext} onNavigatePath={(path) => navigate(path)} />
             <HmCommandCenter />
           </div>
+          <HmProjectIntelligence
+            context={assistantContext}
+            brief={board?.brief || {}}
+            materials={materialItems}
+            actions={agentActions}
+            documents={documents}
+            payments={payments}
+            configured={intelligenceConfigured}
+            onDecision={decideAgentAction}
+            onOpenMaterials={() => goToSection(materialsRef)}
+            onNavigatePath={(path) => navigate(path)}
+          />
           {projects.length > 1 ? (
             <div className="hm-m-pill-row" style={{ marginTop: 8 }}>
               {projects.map((p) => (
@@ -341,7 +443,7 @@ export default function MobileProjectPage() {
               <div style={{ fontSize: 12, color: "#78716C" }}>Budget band</div>
               <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{budget}</div>
               {project?.city ? <div style={{ fontSize: 13, color: "#78716C", marginTop: 6 }}>{project.city}</div> : null}
-              {project?.timeline_completion ? <div style={{ fontSize: 13, color: "#78716C", marginTop: 4 }}>Target: {project.timeline_completion}</div> : null}
+              {board?.project?.timeline_completion || project?.timeline_completion ? <div style={{ fontSize: 13, color: "#78716C", marginTop: 4 }}>Target: {board?.project?.timeline_completion || project.timeline_completion}</div> : null}
               <button type="button" className="hm-m-card-link" onClick={() => navigate(`/project/payments${hubQuery}`)}>View spending & receipts →</button>
             </div>
           ) : null}
@@ -389,6 +491,13 @@ export default function MobileProjectPage() {
               </select>
             </label>
           ) : null}
+          <ProjectTimelineEditor
+            project={board?.project || project}
+            brief={board?.brief || {}}
+            phases={boardPhases}
+            onSaveProject={saveProjectSchedule}
+            onSaveStage={saveStageSchedule}
+          />
 
           <div ref={tasksRef} className="hm-m-project-section-anchor"><p className="hm-m-section-title" style={{ marginTop: 16 }}>Tasks</p></div>
           <div style={{ padding: "0 16px" }}>
@@ -416,6 +525,17 @@ export default function MobileProjectPage() {
                 </span>
               </label>
             ))}
+          </div>
+
+          <div ref={materialsRef} className="hm-m-project-section-anchor" style={{ paddingTop: 18 }}>
+            <ProjectMaterialsPanel
+              projectId={project?.id}
+              materials={materialItems}
+              configured={intelligenceConfigured}
+              onSave={saveMaterial}
+              onRemove={removeMaterial}
+              onNavigateShop={() => navigate(`/shop${hubQuery}`)}
+            />
           </div>
 
           <p ref={toolsRef} className="hm-m-section-title hm-m-project-section-anchor" style={{ marginTop: 16 }}>

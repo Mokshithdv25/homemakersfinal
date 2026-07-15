@@ -1082,6 +1082,27 @@
   font-size: 13px;
 }
 
+.hm-m-public-profile {
+  min-height: calc(100dvh - var(--m-header-h));
+  background: var(--hm-portfolio-page-bg, var(--m-bg));
+  color: var(--hm-portfolio-text, var(--m-text));
+}
+
+.hm-m-public-profile .hm-m-section-title {
+  color: var(--hm-portfolio-accent, var(--m-accent));
+  font-family: var(--hm-portfolio-heading-font, "DM Sans", sans-serif);
+}
+
+.hm-m-public-profile .hm-m-idea-thumb {
+  border-radius: var(--hm-portfolio-image-radius, 14px);
+  background: var(--hm-portfolio-surface, #fff);
+}
+
+.hm-m-public-profile--minimal-slate .hm-m-section-title,
+.hm-m-public-profile--noir-contrast .hm-m-section-title { letter-spacing: .16em; }
+.hm-m-public-profile--heritage-clay { background-image: repeating-linear-gradient(0deg, rgba(154,52,18,.025) 0, rgba(154,52,18,.025) 1px, transparent 1px, transparent 6px); }
+.hm-m-public-profile--noir-contrast .hm-m-create-portfolio-link { color: #fb923c !important; }
+
 .hm-m-home-final-cta {
   margin: 4px 16px 24px;
   padding: 24px 20px;

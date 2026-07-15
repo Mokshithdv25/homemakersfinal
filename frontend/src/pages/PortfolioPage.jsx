@@ -108,7 +108,7 @@ export default function PortfolioPage() {
   const startWithPro = () => navigate(`/build?source=portfolio&pro=${encodeURIComponent(data.slug || data.id)}`);
 
   return (
-    <div className="hm-pf" style={themeVars}>
+    <div className={`hm-pf hm-pf--${theme.id} hm-pf--layout-${theme.layout}`} style={themeVars}>
       {/* ══ Hero ══ */}
       <div className={`hm-pf-hero hm-pf-hero--${theme.layout}`}>
         <div className="hm-pf-hero-bg" style={{ backgroundImage: `url(${hero})` }} />
@@ -182,15 +182,15 @@ export default function PortfolioPage() {
         <div className="hm-pf-kicker">Portfolio</div>
         <h2 className={`hm-pf-h2${isEditorial ? " hm-pf-serif" : ""}`}>Selected work</h2>
         {gallery.length > 0 ? (
-          <div className="hm-pf-gallery">
+          <div className={`hm-pf-gallery hm-pf-gallery--${theme.layout}`}>
             {gallery.map((src, i) => (
-              <button type="button" key={`${src}-${i}`} className={`hm-pf-shot${i === 0 && gallery.length >= 3 ? " hm-pf-shot--feature" : ""}`} onClick={() => setSelectedPhoto({ src, index: i })} aria-label={`Open ${name} project ${i + 1}`}>
+              <button type="button" key={`${src}-${i}`} className={`hm-pf-shot${i === 0 && gallery.length >= 3 && theme.layout !== "compact" ? " hm-pf-shot--feature" : ""}`} onClick={() => setSelectedPhoto({ src, index: i })} aria-label={`Open ${name} project ${i + 1}`}>
                 <img src={src} alt={`${name} project ${i + 1}`} loading={i > 1 ? "lazy" : undefined} />
               </button>
             ))}
           </div>
         ) : (
-          <div style={{ border: "1px dashed var(--hm-portfolio-border)", borderRadius: 14, padding: "26px 20px", fontSize: 14, color: "#7A6E62", background: "#FAFAF9", marginTop: 18 }}>
+          <div className="hm-pf-empty-work">
             Work photos coming soon.
           </div>
         )}

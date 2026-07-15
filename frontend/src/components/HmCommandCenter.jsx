@@ -8,7 +8,13 @@ export function dispatchHomiCommand(message) {
   window.dispatchEvent(new CustomEvent("hm-assistant-send", { detail: { message: String(message).trim() } }));
 }
 
-export default function HmCommandCenter({ tryPrompts = COMMAND_CENTER_TRY_PROMPTS, busy = false }) {
+export default function HmCommandCenter({
+  tryPrompts = COMMAND_CENTER_TRY_PROMPTS,
+  busy = false,
+  title = "Project Q&A command center",
+  status = "Grounded in the active project's saved artifacts",
+  placeholder = "Ask about scope, tasks, documents, materials, budget, or today's priorities",
+}) {
   const [input, setInput] = useState("");
 
   const submit = (text) => {
@@ -40,10 +46,10 @@ export default function HmCommandCenter({ tryPrompts = COMMAND_CENTER_TRY_PROMPT
       <div className="hm-command-center__head">
         <HmHomiMascot size={52} variant="hero" />
         <div>
-          <h2 className="hm-command-center__title">AI command center</h2>
+          <h2 className="hm-command-center__title">{title}</h2>
           <div className="hm-command-center__status">
             <span className="hm-command-center__dot" />
-            Online · listening to your build pipeline
+            {status}
           </div>
         </div>
       </div>
@@ -59,7 +65,7 @@ export default function HmCommandCenter({ tryPrompts = COMMAND_CENTER_TRY_PROMPT
             className="hm-command-center__input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Tell Homi what to do — e.g. 'brief me on structure stage'"
+            placeholder={placeholder}
             disabled={busy}
             aria-label="Command for Homi"
           />

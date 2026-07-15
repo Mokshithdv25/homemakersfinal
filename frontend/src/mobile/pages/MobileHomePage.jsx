@@ -163,7 +163,7 @@ export default function MobileHomePage() {
           <img src={hmLogoMarkSrc} alt="" />
           <div>
             <div className="hm-m-home-brand">HomeMakers</div>
-            <p className="hm-m-home-tagline">Design · Build · Manage — for Indian homes</p>
+            <p className="hm-m-home-tagline">Projects · Design & estimates · Pros · Materials</p>
           </div>
         </div>
         <form className="hm-m-home-search" onSubmit={onSearchSubmit}>

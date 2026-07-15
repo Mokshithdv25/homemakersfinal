@@ -18,10 +18,10 @@ function renderBold(text) {
 }
 
 const QUICK_PROMPTS = [
-  { label: "What's new?", message: "latest" },
-  { label: "Preview as client", message: "preview as client" },
-  { label: "Write my bio", message: "write my bio" },
-  { label: "Review leads", message: "review leads" },
+  { label: "Daily briefing", message: "latest" },
+  { label: "Leads needing attention", message: "Which homeowner leads need my attention today?" },
+  { label: "Active work", message: "Summarize my active projects" },
+  { label: "Draft follow-up", message: "draft a client update" },
 ];
 
 /**
@@ -37,7 +37,7 @@ export default function HmProAssistant({ context, onNavigatePath, onPreview, onC
     {
       id: "welcome",
       role: "homi",
-      text: "Hi! I'm **Homi**, your studio copilot. Ask me to **preview as client**, **share my link**, **write my bio**, **draft a client update**, or **review leads**.",
+      text: "Hi! I'm **Homi**, your studio copilot. Ask for a **daily briefing**, ask which **homeowner leads need attention**, review **active work**, or draft an approval-ready client follow-up.",
     },
   ]);
   const scrollRef = useRef(null);
@@ -112,7 +112,7 @@ export default function HmProAssistant({ context, onNavigatePath, onPreview, onC
             <div className="hm-assistant-avatar" aria-hidden>🛠️</div>
             <div>
               <h3>Homi</h3>
-              <p>Studio copilot</p>
+              <p>Lead and active-work Q&amp;A</p>
             </div>
             <button
               type="button"

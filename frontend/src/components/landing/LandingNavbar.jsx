@@ -9,23 +9,54 @@ import { useHmSession } from "../../hooks/useHmSession";
 import HmUserMenu from "../HmUserMenu";
 import HmMarketingWordmark from "../HmMarketingWordmark";
 
-const HOMEOWNER_SOFTWARE = [
-  { label: "Project management", path: "/project" },
-  { label: "New home design & estimate", path: "/build/new-home" },
-  { label: "Remodel design & estimate", path: "/build/remodel" },
-  { label: "Scheduling & site tracking", path: "/project?tab=Timeline" },
-  { label: "Documents, receipts & approvals", path: "/documents" },
-  { label: "Payments & budget", path: "/project/payments" },
-  { label: "Quantity takeoff & cost planning", path: null, comingSoon: true },
+const HOMEOWNER_SOFTWARE_GROUPS = [
+  {
+    heading: "Design & planning",
+    items: [
+      { label: "New-home design & estimate", path: "/build/new-home" },
+      { label: "Remodel design & estimate", path: "/build/remodel" },
+      { label: "Floor-plan concepts", path: "/build/new-home" },
+      { label: "Mood boards & ideabooks", path: "/design" },
+      { label: "Material takeoffs", path: "/project?tab=Materials" },
+      { label: "AI contractor matching", path: "/browse" },
+    ],
+  },
+  {
+    heading: "Project management",
+    items: [
+      { label: "Client project dashboard", path: "/project" },
+      { label: "Schedule", path: "/project?tab=Timeline" },
+      { label: "Task management", path: "/project?tab=Tasks" },
+      { label: "Daily briefings & site logs", path: "/project?tab=Site%20Feed" },
+      { label: "Documents & approvals", path: "/documents" },
+      { label: "Project-grounded AI Q&A", path: "/project" },
+    ],
+  },
+  {
+    heading: "Costs & materials",
+    items: [
+      { label: "Estimates & cost planning", path: "/build" },
+      { label: "Budget & payment ledger", path: "/project/payments" },
+      { label: "AI-suggested material cart", path: "/shop" },
+      { label: "Professional-suggested cart", path: "/shop" },
+      { label: "Brand & quantity selection", path: "/project?tab=Materials" },
+      { label: "Project-linked material shop", path: "/shop" },
+    ],
+  },
+  {
+    heading: "For professionals",
+    items: [
+      { label: "Portfolio & marketplace profile", path: "/craft" },
+      { label: "Homeowner leads & CRM pipeline", path: "/pro/leads" },
+      { label: "Proposal-stage tracking", path: "/pro/leads" },
+      { label: "Active project workspace", path: "/pro/dashboard" },
+      { label: "Invoicing & payouts", comingSoon: true },
+      { label: "Change orders & financial reports", comingSoon: true },
+    ],
+  },
 ];
 
-const PRO_SOFTWARE = [
-  { label: "Pro dashboard", path: "/pro/dashboard" },
-  { label: "Leads & marketplace", path: "/browse" },
-  { label: "Project management hub", path: "/project" },
-  { label: "CRM & pipeline", path: null, comingSoon: true },
-  { label: "Invoicing & payouts", path: null, comingSoon: true },
-];
+const PRO_SOFTWARE_GROUPS = HOMEOWNER_SOFTWARE_GROUPS.slice(1);
 
 const FIND_PROS_GROUPS = [
   {
@@ -69,15 +100,15 @@ export default function LandingNavbar({ tagline = null }) {
   const [softwareOpen, setSoftwareOpen] = useState(false);
   const [findProsOpen, setFindProsOpen] = useState(false);
 
-  const softwareItems = useMemo(
-    () => (isProSession ? PRO_SOFTWARE : HOMEOWNER_SOFTWARE),
+  const softwareGroups = useMemo(
+    () => (isProSession ? PRO_SOFTWARE_GROUPS : HOMEOWNER_SOFTWARE_GROUPS),
     [isProSession],
   );
 
   const primaryNav = useMemo(() => {
     if (isProSession) {
       return [
-        { label: "Leads", path: "/browse" },
+        { label: "Leads", path: "/pro/leads" },
         { label: "Collaborate", path: "/browse" },
         { label: "Shop", path: "/shop" },
       ];
@@ -124,33 +155,23 @@ export default function LandingNavbar({ tagline = null }) {
         <ChevronDown className={`h-4 w-4 transition-transform ${softwareOpen ? "rotate-180" : ""}`} />
       </button>
       {softwareOpen && (
-        <div className="absolute left-0 top-[calc(100%+0.9rem)] w-[19rem] max-h-[min(70vh,520px)] overflow-y-auto rounded-[1.35rem] border border-black/8 bg-[rgba(255,252,249,0.98)] p-2 shadow-[0_28px_80px_rgba(48,33,21,0.14)] backdrop-blur-xl">
-          {softwareItems.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              onClick={() => {
-                if (item.path && !item.comingSoon) go(item.path);
-                setSoftwareOpen(false);
-              }}
-              className={`block w-full rounded-xl px-3 py-2.5 text-left font-body text-sm transition-colors bg-transparent border-none ${
-                item.comingSoon
-                  ? "text-foreground/50 cursor-default"
-                  : "text-foreground/78 hover:bg-secondary/70 hover:text-foreground cursor-pointer"
-              }`}
-            >
-              {item.comingSoon ? (
-                <span className="flex w-full items-start justify-between gap-3">
-                  <span className="min-w-0 flex-1 text-left leading-snug text-foreground/50">{item.label}</span>
-                  <span className="pointer-events-none mt-0.5 shrink-0 whitespace-nowrap rounded-md border border-[#E5D8CC]/90 bg-[linear-gradient(180deg,#FFFCF9_0%,#F6EFE8_100%)] px-2 py-1 text-[10px] font-medium leading-none tracking-wide text-[#6E655E] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
-                    Coming soon
-                  </span>
-                </span>
-              ) : (
-                item.label
-              )}
-            </button>
-          ))}
+        <div className="absolute left-0 top-[calc(100%+0.9rem)] w-[min(70rem,calc(100vw-3rem))] max-h-[min(76vh,620px)] overflow-y-auto rounded-[1.35rem] border border-black/8 bg-[rgba(255,252,249,0.99)] p-5 shadow-[0_28px_80px_rgba(48,33,21,0.14)] backdrop-blur-xl">
+          <div className={`grid gap-x-7 gap-y-6 ${softwareGroups.length >= 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
+            {softwareGroups.map((group) => <div key={group.heading}><div className="mb-2 px-2 font-body text-sm font-bold text-foreground">{group.heading}</div><div className="space-y-0.5">{group.items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => {
+                  if (item.path && !item.comingSoon) go(item.path);
+                  if (!item.comingSoon) setSoftwareOpen(false);
+                }}
+                className={`block w-full rounded-lg px-2 py-2 text-left font-body text-[13px] leading-snug transition-colors bg-transparent border-none ${item.comingSoon ? "text-foreground/45 cursor-default" : "text-foreground/76 hover:bg-secondary/70 hover:text-foreground cursor-pointer"}`}
+              >
+                {item.comingSoon ? <span className="flex items-start justify-between gap-2"><span>{item.label}</span><span className="shrink-0 rounded-md border border-[#E5D8CC] bg-[#F8F1EA] px-1.5 py-1 text-[9px] font-semibold leading-none text-[#6E655E]">Soon</span></span> : item.label}
+              </button>
+            ))}</div></div>)}
+          </div>
+          <div className="mt-5 flex items-center justify-between gap-4 border-t border-border/60 px-2 pt-4"><div><strong className="font-display text-base text-foreground">HomeMakers</strong><span className="ml-2 font-body text-xs text-muted-foreground">AI-assisted software for Indian home design, construction, and remodeling</span></div><button type="button" onClick={() => go(isProSession ? "/pro/dashboard" : "/build")} className="shrink-0 rounded-xl border border-copper/25 bg-copper/10 px-4 py-2 font-body text-xs font-bold text-copper">Open workspace</button></div>
         </div>
       )}
     </div>

@@ -1,9 +1,10 @@
-import React, { useMemo, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { Search, Package, ArrowRight } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { Search, Package, ArrowRight, ClipboardCheck, Bot, HardHat, ShoppingCart } from "lucide-react";
 import LandingNavbar from "../components/landing/LandingNavbar";
 import ProjectHubShell from "../components/ProjectHubShell";
 import { Button } from "@/components/ui/button";
+import { listProjectMaterials } from "../lib/projectIntelligenceApi";
 
 /**
  * Retail shop — materials & finishes. Standalone: /shop. Project hub: /project/shop.
@@ -110,14 +111,32 @@ function matchesQuery(item, q) {
 export default function ShopPage() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const inProjectHub = pathname === "/project/shop";
   const findProsTarget = inProjectHub ? "/project/browse" : "/browse";
   const [q, setQ] = useState("");
   const [activeDeptId, setActiveDeptId] = useState(null);
   const [activeTheme, setActiveTheme] = useState(null);
+  const [projectMaterials, setProjectMaterials] = useState([]);
   const departmentsRef = useRef(null);
 
   const normalizedQ = q.trim().toLowerCase();
+  const projectId = searchParams.get("projectId") || "";
+  const aiSuggested = useMemo(() => projectMaterials.filter((item) => /brief|v0|ai/i.test(item.source_artifact || "") && item.status === "suggested"), [projectMaterials]);
+  const professionalSuggested = useMemo(() => projectMaterials.filter((item) => /professional|contractor|architect|designer/i.test(item.source_artifact || "")), [projectMaterials]);
+  const approvedCart = useMemo(() => projectMaterials.filter((item) => ["approved", "ordered", "received"].includes(item.status)), [projectMaterials]);
+
+  useEffect(() => {
+    let active = true;
+    if (!projectId) {
+      setProjectMaterials([]);
+      return undefined;
+    }
+    listProjectMaterials(projectId)
+      .then((rows) => { if (active) setProjectMaterials(rows); })
+      .catch(() => { if (active) setProjectMaterials([]); });
+    return () => { active = false; };
+  }, [projectId]);
 
   const filteredDepartments = useMemo(() => {
     const themeDeptIds = activeTheme?.deptIds;
@@ -158,8 +177,30 @@ export default function ShopPage() {
     <main className={inProjectHub ? "min-h-0" : "pt-[4.65rem]"}>
         {/* Promo strip */}
         <div className="border-b border-border/60 bg-[#1C1917] py-2.5 text-center font-body text-[11px] font-medium text-[#f5f0eb] md:text-xs">
-          Project-linked lists & GST-ready invoices when checkout is wired · Same brief as your AI v0 & estimates
+          Project-linked shopping starts from your approved material checklist · You stay in control of quantities and brands
         </div>
+
+        {projectId ? (
+          <section className="border-b border-[#E9D8C8] bg-[#FFF8F1] py-5">
+            <div className="container max-w-6xl">
+              <div className="flex flex-col gap-4 rounded-2xl border border-[#E8D7C7] bg-white/80 p-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#FFF0E3] text-copper"><ClipboardCheck className="h-5 w-5" /></span>
+                  <div><h2 className="m-0 font-body text-base font-bold text-foreground">Your project shopping checklist</h2><p className="mt-1 font-body text-xs leading-relaxed text-muted-foreground">{projectMaterials.length ? `${projectMaterials.length} project-linked items · ${projectMaterials.filter((item) => ["approved", "ordered", "received"].includes(item.status)).length} approved or ordered.` : "Open the project material plan to generate and approve quantities before shopping."}</p></div>
+                </div>
+                <Button type="button" variant="outline" className="rounded-xl" onClick={() => navigate(`/project?projectId=${encodeURIComponent(projectId)}&tab=Materials`)}>Edit quantities & brands</Button>
+              </div>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                {[
+                  { title: "AI suggested", copy: "Derived from your brief and v0 estimate.", rows: aiSuggested, icon: Bot },
+                  { title: "Professional suggested", copy: "Items captured from your architect, contractor, or designer.", rows: professionalSuggested, icon: HardHat },
+                  { title: "Approved cart", copy: "Your confirmed list before vendor pricing or ordering.", rows: approvedCart, icon: ShoppingCart },
+                ].map((cart) => <article key={cart.title} className="rounded-xl border border-[#E8DDD3] bg-white p-4"><cart.icon className="h-5 w-5 text-copper" /><h3 className="mb-0 mt-2 font-body text-sm font-bold">{cart.title} · {cart.rows.length}</h3><p className="mt-1 font-body text-[11px] leading-relaxed text-muted-foreground">{cart.copy}</p>{cart.rows.length ? <div className="mt-3 space-y-1.5">{cart.rows.slice(0, 3).map((item) => <button key={item.id} type="button" className="block w-full truncate rounded-lg bg-[#FAF7F3] px-2.5 py-2 text-left font-body text-[10px] font-semibold" onClick={() => { setQ(item.item_name); scrollToDepartments(); }}>{item.item_name} · {Number(item.quantity).toLocaleString("en-IN")} {item.unit}</button>)}</div> : <p className="mt-3 font-body text-[10px] text-muted-foreground">Nothing in this cart yet.</p>}</article>)}
+              </div>
+              {projectMaterials.length ? <div className="mt-3 flex gap-2 overflow-x-auto pb-1">{projectMaterials.filter((item) => item.status !== "removed").slice(0, 10).map((item) => <button key={item.id} type="button" className="shrink-0 rounded-full border border-[#E7D8CC] bg-white px-3 py-2 font-body text-[11px] font-semibold text-foreground" onClick={() => { setQ(item.item_name); scrollToDepartments(); }}>{item.item_name} · {Number(item.quantity).toLocaleString("en-IN")} {item.unit}{item.preferred_brand ? ` · ${item.preferred_brand}` : ""}</button>)}</div> : null}
+            </div>
+          </section>
+        ) : null}
 
         {/* Hero */}
         <section className="relative overflow-hidden border-b border-border/40">

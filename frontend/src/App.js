@@ -37,6 +37,7 @@ const TeamPage = lazy(() => import("./pages/TeamPage"));
 const ProjectPayments = lazy(() => import("./pages/ProjectPayments"));
 const StageDashboard = lazy(() => import("./pages/StageDashboard"));
 const ProDashboard = lazy(() => import("./pages/ProDashboard"));
+const ProLeadsPage = lazy(() => import("./pages/ProLeadsPage"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
 
 function RouteLoading() {
@@ -183,6 +184,14 @@ function DesktopRoutes() {
         element={
           <ProDashboardGuard>
             <ProDashboard />
+          </ProDashboardGuard>
+        }
+      />
+      <Route
+        path="/pro/leads"
+        element={
+          <ProDashboardGuard>
+            <ProLeadsPage />
           </ProDashboardGuard>
         }
       />

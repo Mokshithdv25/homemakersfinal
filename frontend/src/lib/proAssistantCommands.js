@@ -11,6 +11,15 @@ function normalize(text) {
 
 const RESUME_PATH = "/craft";
 
+function formatInr(value) {
+  const number = Number(value || 0);
+  return number > 0 ? `₹${number.toLocaleString("en-IN")}` : "not shared";
+}
+
+function leadSource() {
+  return "\nSources: homeowner lead inbox.";
+}
+
 /** Studio briefing shown when the assistant opens / on "latest". */
 export function buildProBriefing(ctx = {}) {
   const name = ctx.firstName ? `${ctx.firstName}, ` : "";
@@ -20,8 +29,11 @@ export function buildProBriefing(ctx = {}) {
   }
   const lines = [];
   lines.push(`${name}your profile is **live**${ctx.profileStrength ? ` (${ctx.profileStrength}% complete)` : ""}.`);
-  if (ctx.leadCount) lines.push(`You have **${ctx.leadCount}** open lead${ctx.leadCount === 1 ? "" : "s"} to review.`);
-  lines.push("Say **share my link**, **preview as client**, **review leads**, or ask me to **write my bio** or **draft a client update**.");
+  if (ctx.newLeadCount) lines.push(`You have **${ctx.newLeadCount}** new homeowner ${ctx.newLeadCount === 1 ? "lead" : "leads"} to review.`);
+  if (ctx.followUpCount) lines.push(`There ${ctx.followUpCount === 1 ? "is" : "are"} **${ctx.followUpCount}** ${ctx.followUpCount === 1 ? "follow-up" : "follow-ups"} in your pipeline.`);
+  if (ctx.activeProjectCount) lines.push(`You have **${ctx.activeProjectCount}** active ${ctx.activeProjectCount === 1 ? "project" : "projects"}.`);
+  if (!ctx.leadCount) lines.push("Your homeowner lead pipeline is clear today.");
+  lines.push("Say **review leads**, **open active work**, **share my link**, or ask me to **draft a client update**.");
   return lines.join(" ");
 }
 
@@ -48,12 +60,14 @@ export function draftProBio(ctx = {}) {
 /** Draft a short client status update message. */
 export function draftClientUpdate(ctx = {}) {
   const who = ctx.businessName || ctx.firstName || "the team";
+  const active = (Array.isArray(ctx.leads) ? ctx.leads : []).find((lead) => lead.status === "won");
+  const project = active?.title || "[project name]";
   return [
-    `Hi! Quick update from ${who}:`,
-    `• Work is progressing on schedule this week.`,
-    `• Next up: finalising selections and confirming the upcoming milestone.`,
-    `• Action for you: review the shared board and approve pending items when you can.`,
-    `Reply here with any questions — happy to jump on a quick call.`,
+    `Hi! Quick update from ${who} on ${project}:`,
+    `• Completed since the last update: [confirm from the project board].`,
+    `• Next milestone: [confirm task and date${active?.timeline ? `; current target is ${active.timeline}` : ""}].`,
+    `• Decision needed from you: [add the exact approval, if any].`,
+    `Please review these details before sending. Reply with any questions and we can update the plan together.`,
   ].join("\n");
 }
 
@@ -70,35 +84,66 @@ export function parseProCommand(message, ctx = {}) {
   if (/\b(edit|portfolio|profile setup|onboard|continue|finish)\b/.test(t)) {
     return { kind: "navigate", path: RESUME_PATH };
   }
-  if (/\b(lead|leads|quote|quotes|bid|bids|proposal|proposals|rfq)\b/.test(t)) {
-    return { kind: "navigate", path: "/browse" };
+  if (/\b(which|what).*\b(leads?|opportunities).*\b(attention|priority|urgent|today)\b/.test(t)) {
+    const leads = Array.isArray(ctx.leads) ? ctx.leads : [];
+    const priorities = leads.filter((lead) => lead.status === "new" || lead.status === "proposal_sent" || lead.targeted).slice(0, 6);
+    const rows = priorities.length
+      ? priorities.map((lead) => `○ ${lead.title} · ${lead.city || "Location pending"} · ${lead.status === "proposal_sent" ? "proposal follow-up" : lead.targeted ? "sent directly to you" : "new"}`).join("\n")
+      : "No homeowner leads need immediate attention.";
+    return { kind: "reply", text: `**Lead priorities:**\n${rows}\nSources: homeowner lead inbox.` };
   }
-  if (/\b(project|projects|hub|client dashboard|manage)\b/.test(t)) {
-    return { kind: "navigate", path: "/project" };
+  if (/\b(summarize|summary|show|review).*\b(active work|active projects?|won projects?)\b/.test(t)) {
+    const active = (Array.isArray(ctx.leads) ? ctx.leads : []).filter((lead) => lead.status === "won");
+    const rows = active.length
+      ? active.map((lead) => `○ ${lead.title} · ${lead.city || "Location pending"} · ${lead.timeline || "timeline to confirm"}`).join("\n")
+      : "No projects are in active work yet.";
+    return { kind: "reply", text: `**Active work:**\n${rows}\nSources: homeowner lead inbox.` };
   }
-  if (/\b(shop|materials?|supplies)\b/.test(t)) {
+  if (/^(lead|leads|quotes?|bids?|proposals?|rfq)$/.test(t) || /\b(open|show|review|go to)\b.*\b(leads?|quotes?|bids?|proposals?|rfq)\b/.test(t)) {
+    return { kind: "navigate", path: "/pro/leads" };
+  }
+  if (/\b(shop|buy|supplies)\b/.test(t) || /\b(open|show|go to)\b.*\bmaterials?\b/.test(t)) {
     return { kind: "navigate", path: "/shop" };
   }
   if (/\b(bio|about|description|intro|write my)\b/.test(t)) {
     return { kind: "reply", text: `Here's a draft bio you can use — tweak and paste into your portfolio:\n\n${draftProBio(ctx)}` };
   }
   if (/\b(client update|status update|message|update my client)\b/.test(t)) {
-    return { kind: "reply", text: `Here's a client update you can send:\n\n${draftClientUpdate(ctx)}` };
+    return { kind: "reply", text: `Here's an approval-ready draft. Fill the bracketed facts from the shared project board before sending—nothing has been sent automatically.\n\n${draftClientUpdate(ctx)}` };
   }
   if (/\b(estimate|quote draft|takeoff|boq|costing)\b/.test(t)) {
     return {
       kind: "reply",
-      text: "For a quick estimate: list each line item, its quantity, and a unit rate — I'll total it. Open the **project hub** to use the Estimate & Takeoff draft, or say **open project hub**.",
+      text: "For a quick estimate: list each line item, its quantity, and a unit rate — I'll total it. Open the relevant homeowner lead to keep the quote tied to the right opportunity.",
     };
+  }
+  if (/\b(budget|budget range|project value|cost range)\b/.test(t)) {
+    const rows = (ctx.leads || []).slice(0, 8).map((lead) => {
+      const range = lead.budgetMax
+        ? `${formatInr(lead.budgetMin)}–${formatInr(lead.budgetMax)}`
+        : formatInr(lead.budgetMin);
+      return `○ ${lead.title}: ${range}`;
+    });
+    return { kind: "reply", text: `**Shared project budgets:**\n${rows.length ? rows.join("\n") : "No project budget ranges are shared yet."}${leadSource()}` };
+  }
+  if (/\b(scope|style|styles|timeline|location|where|what are they building|project details?)\b/.test(t)) {
+    const rows = (ctx.leads || []).slice(0, 8).map((lead) => {
+      const details = [lead.scope, lead.city, lead.timeline || "timeline to confirm", ...(lead.styles || []).slice(0, 2)].filter(Boolean);
+      return `○ ${lead.title}: ${details.join(" · ")}`;
+    });
+    return { kind: "reply", text: `**Shared project details:**\n${rows.length ? rows.join("\n") : "No homeowner project details are shared yet."}${leadSource()}` };
   }
   if (/\b(latest|what'?s new|update|status|briefing|summary|today)\b/.test(t)) {
     return { kind: "reply", text: buildProBriefing(ctx) };
+  }
+  if (/^(project|projects|active work)$/.test(t) || /\b(open|show|go to|manage)\b.*\b(projects?|active work|client dashboard)\b/.test(t)) {
+    return { kind: "navigate", path: "/pro/leads?status=won" };
   }
   if (/\b(help|commands?|what can you)\b/.test(t)) {
     return {
       kind: "reply",
       text:
-        "I can: **preview as client**, **share my link**, **edit portfolio**, **review leads**, **open project hub**, **write my bio**, or **draft a client update**.",
+        "I can: **review homeowner leads**, **open active work**, **preview as client**, **share my link**, **edit portfolio**, **write my bio**, or **draft a client update**.",
     };
   }
   return null;

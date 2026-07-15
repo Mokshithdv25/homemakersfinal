@@ -166,7 +166,7 @@ export async function listUserProjects() {
   if (!userId) return [];
   const { data, error } = await supabase
     .from("projects")
-    .select("id, title, flow_type, status, source, location, city, timeline_completion, budget_min, budget_max, created_at, updated_at")
+    .select("id, title, flow_type, status, source, location, city, timeline_start, timeline_completion, budget_min, budget_max, created_at, updated_at")
     .eq("owner_user_id", userId)
     .order("updated_at", { ascending: false });
   if (error) {
@@ -687,6 +687,8 @@ export async function loadProjectBoard({ projectId, source }) {
     return {
       id: s.id,
       name: s.name,
+      startDate: s.start_date || "",
+      dueDate: s.due_date || "",
       pct: Number(s.progress_percent || 0),
       color: stageColor(s.status),
       status: pill.label,
@@ -709,7 +711,8 @@ export async function loadProjectBoard({ projectId, source }) {
     status: t.status || "todo",
     name: t.title,
     phase: stageById[t.stage_id] || "Design & Approval",
-    date: shortDate(t.due_date) || shortDate(t.created_at) || "Planned",
+    date: shortDate(t.due_date) || "No due date",
+    dueDate: t.due_date || "",
     assignee: "Team",
   }));
   phaseRows = derivePhaseProgress(phaseRows, taskRows);
@@ -733,6 +736,52 @@ export async function loadProjectBoard({ projectId, source }) {
     tasks: taskRows,
     messages: messageRows,
   };
+}
+
+/** Update the homeowner-controlled overall schedule stored on the project. */
+export async function updateProjectSchedule(projectId, { timelineStart = "", timelineCompletion = "" } = {}) {
+  if (!supabase || !projectId) throw new Error("Choose a saved project first.");
+  const { data, error } = await supabase
+    .from("projects")
+    .update({
+      timeline_start: String(timelineStart || "").trim() || null,
+      timeline_completion: String(timelineCompletion || "").trim() || null,
+      last_active_at: new Date().toISOString(),
+    })
+    .eq("id", projectId)
+    .select("id, timeline_start, timeline_completion")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Persist exact dates for a project stage. */
+export async function updateProjectStageSchedule({ projectId, stageId, startDate = "", dueDate = "" }) {
+  if (!supabase || !projectId || !stageId) throw new Error("Choose a saved project stage first.");
+  if (startDate && dueDate && startDate > dueDate) throw new Error("Stage end date must be on or after its start date.");
+  const { data, error } = await supabase
+    .from("project_stages")
+    .update({ start_date: startDate || null, due_date: dueDate || null })
+    .eq("project_id", projectId)
+    .eq("id", stageId)
+    .select("id, start_date, due_date")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Persist a task due date shown on the editable timeline. */
+export async function updateProjectTaskDueDate({ projectId, taskId, dueDate = "" }) {
+  if (!supabase || !projectId || !taskId) throw new Error("Choose a saved task first.");
+  const { data, error } = await supabase
+    .from("project_tasks")
+    .update({ due_date: dueDate || null })
+    .eq("project_id", projectId)
+    .eq("id", taskId)
+    .select("id, due_date")
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 /** Persist a new task on the board; returns the inserted row id (or null offline). */

@@ -28,10 +28,10 @@ client-side claim path.
 
 | Database state | Run in this order |
 | --- | --- |
-| Existing HomeMakers production schema | `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` |
-| Empty Supabase project | `homemakers_single_setup.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` |
-| Older v1/v1.1/v1.2 schema missing current columns or buckets | `homemakers_supabase_align.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` |
-| Intentionally discard all HomeMakers data | Empty the three app buckets through Storage Admin, delete disposable users through Auth Admin, then `homemakers_production_reset.sql` → `homemakers_single_setup.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` |
+| Existing HomeMakers production schema | `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` → `homemakers_pro_leads.sql` → `homemakers_project_intelligence.sql` |
+| Empty Supabase project | `homemakers_single_setup.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` → `homemakers_pro_leads.sql` → `homemakers_project_intelligence.sql` |
+| Older v1/v1.1/v1.2 schema missing current columns or buckets | `homemakers_supabase_align.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` → `homemakers_pro_leads.sql` → `homemakers_project_intelligence.sql` |
+| Intentionally discard all HomeMakers data | Empty the three app buckets through Storage Admin, delete disposable users through Auth Admin, then `homemakers_production_reset.sql` → `homemakers_single_setup.sql` → `homemakers_rls_hardening.sql` → `homemakers_project_workspace.sql` → `homemakers_pro_leads.sql` → `homemakers_project_intelligence.sql` |
 
 `homemakers_single_setup.sql` is now fail-closed: it enables RLS, revokes anonymous table access, and creates private buckets without broad policies. The app is not ready until the hardening and workspace scripts also succeed, but an interrupted bootstrap does not expose the database.
 
@@ -47,6 +47,8 @@ client-side claim path.
 - Backend-only writes to billing orders and entitlements; authenticated users may read only their own rows.
 - A backend-only, atomic UTC-day counter that limits real AI image-pack requests per user.
 - Workspace tables and progress triggers used by the web and native project hub.
+- A professional lead inbox backed by a privacy-safe homeowner-project projection. It omits homeowner IDs, contact details, full location, and raw brief content; each professional can modify only responses tied to their own portfolio.
+- An owner-scoped editable material takeoff and an approval log for AI-suggested follow-ups, professional shortlists, document reviews, and material-plan decisions.
 
 ## SQL verification
 
@@ -54,6 +56,7 @@ Run the readiness contract first. It must return `true`:
 
 ```sql
 select public.launch_schema_ready();
+select public.project_intelligence_ready();
 ```
 
 Then inspect RLS directly. Every listed table must report `rls_enabled = true`.
@@ -69,7 +72,8 @@ where n.nspname = 'public'
     'portfolios', 'projects', 'project_briefs', 'project_v0_packs',
     'project_stages', 'project_tasks', 'project_messages', 'project_documents',
     'project_team_members', 'project_payments', 'billing_orders',
-    'user_entitlements', 'ai_usage_daily'
+    'user_entitlements', 'ai_usage_daily', 'project_lead_responses',
+    'project_material_items', 'project_agent_actions'
   )
 order by c.relname;
 ```
@@ -104,9 +108,15 @@ curl -i "$HM_SUPABASE_URL/rest/v1/projects?select=id&limit=1" \
 curl -i "$HM_SUPABASE_URL/rest/v1/billing_orders?select=id&limit=1" \
   -H "apikey: $HM_SUPABASE_ANON_KEY" \
   -H "Authorization: Bearer $HM_SUPABASE_ANON_KEY"
+
+curl -i "$HM_SUPABASE_URL/rest/v1/pro_lead_opportunities?select=*&limit=1" \
+  -H "apikey: $HM_SUPABASE_ANON_KEY" \
+  -H "Authorization: Bearer $HM_SUPABASE_ANON_KEY"
 ```
 
-The published view should return `200` and only the safe portfolio projection. The project and billing requests must return `401` or `403`; any anonymous project/billing row is a release blocker. Repeat the private-table probe for `project_briefs`, `project_v0_packs`, `project_stages`, `project_tasks`, `project_messages`, `project_documents`, `project_team_members`, `project_payments`, and `user_entitlements`.
+The published view should return `200` and only the safe portfolio projection. The project, billing, and professional-lead requests must return `401` or `403`; any anonymous row is a release blocker. Repeat the private-table probe for `project_briefs`, `project_v0_packs`, `project_stages`, `project_tasks`, `project_messages`, `project_documents`, `project_team_members`, `project_payments`, `project_lead_responses`, and `user_entitlements`.
+
+With two disposable professional accounts, confirm that each can see open, non-targeted project opportunities but only its own targeted opportunities and response rows. The `pro_lead_opportunities` response must never contain `owner_user_id`, `location`, contact fields, `dream_vision`, `inspirations_json`, or `brief_json`. Confirm that changing a response to another professional's `portfolio_id` fails.
 
 Verify portfolio media with one draft portfolio and one published portfolio, each containing a disposable image at the required `{owner_user_id}/{portfolio_id}/...` path:
 

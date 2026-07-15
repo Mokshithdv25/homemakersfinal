@@ -4,7 +4,7 @@ import { MapPin, Calendar, Building2, X } from "lucide-react";
 import MobileHeader from "../MobileHeader";
 import { getPublicProfile } from "../../lib/api";
 import { craftLabel, proDisplayName } from "../../components/PublishedProsDirectory";
-import { getPortfolioThemeFromRecord } from "../../lib/portfolioThemes";
+import { getPortfolioThemeFromRecord, portfolioThemeCssVars } from "../../lib/portfolioThemes";
 import { findCraft } from "../../lib/crafts";
 import { formatLocationLabel } from "../../lib/formatLocation";
 import { blockPortfolio, reportPortfolio } from "../../lib/portfolioSafetyApi";
@@ -88,6 +88,9 @@ export default function MobileProProfilePage() {
   }
 
   const theme = getPortfolioThemeFromRecord(pro);
+  const themeVars = portfolioThemeCssVars(theme);
+  const isEditorial = theme.layout === "editorial";
+  const isCompact = theme.layout === "compact";
   const craft = findCraft(pro.craft);
   const name = proDisplayName(pro);
   const label = craftLabel(pro.craft);
@@ -113,13 +116,15 @@ export default function MobileProProfilePage() {
     <>
       <MobileHeader title={name} subtitle={label} backTo="/browse" />
 
+      <div className={`hm-m-public-profile hm-m-public-profile--${theme.id} hm-m-public-profile--${theme.layout}`} style={themeVars}>
+
       {/* Themed hero */}
-      <div style={{ position: "relative", minHeight: 220, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+      <div style={{ position: "relative", minHeight: isEditorial ? 300 : isCompact ? 185 : 235, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
         <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${hero})`, backgroundSize: "cover", backgroundPosition: "center", zIndex: 0 }} />
         <div style={{ position: "absolute", inset: 0, zIndex: 1, background: theme.heroOverlay }} />
-        <div style={{ position: "relative", zIndex: 2, padding: "0 16px 18px", color: "#fff" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
-            <div style={{ width: 64, height: 64, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: "2px solid rgba(255,255,255,0.75)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ position: "relative", zIndex: 2, padding: isEditorial ? "0 22px 28px" : "0 16px 18px", color: "#fff", textAlign: isEditorial ? "center" : "left" }}>
+          <div style={{ display: "flex", flexDirection: isEditorial ? "column" : "row", alignItems: isEditorial ? "center" : "flex-end", justifyContent: isEditorial ? "center" : "flex-start", gap: 12 }}>
+            <div style={{ width: isCompact ? 56 : 64, height: isCompact ? 56 : 64, borderRadius: theme.imageRadius, overflow: "hidden", flexShrink: 0, border: "2px solid rgba(255,255,255,0.75)", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {pro.profile_photo ? (
                 <img src={pro.profile_photo} alt={name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               ) : (
@@ -142,14 +147,14 @@ export default function MobileProProfilePage() {
         </div>
       </div>
 
-      <div style={{ padding: 16 }}>
+      <div style={{ padding: 16, background: theme.pageBg, color: theme.text }}>
         {meta.length > 0 ? (
           <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginBottom: 14 }}>
             {meta.map((m, i) => {
               const Icon = m.icon;
               return (
                 <span key={i} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#57534E" }}>
-                  <Icon size={15} color={theme.accent} /> {m.text}
+                  <Icon size={15} color={theme.accent} /> <span style={{ color: theme.muted }}>{m.text}</span>
                 </span>
               );
             })}
@@ -157,7 +162,7 @@ export default function MobileProProfilePage() {
         ) : null}
 
         {bio ? (
-          <p style={{ fontSize: 14, lineHeight: 1.6, color: "#44403C", margin: "0 0 16px" }}>{bio}</p>
+          <p style={{ fontSize: 14, lineHeight: 1.6, color: theme.muted, margin: "0 0 16px" }}>{bio}</p>
         ) : null}
 
         {specialties.length > 0 ? (
@@ -165,7 +170,7 @@ export default function MobileProProfilePage() {
             <p className="hm-m-section-title" style={{ padding: 0 }}>Specialties</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
               {specialties.slice(0, 8).map((s) => (
-                <span key={s} style={{ background: theme.accentSoft, color: "#44403C", border: `1px solid ${theme.border}`, fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 20 }}>
+                <span key={s} style={{ background: theme.accentSoft, color: theme.text, border: `1px solid ${theme.border}`, fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: theme.cardRadius }}>
                   {s}
                 </span>
               ))}
@@ -179,7 +184,7 @@ export default function MobileProProfilePage() {
             <div className="hm-m-ideas-grid">
               {photos.slice(0, 10).map((url, i) => (
                 <button type="button" key={i} className="hm-m-idea-thumb static" style={{ border: 0, padding: 0 }} onClick={() => setSelectedPhoto({ url, index: i })} aria-label={`Open ${name} project ${i + 1}`}>
-                  <img src={url} alt="" />
+                  <img src={url} alt="" style={{ borderRadius: theme.imageRadius }} />
                 </button>
               ))}
             </div>
@@ -206,6 +211,7 @@ export default function MobileProProfilePage() {
           <img src={selectedPhoto.url} alt={`${name} project ${selectedPhoto.index + 1}`} onClick={(event) => event.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "90vh", objectFit: "contain" }} />
         </div>
       ) : null}
+      </div>
     </>
   );
 }

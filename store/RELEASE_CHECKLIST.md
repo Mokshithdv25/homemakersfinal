@@ -15,7 +15,7 @@
 
 ## Required before uploading
 
-- Apply the production Supabase scripts in the path documented by `db/README.md`. Existing schemas use `db/homemakers_rls_hardening.sql`, then `db/homemakers_project_workspace.sql`; fresh projects first use the fail-closed `db/homemakers_single_setup.sql`. Use the destructive reset only when data loss is intentional.
+- Apply the production Supabase scripts in the path documented by `db/README.md`. Existing schemas use `db/homemakers_rls_hardening.sql`, then `db/homemakers_project_workspace.sql`, `db/homemakers_pro_leads.sql`, and `db/homemakers_project_intelligence.sql`; fresh projects first use the fail-closed `db/homemakers_single_setup.sql`. Use the destructive reset only when data loss is intentional.
 - Run the SQL, anonymous, storage, and two-account isolation probes in `db/README.md`. Any anonymous project/billing row or exposure of a portfolio owner ID, street address, email, phone, license number, or private media blocks release.
 - Keep `REACT_APP_EMAIL_SIGNUP_ENABLED=false` until custom SMTP confirmation, resend, and password-recovery delivery pass end-to-end tests; Google OAuth is the current account-creation path. Allow `https://www.homemakers.online/sign-in`, `https://homemakers.online/sign-in`, and `in.homemakers.app://auth/callback`, and require confirmation before email sign-up is re-enabled.
 - Set `REACT_APP_SUPABASE_URL` and the browser-safe `REACT_APP_SUPABASE_ANON_KEY` in Vercel and in ignored `frontend/.env.production.local` for native builds. Never expose the service-role key to the frontend.
@@ -26,6 +26,8 @@
 - Build with Node 20 and run `npm run cap:sync`; reject any web or native bundle containing source maps, `localhost:8000`, or a temporary Capacitor `server.url`.
 - Test Google account creation/sign-in, sign-out, and stale-session cleanup on web and installed iOS and Android builds. After custom SMTP is configured, test PKCE email confirmation, resend, and password recovery before enabling email account creation.
 - Confirm `portfolio-media` is private: an anonymous reader can obtain a short-lived signed URL only for an exact published `{owner_user_id}/{portfolio_id}/...` path, while draft, mismatched-prefix, direct-public, and expired URL probes fail.
+- Confirm the professional lead view rejects anonymous access, never exposes homeowner IDs, contact details, full location, or raw brief data, and isolates each professional's targeted opportunities and response rows.
+- Confirm material items and agent-action approvals are owner-scoped, quantity and brand edits persist, and no suggested follow-up, shortlist, hire, or order is represented as executed without explicit approval history.
 - Review every pending portfolio before approval; test Report profile and Block profile on web, iOS, and Android; assign an owner and response SLA for the `portfolio_reports` queue.
 - Confirm `support@homemakers.online` is monitored for safety and moderation escalations.
 - Keep `BILLING_ENABLED=false`, `ALLOW_LIVE_BILLING=false`, and Razorpay in Test Mode. Paid webhooks record entitlements, but paid features are not yet gated by those entitlements; Live Mode keys and real charges stay blocked until entitlement enforcement and downgrade/expiry tests pass.

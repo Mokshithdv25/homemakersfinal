@@ -160,12 +160,12 @@ export default function HmUserMenu({ className = "" }) {
                 {menuItem(
                   <Users className="h-4 w-4 shrink-0 text-copper" />,
                   "Leads & new projects",
-                  "/browse",
+                  "/pro/leads",
                 )}
                 {menuItem(
                   <FolderKanban className="h-4 w-4 shrink-0 text-copper" />,
                   "Manage jobs",
-                  "/project",
+                  "/pro/leads?status=won",
                 )}
                 {menuItem(
                   <ShoppingBag className="h-4 w-4 shrink-0 text-copper" />,

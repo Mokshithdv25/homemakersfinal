@@ -56,7 +56,7 @@ export default function HmMorningBriefing({ context, pendingTasks = [], onNaviga
             ))}
           </div>
           <p className="hm-morning-brief__tagline">
-            The agentic AI operating system for your home build — design, quotes, site, and budget in one hub.
+            Briefings and answers grounded in your saved brief, estimate, tasks, documents, site updates, and budget.
           </p>
         </div>
       </div>
@@ -68,7 +68,7 @@ export default function HmMorningBriefing({ context, pendingTasks = [], onNaviga
             <h1 className="hm-morning-brief__greeting">
               {getTimeGreeting()}, {firstName} 👋
             </h1>
-            <p className="hm-morning-brief__sub">Tap play and Homi will walk you through what matters on your project today.</p>
+            <p className="hm-morning-brief__sub">A concise summary of what changed, what is blocked, and which decisions need you today.</p>
           </div>
           <button type="button" className="hm-morning-brief__play" onClick={playBriefing}>
             🔊 Play briefing

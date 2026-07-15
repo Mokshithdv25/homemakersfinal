@@ -1,0 +1,28 @@
+.hm-project-intelligence { margin: 18px 0; }
+.hm-project-intelligence__head { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 12px; }
+.hm-project-intelligence__head h2 { margin: 7px 0 5px; font-size: 20px; color: #1c1917; }
+.hm-project-intelligence__head p { margin: 0; color: #78716c; font-size: 13px; line-height: 1.5; }
+.hm-project-intelligence__kicker, .hm-project-intelligence__guard { display: inline-flex; align-items: center; gap: 6px; color: #9a3412; font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.hm-project-intelligence__guard { flex: 0 0 auto; border: 1px solid #bbf7d0; border-radius: 999px; background: #ecfdf5; color: #047857; padding: 7px 10px; letter-spacing: 0; text-transform: none; }
+.hm-project-intelligence__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hm-project-intelligence__card { border: 1px solid #e8e4de; border-radius: 16px; background: linear-gradient(180deg,#fff 0%,#faf9f7 100%); padding: 17px; box-shadow: 0 5px 18px rgba(28,25,23,.045); }
+.hm-project-intelligence__card h3 { margin: 9px 0 6px; color: #1c1917; font-size: 16px; }
+.hm-project-intelligence__card > p { margin: 0; color: #78716c; font-size: 12px; line-height: 1.55; }
+.hm-project-intelligence__card-icon { display: grid; width: 35px; height: 35px; place-items: center; border-radius: 11px; background: #fff0e3; color: #c85f2b; }
+.hm-project-intelligence__sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.hm-project-intelligence__sources span { border: 1px solid #e7e5e4; border-radius: 999px; background: #fff; padding: 5px 8px; color: #57534e; font-size: 10px; font-weight: 700; }
+.hm-project-intelligence__buttons, .hm-project-intelligence__match > div:last-child, .hm-project-intelligence__approvals > div > div { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+.hm-project-intelligence button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid #ded6cf; border-radius: 9px; background: #fff; color: #4a4038; padding: 7px 10px; font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
+.hm-project-intelligence button:hover { border-color: #c85f2b; }
+.hm-project-intelligence button.is-primary, .hm-project-intelligence__wide { border-color: #c85f2b; background: #c85f2b; color: #fff; }
+.hm-project-intelligence button:disabled { opacity: .55; cursor: wait; }
+.hm-project-intelligence__matches, .hm-project-intelligence__approvals { display: grid; gap: 8px; margin-top: 12px; }
+.hm-project-intelligence__match { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #eee7e1; padding-top: 9px; }
+.hm-project-intelligence__match strong, .hm-project-intelligence__approvals strong { display: block; color: #292524; font-size: 12px; }
+.hm-project-intelligence__match span, .hm-project-intelligence__approvals span { display: block; margin-top: 3px; color: #8a8179; font-size: 10px; line-height: 1.4; }
+.hm-project-intelligence__approvals > div { border: 1px solid #eee6df; border-radius: 12px; background: #fffdfa; padding: 10px; }
+.hm-project-intelligence__text-link { margin-top: 10px; border: 0 !important; background: transparent !important; color: #c85f2b !important; padding-left: 0 !important; }
+.hm-project-intelligence__wide { width: 100%; margin-top: 14px; min-height: 40px; }
+.hm-project-intelligence__empty { margin-top: 12px; color: #8a8179; font-size: 11px; }
+.hm-project-intelligence__error { margin: 10px 0 0 !important; color: #b42318 !important; }
+@media (max-width: 760px) { .hm-project-intelligence { padding: 0 14px; } .hm-project-intelligence__grid { grid-template-columns: 1fr; } .hm-project-intelligence__head { flex-direction: column; } .hm-project-intelligence__match { align-items: flex-start; flex-direction: column; } }

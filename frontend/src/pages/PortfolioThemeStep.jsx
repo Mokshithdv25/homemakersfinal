@@ -33,6 +33,7 @@ function ThemeCard({ theme, selected, onSelect }) {
         <div>
           <div className="font-serif-display text-lg font-semibold text-[#1C1917]">{theme.name}</div>
           <div className="text-[12px] text-[#7A6E62] mt-0.5">{theme.tagline}</div>
+          <div className="mt-2 text-[11px] font-medium leading-relaxed text-[#5F554D]">{theme.designImpact}</div>
         </div>
         {selected ? (
           <span
@@ -74,6 +75,12 @@ export default function PortfolioThemeStep() {
   const [error, setError] = useState(null);
 
   const resolvedTheme = useMemo(() => resolvePortfolioTheme(themeId, layoutId), [themeId, layoutId]);
+
+  const handleThemeSelect = (nextThemeId) => {
+    const nextTheme = resolvePortfolioTheme(nextThemeId);
+    setThemeId(nextThemeId);
+    setLayoutId(nextTheme.layout);
+  };
 
   useEffect(() => {
     const pid = localStorage.getItem("hm_portfolio_id");
@@ -168,7 +175,7 @@ export default function PortfolioThemeStep() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
             {PORTFOLIO_THEMES.map((t) => (
-              <ThemeCard key={t.id} theme={t} selected={themeId === t.id} onSelect={setThemeId} />
+              <ThemeCard key={t.id} theme={t} selected={themeId === t.id} onSelect={handleThemeSelect} />
             ))}
           </div>
 

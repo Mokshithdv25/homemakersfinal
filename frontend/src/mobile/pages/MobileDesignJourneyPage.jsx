@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MobileHeader from "../MobileHeader";
-import { loadProjectBoard } from "../../lib/projectFlowApi";
+import { loadProjectBoard, updateProjectSchedule, updateProjectStageSchedule } from "../../lib/projectFlowApi";
 import { useMobileHub } from "../hooks/useMobileHub";
+import ProjectTimelineEditor from "../../components/ProjectTimelineEditor";
 
 export default function MobileDesignJourneyPage() {
   const navigate = useNavigate();
@@ -41,6 +42,18 @@ export default function MobileDesignJourneyPage() {
     ...(board?.v0Pack?.images?.floor_plans || board?.v0Pack?.images?.floorPlans || board?.v0Pack?.floorPlans || []),
   ].length;
 
+  const saveProjectSchedule = async (schedule) => {
+    const saved = await updateProjectSchedule(activeProject.id, schedule);
+    setBoard((current) => ({ ...current, project: { ...(current?.project || {}), ...saved } }));
+    return saved;
+  };
+
+  const saveStageSchedule = async (phase, schedule) => {
+    const saved = await updateProjectStageSchedule({ projectId: activeProject.id, stageId: phase.id, ...schedule });
+    setBoard((current) => ({ ...current, phases: (current?.phases || []).map((row) => row.id === phase.id ? { ...row, startDate: saved.start_date || "", dueDate: saved.due_date || "" } : row) }));
+    return saved;
+  };
+
   return (
     <>
       <MobileHeader title="Design journey" subtitle="Brief → v0 → build" backTo="/project" />
@@ -61,6 +74,7 @@ export default function MobileDesignJourneyPage() {
           </div>
         ) : null}
         {!loading && board?.v0Pack?.estimate?.project_summary ? <p className="hm-m-journey-note">{board.v0Pack.estimate.project_summary}</p> : null}
+        {!loading && board ? <ProjectTimelineEditor project={board.project || activeProject} brief={brief} phases={steps} onSaveProject={saveProjectSchedule} onSaveStage={saveStageSchedule} /> : null}
         {steps.map((s, i) => (
           <div key={s.id || s.name || s.title || i} className="hm-m-journey-step">
             <div className="hm-m-journey-dot">{i + 1}</div>

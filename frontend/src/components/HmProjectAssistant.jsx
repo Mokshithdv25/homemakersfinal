@@ -4,15 +4,18 @@ import { buildLatestBriefing } from "../lib/hubAssistantCommands";
 import "./HmProjectAssistant.css";
 
 function renderBold(text) {
-  const parts = String(text || "").split(/\*\*(.+?)\*\*/g);
-  return parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part));
+  return String(text || "").split("\n").map((line, lineIndex) => {
+    const parts = line.split(/\*\*(.+?)\*\*/g);
+    return <React.Fragment key={lineIndex}>{lineIndex > 0 ? <br /> : null}{parts.map((part, i) => (i % 2 === 1 ? <strong key={i}>{part}</strong> : part))}</React.Fragment>;
+  });
 }
 
 const QUICK_PROMPTS = [
   { label: "What's new?", message: "latest" },
   { label: "Tasks", message: "tasks" },
   { label: "Budget", message: "budget" },
-  { label: "Design journey", message: "design journey" },
+  { label: "Materials", message: "Show my material takeoff and selected brands" },
+  { label: "Project Q&A", message: "What are the main risks and next decisions on this project?" },
 ];
 
 export default function HmProjectAssistant({
@@ -29,7 +32,7 @@ export default function HmProjectAssistant({
     {
       id: "welcome",
       role: "homi",
-      text: "Hi! I'm **Homi** — your agentic project buddy. Ask for a **latest** briefing, say **tasks** or **budget**, or tell me **add task** _order tile samples_.",
+      text: "Hi! I'm **Homi** — ask any question about this project's **brief, estimate, tasks, documents, payments, site updates, or material plan**. I only use artifacts attached to the active project.",
     },
   ]);
   const scrollRef = useRef(null);
@@ -126,7 +129,7 @@ export default function HmProjectAssistant({
             </div>
             <div>
               <h3>Homi</h3>
-              <p>Agentic project co-pilot</p>
+              <p>Project-artifact Q&amp;A and actions</p>
             </div>
             <button
               type="button"
@@ -187,7 +190,7 @@ export default function HmProjectAssistant({
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask Homi or give a command…"
+              placeholder="Ask about this project's scope, budget, documents, materials…"
               disabled={busy}
               aria-label="Message Homi"
             />

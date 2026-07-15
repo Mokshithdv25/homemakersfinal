@@ -2559,7 +2559,7 @@ def _hub_assistant_local(message: str, ctx: dict) -> dict:
         "overview": "nav",
     }
     for key, kind in nav_map.items():
-        if key in t:
+        if t == key or f"open {key}" in t or f"show {key}" in t:
             label = key.capitalize() if key != "overview" else "Overview"
             if key == "tasks":
                 label = "Tasks"
@@ -2572,6 +2572,30 @@ def _hub_assistant_local(message: str, ctx: dict) -> dict:
             }
     tasks = ctx.get("tasks") or ctx.get("pendingTasks") or []
     messages = ctx.get("recentMessages") or ctx.get("messages") or []
+    materials = ctx.get("materials") or []
+    documents = ctx.get("documents") or []
+    payments = ctx.get("payments") or []
+    artifacts = ctx.get("artifactRefs") or []
+    source_note = f" Sources: {', '.join(artifacts[:5])}." if artifacts else ""
+    if any(word in t for word in ("cement", "steel", "material", "takeoff", "brand", "boq")):
+        if materials:
+            lines = [
+                f"- {x.get('item')}: {x.get('quantity', 0)} {x.get('unit') or 'unit'}"
+                + (f" · {x.get('brand')}" if x.get("brand") else " · brand not selected")
+                for x in materials[:10]
+            ]
+            return {"reply": "Editable material plan:\n" + "\n".join(lines) + source_note, "action": None, "source": "local"}
+        return {"reply": "No material takeoff is saved for this project yet." + source_note, "action": None, "source": "local"}
+    if "document" in t or "drawing" in t or "artifact" in t:
+        if documents:
+            lines = [f"- {x.get('name')}" for x in documents[:10]]
+            return {"reply": "Project document register:\n" + "\n".join(lines) + source_note, "action": None, "source": "local"}
+        return {"reply": "No uploaded document metadata is saved yet." + source_note, "action": None, "source": "local"}
+    if any(word in t for word in ("payment", "paid", "ledger", "spent")):
+        if payments:
+            lines = [f"- {x.get('title')}: INR {x.get('amountInr', 0)} ({x.get('status')})" for x in payments[:8]]
+            return {"reply": "Project payment ledger:\n" + "\n".join(lines) + source_note, "action": None, "source": "local"}
+        return {"reply": "No payment records are saved yet." + source_note, "action": None, "source": "local"}
     if "task" in t or "todo" in t:
         open_tasks = [x for x in tasks if not x.get("done")]
         if open_tasks:
@@ -2602,7 +2626,7 @@ def _hub_assistant_local(message: str, ctx: dict) -> dict:
         if messages:
             last = messages[-1]
             reply += f" Last feed note from {last.get('name') or 'team'}."
-        return {"reply": reply, "action": None, "source": "local"}
+        return {"reply": reply + source_note, "action": None, "source": "local"}
     return {
         "reply": (
             "I'm Homi — try latest, tasks, timeline, budget, or design journey. "
@@ -2623,16 +2647,21 @@ def _grok_hub_assistant(message: str, ctx: dict) -> Optional[dict]:
     surface = (ctx.get("surface") or "project-hub").strip()
     system = (
         "You are Homi, a warm concise agentic assistant inside HomeMakers project management. "
-        "Answer using ONLY the Project context JSON as ground truth for tasks, messages, phases, budget, and v0 status. "
-        "Do not invent tasks, messages, or progress that are not in the context. "
+        "Answer using ONLY the active Project context JSON as ground truth. It may include a structured brief, AI v0 estimate summary, "
+        "task board, site messages, document register metadata, payment ledger, editable material plan, and approval log. "
+        "Do not invent tasks, document contents, messages, quantities, payments, progress, brands, or approvals that are not in context. "
+        "Document metadata is not document body text; never imply you read file contents unless extracted content is explicitly present. "
         "If data is missing, say what is missing and suggest the next step. "
         f"User role: {role}. Surface: {surface}. "
-        "Help homeowners manage build/remodel projects: tasks, timeline, budget, v0 designs, handoff. "
+        "For homeowners, help manage scope, takeoff, shopping choices, professional matching, tasks, timeline, budget, approvals, and handoff. "
+        "For professionals, brief them on only the leads and project artifacts explicitly shared in context. "
+        "Suggestions are drafts: never claim a message was sent, a professional was hired, or materials were ordered without an executed approval record. "
+        "For a daily briefing, summarize what changed, blockers or risks, today's next actions, and decisions awaiting approval. "
         "Reply in 2-4 short sentences unless the user asks for a list (then use short bullet lines). "
-        "Use plain text (no markdown headers). "
+        "End factual project answers with a short 'Sources:' line using only names in context.artifactRefs. Use plain text (no markdown headers). "
         "If the user wants navigation, include JSON action on its own line as: "
         'ACTION:{"type":"nav","nav":"Tasks"} OR ACTION:{"type":"path","path":"/build/new-home"} '
-        'OR ACTION:{"type":"addTask","title":"..."}. Valid nav: Overview, Timeline, Tasks, Budget, Site Feed, Settings.'
+        'OR ACTION:{"type":"addTask","title":"..."}. Valid nav: Overview, Timeline, Tasks, Budget, Materials, Site Feed, Settings.'
     )
     user_prompt = f"Project context JSON:\n{ctx_json}\n\nUser message:\n{message}"
     try:

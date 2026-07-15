@@ -11,6 +11,9 @@ const NAV_ALIASES = {
   todo: "Tasks",
   budget: "Budget",
   money: "Budget",
+  materials: "Materials",
+  takeoff: "Materials",
+  boq: "Materials",
   feed: "Site Feed",
   site: "Site Feed",
   settings: "Settings",
@@ -48,6 +51,29 @@ function formatMessageDigest(messages, limit = 5) {
     .join("\n");
 }
 
+function formatMaterialList(materials, limit = 8) {
+  const rows = (materials || []).filter((item) => item.status !== "removed").slice(0, limit);
+  if (!rows.length) return "No material takeoff is saved yet.";
+  return rows.map((item) => {
+    const quantity = Number(item.quantity || 0).toLocaleString("en-IN");
+    const brand = item.brand ? ` · ${item.brand}` : " · brand not selected";
+    return `○ ${item.item}: ${quantity} ${item.unit || "unit"}${brand} (${item.status || "suggested"})`;
+  }).join("\n");
+}
+
+function formatPaymentList(payments, limit = 6) {
+  const rows = (payments || []).slice(0, limit);
+  if (!rows.length) return "No payment records are saved yet.";
+  return rows.map((payment) => `○ ${payment.title}: ₹${Number(payment.amountInr || 0).toLocaleString("en-IN")} (${payment.status || "planned"})`).join("\n");
+}
+
+function sourceLine(ctx, preferred = []) {
+  const available = ctx.artifactRefs || [];
+  const sources = preferred.filter((name) => available.includes(name));
+  const selected = sources.length ? sources : available.slice(0, 5);
+  return selected.length ? `\nSources: ${selected.join(", ")}.` : "";
+}
+
 export function buildLatestBriefing(ctx) {
   const lines = [];
   const name = ctx.userFirstName ? `${ctx.userFirstName}, ` : "";
@@ -67,10 +93,20 @@ export function buildLatestBriefing(ctx) {
   } else if (ctx.taskCount > 0) {
     lines.push("All tracked tasks are done for now — nice.");
   }
+  const blockedTasks = (ctx.tasks || []).filter((task) => task.status === "blocked");
+  if (blockedTasks.length) lines.push(`Blocked: **${blockedTasks.length}** task${blockedTasks.length === 1 ? "" : "s"} — ${blockedTasks.slice(0, 2).map((task) => task.title).join("; ")}.`);
   if (ctx.budgetLabel) lines.push(`Budget band: **${ctx.budgetLabel}**.`);
   if (ctx.hasV0) lines.push("Your **AI v0** pack is saved on this project.");
   if (ctx.v0Summary?.totalInr) {
-    lines.push(`V0 estimate ballpark: **${ctx.v0Summary.totalInr}** INR (indicative).`);
+    lines.push(`V0 estimate ballpark: **₹${Number(ctx.v0Summary.totalInr).toLocaleString("en-IN")}** (indicative).`);
+  }
+  if (ctx.materials?.length) {
+    const approved = ctx.materials.filter((item) => ["approved", "ordered", "received"].includes(item.status)).length;
+    lines.push(`Material plan: **${ctx.materials.length}** items · **${approved}** approved or ordered.`);
+  }
+  if (ctx.documents?.length) lines.push(`Documents on file: **${ctx.documents.length}**.`);
+  if (ctx.agentActions?.some((action) => action.status === "suggested")) {
+    lines.push(`There are **${ctx.agentActions.filter((action) => action.status === "suggested").length}** suggested actions awaiting approval.`);
   }
   if (ctx.pendingTasks?.length) {
     lines.push(`Open tasks:\n${formatTaskList(ctx.pendingTasks, { limit: 4, openOnly: true })}`);
@@ -85,6 +121,8 @@ export function buildLatestBriefing(ctx) {
         : "Your project is posted — try **Find pros** for bids and proposals.",
     );
   }
+  const sources = sourceLine(ctx, ["project brief", "task board", "site feed", "material plan", "payment ledger"]);
+  if (sources) lines.push(sources.trimStart());
   return lines.join("\n");
 }
 
@@ -105,7 +143,7 @@ export function parseHubCommand(message, ctx) {
     const q = ctx.hubQuery || "";
     return { kind: "navigate", path: `/project/journey${q}` };
   }
-  if (/\b(documents?|files?|vault)\b/.test(t)) {
+  if (/\b(open|show|go to|take me to)\s+(documents?|files?|vault)\b/.test(t) || /^(documents?|files?|vault)$/.test(t)) {
     const q = ctx.hubQuery || "";
     return { kind: "navigate", path: `/documents${q}` };
   }
@@ -113,12 +151,13 @@ export function parseHubCommand(message, ctx) {
     const path = ctx.projectId ? `/browse?projectId=${encodeURIComponent(ctx.projectId)}` : "/browse";
     return { kind: "navigate", path };
   }
-  if (/\b(team|architect|invite|contractor)\b/.test(t)) {
+  if (/\b(team|invite)\b/.test(t) || /\b(open|show)\s+(architect|contractor)\b/.test(t)) {
     const q = ctx.hubQuery || "";
     return { kind: "navigate", path: `/team${q}` };
   }
   if (/\b(shop|materials?)\b/.test(t)) {
-    return { kind: "navigate", path: "/shop" };
+    if (/\b(shop|buy|vendor|order)\b/.test(t)) return { kind: "navigate", path: `/shop${ctx.hubQuery || ""}` };
+    if (/^(material|materials)$/.test(t) || /\b(open|show|go to)\s+materials?\b/.test(t)) return { kind: "nav", nav: "Materials" };
   }
   if (/\b(pros|marketplace|browse)\b/.test(t)) {
     return { kind: "navigate", path: "/browse" };
@@ -144,6 +183,39 @@ export function parseHubCommand(message, ctx) {
       text: `**Site feed** (latest):\n${formatMessageDigest(ctx.recentMessages || ctx.messages)}`,
     };
   }
+  if (/\b(material|materials|takeoff|boq|cement|steel|tile|paint|brand|shopping checklist)\b/.test(t)) {
+    const terms = t.split(/\s+/).filter((word) => word.length > 3);
+    const matching = (ctx.materials || []).filter((item) => {
+      const hay = `${item.item} ${item.category} ${item.brand || ""}`.toLowerCase();
+      return terms.some((term) => hay.includes(term));
+    });
+    const rows = matching.length ? matching : ctx.materials;
+    return {
+      kind: "reply",
+      text: `**Material takeoff** (editable planning draft):\n${formatMaterialList(rows)}${sourceLine(ctx, ["material plan", "project brief", "AI v0 estimate"])}`,
+    };
+  }
+  if (/\b(payment|payments|spend|spent|paid|ledger|cost records?)\b/.test(t)) {
+    return {
+      kind: "reply",
+      text: `**Payment ledger:**\n${formatPaymentList(ctx.payments)}${sourceLine(ctx, ["payment ledger", "AI v0 estimate"])}`,
+    };
+  }
+  if (/\b(document|documents|drawing|drawings|file|files|artifact|artifacts)\b/.test(t)) {
+    const docs = (ctx.documents || []).slice(0, 8);
+    const list = docs.length ? docs.map((doc) => `○ ${doc.name}${doc.kind ? ` (${doc.kind})` : ""}`).join("\n") : "No uploaded document metadata is saved yet.";
+    return { kind: "reply", text: `**Project documents:**\n${list}${sourceLine(ctx, ["document register"])}` };
+  }
+  if (/\b(approval|approvals|approve|agent actions?|follow ups?)\b/.test(t)) {
+    const actions = ctx.agentActions || [];
+    const list = actions.length ? actions.slice(0, 8).map((action) => `○ ${action.title} (${action.status})`).join("\n") : "No approval decisions have been recorded yet.";
+    return { kind: "reply", text: `**Approval log:**\n${list}${sourceLine(ctx, ["approval log", "task board"])}` };
+  }
+  if (/\b(scope|brief|what are we building|project requirements?)\b/.test(t) && ctx.brief) {
+    const brief = ctx.brief;
+    const scope = [brief.homeType, brief.room, brief.mainGoal, brief.location || brief.city, brief.budgetLabel, brief.timeline || brief.completionTime].filter(Boolean).join(" · ");
+    return { kind: "reply", text: `**Saved project scope:** ${scope || "The brief exists, but its main scope fields are incomplete."}${sourceLine(ctx, ["project brief"])}` };
+  }
   if (/\b(phase|stage|timeline|progress)\b/.test(t) && ctx.phases?.length) {
     const phaseLines = ctx.phases
       .map((p) => `**${p.name}** — ${p.pct ?? 0}%${p.status ? ` (${p.status})` : ""}`)
@@ -166,7 +238,7 @@ export function parseHubCommand(message, ctx) {
     return {
       kind: "reply",
       text:
-        "Try: **latest**, **tasks**, **timeline**, **budget**, **design journey**, **add task** _tile samples_, or **new build** / **remodel**.",
+        "Try: **daily briefing**, **tasks**, **materials**, **how much cement**, **payments**, **documents**, **approvals**, **timeline**, **design journey**, or **add task** _tile samples_.",
     };
   }
 
