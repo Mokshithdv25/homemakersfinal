@@ -1,13 +1,22 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { LEGAL_BUSINESS_NAME, SUPPORT_EMAIL, legalEntityDetailsParagraph } from "../lib/legalBusiness";
 
-const SUPPORT_EMAIL = "support@homemakers.online";
+const aboutParagraph = () => {
+  const details = legalEntityDetailsParagraph();
+  const base =
+    "HomeMakers (homemakers.online) helps plan home construction and remodeling in India: AI-assisted design concepts and estimates, a project hub, a marketplace of professionals, and portfolio tools for professionals. By creating an account or using the platform you agree to these terms.";
+  if (LEGAL_BUSINESS_NAME) {
+    return `HomeMakers is operated by ${LEGAL_BUSINESS_NAME}. ${details || ""} ${base}`.replace(/\s+/g, " ").trim();
+  }
+  return base;
+};
 
 const TERMS_SECTIONS = [
   {
     h: "1. About HomeMakers",
-    p: "HomeMakers (homemakers.online) is a platform for planning home construction and remodeling in India: AI-assisted design concepts and estimates, a project hub, a marketplace of professionals, and portfolio tools for professionals. By creating an account or using the platform you agree to these terms.",
+    p: aboutParagraph(),
   },
   {
     h: "2. AI concepts are indicative",
@@ -34,7 +43,12 @@ const TERMS_SECTIONS = [
     p: "The platform is provided \"as is\". To the maximum extent permitted by law, HomeMakers is not liable for construction outcomes, cost overruns, disputes with professionals, or decisions made from AI-generated concepts. Nothing in these terms limits liability that cannot be limited under applicable law.",
   },
   {
-    h: "8. Changes and contact",
+    h: "8. Refunds and cancellations",
+    id: "refunds",
+    p: `Paid digital plans (Project Pass, Pro Growth) are non-refundable once access has been activated on your account, except where required by applicable law or where we fail to deliver the purchased digital service. If you were charged in error or checkout failed after payment, contact ${SUPPORT_EMAIL} within 7 days with your Razorpay payment ID and account email. Approved refunds are processed back to the original payment method via Razorpay. You may cancel future renewals by not purchasing again; Pro Growth is a fixed 30-day pass, not an auto-renewing subscription unless we explicitly state otherwise on the checkout page.`,
+  },
+  {
+    h: "9. Changes and contact",
     p: `We may update these terms as the platform evolves; continued use after an update means you accept the revised terms. Questions: ${SUPPORT_EMAIL}. These terms are governed by the laws of India.`,
   },
 ];
@@ -95,7 +109,11 @@ export default function LegalPage({ kind = "terms" }) {
 
         <div className="space-y-6">
           {sections.map((s) => (
-            <section key={s.h} className="bg-white border border-[#EFE3D2] rounded-2xl p-5">
+            <section
+              key={s.h}
+              id={s.id || undefined}
+              className="bg-white border border-[#EFE3D2] rounded-2xl p-5 scroll-mt-24"
+            >
               <h2 className="text-[15px] font-bold text-[#1C1917] mb-2">{s.h}</h2>
               <p className="text-sm leading-relaxed text-[#57534E] m-0">{s.p}</p>
             </section>

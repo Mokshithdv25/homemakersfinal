@@ -39,6 +39,7 @@ const StageDashboard = lazy(() => import("./pages/StageDashboard"));
 const ProDashboard = lazy(() => import("./pages/ProDashboard"));
 const ProLeadsPage = lazy(() => import("./pages/ProLeadsPage"));
 const LegalPage = lazy(() => import("./pages/LegalPage"));
+const PricingPage = lazy(() => import("./pages/PricingPage"));
 
 function RouteLoading() {
   return <div className="hm-route-loading" role="status" aria-live="polite"><span />Loading HomeMakers…</div>;
@@ -79,6 +80,7 @@ function DesktopRoutes() {
       <Route path="/account" element={<AccountPage />} />
       <Route path="/account/settings" element={<AccountPage />} />
       <Route path="/subscriptions" element={<SubscriptionsPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
       <Route
         path="/craft"
         element={

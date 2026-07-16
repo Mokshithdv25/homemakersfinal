@@ -4,12 +4,11 @@ import { getProEntryPath } from "../lib/proEntryPath";
 import LandingNavbar from "../components/landing/LandingNavbar";
 import LandingHero from "../components/landing/LandingHero";
 import LandingInspirationSection from "../components/landing/LandingInspirationSection";
-import LandingHowItWorks from "../components/landing/LandingHowItWorks";
 import LandingWhyChooseUs from "../components/landing/LandingWhyChooseUs";
 import LandingForProfessionals from "../components/landing/LandingForProfessionals";
 import LandingTestimonials from "../components/landing/LandingTestimonials";
 import LandingHomeQuickLinks from "../components/landing/LandingHomeQuickLinks";
-import HmMarketingWordmark from "../components/HmMarketingWordmark";
+import LandingFooter from "../components/landing/LandingFooter";
 
 /**
  * Marketing home — routed to this app’s /build, /shop, /project, /craft.
@@ -30,7 +29,6 @@ export default function HomePage() {
       <LandingHomeQuickLinks />
 
       <LandingInspirationSection onExplore={() => navigate("/build")} />
-      <LandingHowItWorks />
       <LandingWhyChooseUs />
       <LandingForProfessionals />
       <LandingTestimonials />
@@ -54,13 +52,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="py-12 border-t border-border bg-secondary">
-        <div className="container">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <HmMarketingWordmark className="!text-xl !pb-0" />
-            <p className="text-muted-foreground font-body text-sm">© 2026 HomeMakers. Build or renovate with clarity.</p>
-          </div>
-        </div>
+      <footer className="py-0 border-0 bg-transparent">
+        <LandingFooter />
       </footer>
     </div>
   );

@@ -37,6 +37,12 @@ try:
 except ImportError:
     _SUPABASE_AVAILABLE = False
 
+try:
+    import razorpay as razorpay_sdk
+    _RAZORPAY_SDK_AVAILABLE = True
+except ImportError:
+    _RAZORPAY_SDK_AVAILABLE = False
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -766,6 +772,140 @@ def delete_account(user: dict = Depends(_require_user)):
 
 
 # ---------------------------------------------------------------------------
+# Razorpay — shared order creation + signature verification
+# ---------------------------------------------------------------------------
+def _razorpay_keys_configured() -> bool:
+    return bool(RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET)
+
+
+def _require_razorpay_keys() -> None:
+    if not _razorpay_keys_configured():
+        raise HTTPException(status_code=503, detail="Payments are not configured")
+    if RAZORPAY_KEY_ID.startswith("rzp_live_") and not ALLOW_LIVE_BILLING:
+        raise HTTPException(status_code=503, detail="Live checkout is disabled")
+
+
+def _razorpay_client():
+    if not _RAZORPAY_SDK_AVAILABLE:
+        return None
+    return razorpay_sdk.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+
+
+def _razorpay_verify_signature(order_id: str, payment_id: str, signature: str) -> bool:
+    expected = hmac.new(
+        RAZORPAY_KEY_SECRET.encode("utf-8"),
+        f"{order_id}|{payment_id}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature.lower())
+
+
+def _razorpay_create_order(
+    amount_paise: int,
+    currency: str,
+    receipt: str,
+    notes: Optional[dict] = None,
+) -> dict:
+    _require_razorpay_keys()
+    if amount_paise < 100:
+        raise HTTPException(status_code=400, detail="Amount must be at least 100 paise")
+    currency = (currency or "INR").upper()
+    payload = {
+        "amount": int(amount_paise),
+        "currency": currency,
+        "receipt": receipt[:40],
+    }
+    if notes:
+        payload["notes"] = notes
+    try:
+        client = _razorpay_client()
+        if client:
+            gateway_order = client.order.create(data=payload)
+        else:
+            response = requests.post(
+                "https://api.razorpay.com/v1/orders",
+                auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+                json=payload,
+                timeout=20,
+            )
+            if response.status_code == 401:
+                raise HTTPException(status_code=401, detail="Razorpay authentication failed")
+            response.raise_for_status()
+            gateway_order = response.json()
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Razorpay order creation failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Could not create payment order") from exc
+
+    try:
+        gateway_amount = int(gateway_order.get("amount") or 0)
+    except (AttributeError, TypeError, ValueError):
+        gateway_amount = -1
+    if (
+        not isinstance(gateway_order, dict)
+        or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(gateway_order.get("id") or ""))
+        or gateway_amount != int(amount_paise)
+        or str(gateway_order.get("currency") or "").upper() != currency
+        or gateway_order.get("status") != "created"
+    ):
+        logger.error("Razorpay returned an invalid order response")
+        raise HTTPException(status_code=500, detail="Could not create payment order")
+    return gateway_order
+
+
+class CreateOrderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    amount: int = Field(..., ge=100, le=50_000_000)
+    currency: str = Field(default="INR", min_length=3, max_length=3)
+    receipt: str = Field(..., min_length=1, max_length=40, pattern=r"^[A-Za-z0-9_#-]+$")
+
+
+class VerifyPaymentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    razorpay_order_id: str = Field(
+        ..., min_length=6, max_length=128, pattern=r"^[A-Za-z0-9_-]+$"
+    )
+    razorpay_payment_id: str = Field(
+        ..., min_length=6, max_length=128, pattern=r"^[A-Za-z0-9_-]+$"
+    )
+    razorpay_signature: str = Field(
+        ..., min_length=64, max_length=64, pattern=r"^[0-9A-Fa-f]{64}$"
+    )
+
+
+@api_router.post("/create-order")
+def create_order(payload: CreateOrderRequest):
+    """Standard Razorpay order creation (amount in paise)."""
+    gateway_order = _razorpay_create_order(
+        payload.amount,
+        payload.currency,
+        payload.receipt,
+    )
+    return {
+        "order_id": gateway_order["id"],
+        "amount": int(gateway_order["amount"]),
+        "currency": gateway_order["currency"],
+        "key_id": RAZORPAY_KEY_ID,
+    }
+
+
+@api_router.post("/verify-payment")
+def verify_payment(payload: VerifyPaymentRequest):
+    """Verify Razorpay Standard Checkout signature (HMAC-SHA256)."""
+    _require_razorpay_keys()
+    if not _razorpay_verify_signature(
+        payload.razorpay_order_id,
+        payload.razorpay_payment_id,
+        payload.razorpay_signature,
+    ):
+        raise HTTPException(status_code=400, detail="Payment verification failed")
+    return {"success": True, "verified": True}
+
+
+# ---------------------------------------------------------------------------
 # Billing — Razorpay Standard Checkout + server-side entitlement records
 # ---------------------------------------------------------------------------
 class BillingOrderRequest(BaseModel):
@@ -901,35 +1041,16 @@ def create_billing_order(payload: BillingOrderRequest, user: dict = Depends(_req
     local_id = str(uuid.uuid4())
     receipt = f"hm_{local_id.replace('-', '')[:28]}"
     try:
-        response = requests.post(
-            "https://api.razorpay.com/v1/orders",
-            auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
-            json={
-                "amount": plan["amount_paise"],
-                "currency": "INR",
-                "receipt": receipt,
-                "notes": {"user_id": user["id"], "plan_id": payload.plan_id},
-            },
-            timeout=20,
+        gateway_order = _razorpay_create_order(
+            plan["amount_paise"],
+            "INR",
+            receipt,
+            notes={"user_id": user["id"], "plan_id": payload.plan_id},
         )
-        response.raise_for_status()
-        gateway_order = response.json()
-    except (requests.RequestException, ValueError) as exc:
-        logger.exception("Razorpay order creation failed: %s", exc)
+    except HTTPException as exc:
+        if exc.status_code == 400:
+            raise
         raise HTTPException(status_code=502, detail="Could not start checkout. Please try again.") from exc
-    try:
-        gateway_amount = int(gateway_order.get("amount") or 0)
-    except (AttributeError, TypeError, ValueError):
-        gateway_amount = -1
-    if (
-        not isinstance(gateway_order, dict)
-        or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", str(gateway_order.get("id") or ""))
-        or gateway_amount != int(plan["amount_paise"])
-        or str(gateway_order.get("currency") or "").upper() != "INR"
-        or gateway_order.get("status") != "created"
-    ):
-        logger.error("Razorpay returned an invalid order response")
-        raise HTTPException(status_code=502, detail="Could not start checkout. Please try again.")
 
     row = {
         "id": local_id,
@@ -958,12 +1079,11 @@ def verify_billing_payment(payload: BillingVerifyRequest, user: dict = Depends(_
     if not rows:
         raise HTTPException(status_code=404, detail="Checkout order was not found")
     order = rows[0]
-    expected = hmac.new(
-        RAZORPAY_KEY_SECRET.encode("utf-8"),
-        f"{order['gateway_order_id']}|{payload.razorpay_payment_id}".encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
-    if not hmac.compare_digest(expected, payload.razorpay_signature.lower()):
+    if not _razorpay_verify_signature(
+        order["gateway_order_id"],
+        payload.razorpay_payment_id,
+        payload.razorpay_signature,
+    ):
         raise HTTPException(status_code=400, detail="Payment verification failed")
 
     try:

@@ -12,6 +12,8 @@ const billingClient = apiBase
   ? axios.create({ baseURL: apiBase, timeout: 45000 })
   : null;
 
+const FALLBACK_KEY_ID = process.env.REACT_APP_RAZORPAY_KEY_ID || "";
+
 let checkoutScriptPromise = null;
 
 function requireBillingClient() {
@@ -43,29 +45,48 @@ function loadRazorpayCheckout() {
   return checkoutScriptPromise;
 }
 
-export async function fetchBillingSummary() {
+/** POST /api/create-order — amount in paise (min 100). */
+export async function createPaymentOrder({ amount, currency = "INR", receipt }) {
   const client = requireBillingClient();
-  const { data } = await client.get("/billing/me", await withBackendAuth());
+  const { data } = await client.post("/create-order", { amount, currency, receipt });
   return data;
 }
 
-export async function purchasePlan(planId, profile = {}) {
+/** POST /api/verify-payment — Razorpay handler response fields. */
+export async function verifyPayment(paymentResponse) {
   const client = requireBillingClient();
-  const { data: order } = await client.post(
-    "/billing/order",
-    { plan_id: planId },
-    await withBackendAuth(),
-  );
+  const { data } = await client.post("/verify-payment", paymentResponse);
+  return data;
+}
+
+/**
+ * Open Razorpay Standard Checkout modal.
+ * @param {object} order — { order_id, amount, currency, key_id?, name?, description? }
+ * @param {object} options
+ */
+export async function openRazorpayCheckout(order, options = {}) {
+  const {
+    profile = {},
+    verifyPath = "/verify-payment",
+    authHeaders = null,
+    onVerified = null,
+  } = options;
+
   await loadRazorpayCheckout();
+  const client = requireBillingClient();
+  const key = order.key_id || FALLBACK_KEY_ID;
+  if (!key) {
+    throw new Error("Razorpay checkout key is not configured.");
+  }
 
   return new Promise((resolve, reject) => {
     let completed = false;
     const checkout = new window.Razorpay({
-      key: order.key_id,
+      key,
       amount: order.amount,
-      currency: order.currency,
-      name: "HomeMakers",
-      description: order.description,
+      currency: order.currency || "INR",
+      name: order.name || "HomeMakers",
+      description: order.description || "Secure payment",
       order_id: order.order_id,
       prefill: {
         name: profile.name || "",
@@ -75,13 +96,14 @@ export async function purchasePlan(planId, profile = {}) {
       theme: { color: "#C85F2B" },
       handler: async (response) => {
         try {
-          const { data } = await client.post(
-            "/billing/verify",
-            response,
-            await withBackendAuth(),
-          );
+          const requestConfig = authHeaders ? { headers: authHeaders } : undefined;
+          const { data } = await client.post(verifyPath, response, requestConfig);
           completed = true;
-          resolve(data);
+          if (onVerified) {
+            resolve(await onVerified(data, response));
+          } else {
+            resolve(data);
+          }
         } catch (error) {
           completed = true;
           reject(error);
@@ -99,6 +121,35 @@ export async function purchasePlan(planId, profile = {}) {
     });
     checkout.open();
   });
+}
+
+export async function fetchBillingSummary() {
+  const client = requireBillingClient();
+  const { data } = await client.get("/billing/me", await withBackendAuth());
+  return data;
+}
+
+export async function purchasePlan(planId, profile = {}) {
+  const client = requireBillingClient();
+  const { data: order } = await client.post(
+    "/billing/order",
+    { plan_id: planId },
+    await withBackendAuth(),
+  );
+  const auth = await withBackendAuth();
+  return openRazorpayCheckout(
+    {
+      ...order,
+      order_id: order.order_id,
+      name: order.name || "HomeMakers",
+      description: order.description,
+    },
+    {
+      profile,
+      verifyPath: "/billing/verify",
+      authHeaders: auth.headers,
+    },
+  );
 }
 
 export function billingErrorMessage(error) {

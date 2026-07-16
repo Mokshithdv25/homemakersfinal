@@ -13,45 +13,40 @@ const HOMEOWNER_SOFTWARE_GROUPS = [
   {
     heading: "Design & planning",
     items: [
-      { label: "New-home design & estimate", path: "/build/new-home" },
-      { label: "Remodel design & estimate", path: "/build/remodel" },
-      { label: "Floor-plan concepts", path: "/build/new-home" },
-      { label: "Mood boards & ideabooks", path: "/design" },
-      { label: "Material takeoffs", path: "/project?tab=Materials" },
-      { label: "AI contractor matching", path: "/browse" },
+      { label: "Designs", path: "/design" },
+      { label: "Plans", path: "/build/new-home" },
+      { label: "Estimates", path: "/build" },
+      { label: "Takeoffs", path: "/project?tab=Materials" },
+      { label: "Remodel", path: "/build/remodel" },
     ],
   },
   {
     heading: "Project management",
     items: [
-      { label: "Client project dashboard", path: "/project" },
       { label: "Schedule", path: "/project?tab=Timeline" },
-      { label: "Task management", path: "/project?tab=Tasks" },
-      { label: "Daily briefings & site logs", path: "/project?tab=Site%20Feed" },
-      { label: "Documents & approvals", path: "/documents" },
-      { label: "Project-grounded AI Q&A", path: "/project" },
+      { label: "Tasks", path: "/project?tab=Tasks" },
+      { label: "Logs", path: "/project?tab=Site%20Feed" },
+      { label: "Documents", path: "/documents" },
+      { label: "Dashboard", path: "/project" },
     ],
   },
   {
-    heading: "Costs & materials",
+    heading: "Professionals",
     items: [
-      { label: "Estimates & cost planning", path: "/build" },
-      { label: "Budget & payment ledger", path: "/project/payments" },
-      { label: "AI-suggested material cart", path: "/shop" },
-      { label: "Professional-suggested cart", path: "/shop" },
-      { label: "Brand & quantity selection", path: "/project?tab=Materials" },
-      { label: "Project-linked material shop", path: "/shop" },
+      { label: "Marketplace", path: "/browse" },
+      { label: "Matching", path: "/browse" },
+      { label: "Portfolios", path: "/craft" },
+      { label: "Leads", path: "/pro/leads" },
+      { label: "Proposals", path: "/pro/leads" },
     ],
   },
   {
-    heading: "For professionals",
+    heading: "Materials",
     items: [
-      { label: "Portfolio & marketplace profile", path: "/craft" },
-      { label: "Homeowner leads & CRM pipeline", path: "/pro/leads" },
-      { label: "Proposal-stage tracking", path: "/pro/leads" },
-      { label: "Active project workspace", path: "/pro/dashboard" },
-      { label: "Invoicing & payouts", comingSoon: true },
-      { label: "Change orders & financial reports", comingSoon: true },
+      { label: "Shop", path: "/shop" },
+      { label: "Carts", path: "/shop" },
+      { label: "Brands", path: "/project?tab=Materials" },
+      { label: "Payments", path: "/project/payments" },
     ],
   },
 ];
@@ -108,6 +103,7 @@ export default function LandingNavbar({ tagline = null }) {
   const primaryNav = useMemo(() => {
     if (isProSession) {
       return [
+        { label: "Pricing", path: "/pricing" },
         { label: "Leads", path: "/pro/leads" },
         { label: "Collaborate", path: "/browse" },
         { label: "Shop", path: "/shop" },
@@ -115,12 +111,14 @@ export default function LandingNavbar({ tagline = null }) {
     }
     if (!AUTH_UI_ENABLED) {
       return [
+        { label: "Pricing", path: "/pricing" },
         { label: "My Project", path: "/project" },
         { label: "Start build", path: "/build" },
         { label: "Shop", path: "/shop" },
       ];
     }
     return [
+      { label: "Pricing", path: "/pricing" },
       { label: "My Project", path: "/project" },
       { label: "Shop", path: "/shop" },
     ];
@@ -155,23 +153,19 @@ export default function LandingNavbar({ tagline = null }) {
         <ChevronDown className={`h-4 w-4 transition-transform ${softwareOpen ? "rotate-180" : ""}`} />
       </button>
       {softwareOpen && (
-        <div className="absolute left-0 top-[calc(100%+0.9rem)] w-[min(70rem,calc(100vw-3rem))] max-h-[min(76vh,620px)] overflow-y-auto rounded-[1.35rem] border border-black/8 bg-[rgba(255,252,249,0.99)] p-5 shadow-[0_28px_80px_rgba(48,33,21,0.14)] backdrop-blur-xl">
+        <div className="absolute left-0 top-[calc(100%+0.9rem)] w-[min(58rem,calc(100vw-3rem))] max-h-[min(76vh,620px)] overflow-y-auto rounded-[1.35rem] border border-black/8 bg-[rgba(255,252,249,0.99)] p-5 shadow-[0_28px_80px_rgba(48,33,21,0.14)] backdrop-blur-xl">
           <div className={`grid gap-x-7 gap-y-6 ${softwareGroups.length >= 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
             {softwareGroups.map((group) => <div key={group.heading}><div className="mb-2 px-2 font-body text-sm font-bold text-foreground">{group.heading}</div><div className="space-y-0.5">{group.items.map((item) => (
               <button
                 key={item.label}
                 type="button"
-                onClick={() => {
-                  if (item.path && !item.comingSoon) go(item.path);
-                  if (!item.comingSoon) setSoftwareOpen(false);
-                }}
-                className={`block w-full rounded-lg px-2 py-2 text-left font-body text-[13px] leading-snug transition-colors bg-transparent border-none ${item.comingSoon ? "text-foreground/45 cursor-default" : "text-foreground/76 hover:bg-secondary/70 hover:text-foreground cursor-pointer"}`}
+                onClick={() => go(item.path)}
+                className="block w-full cursor-pointer rounded-lg border-none bg-transparent px-2 py-2 text-left font-body text-[15px] leading-snug text-foreground/76 transition-colors hover:bg-secondary/70 hover:text-foreground"
               >
-                {item.comingSoon ? <span className="flex items-start justify-between gap-2"><span>{item.label}</span><span className="shrink-0 rounded-md border border-[#E5D8CC] bg-[#F8F1EA] px-1.5 py-1 text-[9px] font-semibold leading-none text-[#6E655E]">Soon</span></span> : item.label}
+                {item.label}
               </button>
             ))}</div></div>)}
           </div>
-          <div className="mt-5 flex items-center justify-between gap-4 border-t border-border/60 px-2 pt-4"><div><strong className="font-display text-base text-foreground">HomeMakers</strong><span className="ml-2 font-body text-xs text-muted-foreground">AI-assisted software for Indian home design, construction, and remodeling</span></div><button type="button" onClick={() => go(isProSession ? "/pro/dashboard" : "/build")} className="shrink-0 rounded-xl border border-copper/25 bg-copper/10 px-4 py-2 font-body text-xs font-bold text-copper">Open workspace</button></div>
         </div>
       )}
     </div>

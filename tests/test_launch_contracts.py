@@ -118,7 +118,7 @@ class LaunchContractsTest(unittest.TestCase):
         ).hexdigest()
         self.assertEqual(len(expected), 64)
         server = (ROOT / "backend/server.py").read_text()
-        self.assertIn("hmac.compare_digest(expected, payload.razorpay_signature.lower())", server)
+        self.assertIn("_razorpay_verify_signature", server)
         self.assertIn("payment.get(\"status\") != \"captured\"", server)
 
     def test_launch_sql_removes_anonymous_storage_writes(self):
@@ -263,12 +263,18 @@ class LaunchContractsTest(unittest.TestCase):
         server = (ROOT / "backend/server.py").read_text()
         render = (ROOT / "render.yaml").read_text()
         migration = (ROOT / "db/homemakers_rls_hardening.sql").read_text()
+        billing_api = (ROOT / "frontend/src/lib/billingApi.js").read_text()
         self.assertIn('BILLING_ENABLED = _env_flag("BILLING_ENABLED", False)', server)
         self.assertIn('ALLOW_LIVE_BILLING = _env_flag("ALLOW_LIVE_BILLING", False)', server)
         self.assertIn('detail="Checkout is not active yet"', server)
+        self.assertIn('@api_router.post("/create-order")', server)
+        self.assertIn('@api_router.post("/verify-payment")', server)
+        self.assertIn("_razorpay_verify_signature", server)
         self.assertIn('_billing_checkout_payload(plan, pending[0]["gateway_order_id"])', server)
         self.assertIn("idx_billing_orders_one_created_per_plan", migration)
         self.assertIn('key: BILLING_ENABLED\n        value: "false"', render)
+        self.assertIn('checkout.razorpay.com/v1/checkout.js', billing_api)
+        self.assertIn('verifyPath: "/billing/verify"', billing_api)
 
     def test_global_body_cap_and_ai_generation_cost_guards(self):
         server = (ROOT / "backend/server.py").read_text()

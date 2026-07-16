@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Bot, Calculator, FolderKanban, ShoppingCart } from "lucide-react";
+import { Bot, Calculator, FolderKanban, Quote, ShoppingCart } from "lucide-react";
 
 const capabilityGroups = [
   {
@@ -44,6 +44,15 @@ export default function LandingTestimonials() {
               </ul>
             </motion.article>
           ))}
+        </div>
+        <div className="mt-12 border-t border-border/60 pt-10">
+          <div className="mb-6"><span className="section-kicker">Illustrative perspectives</span><h3 className="mt-3 font-display text-2xl font-bold text-foreground md:text-3xl">How the connected workflow should feel</h3></div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {[
+              { role: "Sample homeowner", place: "Bengaluru · New home", text: "I can compare designs and estimate ranges first, then carry the decisions I approve into contractor matching, materials, and one project dashboard." },
+              { role: "Sample architect", place: "Kochi · Residential practice", text: "A structured homeowner brief, visible approvals, and one trail for tasks and documents would make proposals, coordination, and client updates much clearer." },
+            ].map((story) => <article key={story.role} className="rounded-2xl border border-border/60 bg-white p-6 shadow-sm"><div className="flex items-start justify-between gap-4"><Quote className="h-7 w-7 text-copper/35" /><span className="rounded-full border border-border bg-secondary/50 px-2.5 py-1 font-body text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">Sample</span></div><p className="mt-5 font-body text-base leading-relaxed text-foreground">“{story.text}”</p><div className="mt-5 font-body text-sm font-bold text-foreground">{story.role}</div><div className="mt-1 font-body text-xs text-muted-foreground">{story.place} · Illustrative, not a customer claim</div></article>)}
+          </div>
         </div>
       </div>
     </section>

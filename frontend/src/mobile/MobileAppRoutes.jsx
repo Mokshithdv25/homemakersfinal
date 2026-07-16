@@ -32,6 +32,7 @@ const GoLive = lazy(() => import("../pages/GoLive"));
 const ProDashboard = lazy(() => import("../pages/ProDashboard"));
 const ProLeadsPage = lazy(() => import("../pages/ProLeadsPage"));
 const SubscriptionsPage = lazy(() => import("../pages/SubscriptionsPage"));
+const PricingPage = lazy(() => import("../pages/PricingPage"));
 const AccountPage = lazy(() => import("../pages/AccountPage"));
 const LegalPage = lazy(() => import("../pages/LegalPage"));
 
@@ -89,6 +90,7 @@ export default function MobileAppRoutes() {
         }
       />
       <Route path="/subscriptions" element={withShell(SubscriptionsPage)} />
+      <Route path="/pricing" element={withShell(PricingPage)} />
       <Route
         path="/sign-in"
         element={

@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HomeMakers — Razorpay test checkout</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 520px;
+        margin: 48px auto;
+        padding: 0 20px;
+        color: #1c1917;
+      }
+      button {
+        background: #c85f2b;
+        color: #fff;
+        border: 0;
+        border-radius: 12px;
+        padding: 14px 20px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      pre {
+        background: #f5f0ea;
+        padding: 12px;
+        border-radius: 10px;
+        overflow: auto;
+        font-size: 12px;
+      }
+      .err { color: #b42318; }
+      .ok { color: #067647; }
+    </style>
+  </head>
+  <body>
+    <h1>Razorpay test checkout</h1>
+    <p>Uses <code>POST /api/create-order</code> and <code>POST /api/verify-payment</code>. Test card: <strong>4111 1111 1111 1111</strong>, any future expiry, any CVV.</p>
+    <p>Amount: <strong>₹10</strong> (1000 paise)</p>
+    <button id="pay" type="button">Pay ₹10 (test)</button>
+    <p id="status"></p>
+    <pre id="log">Waiting…</pre>
+    <script>
+      const API = "http://localhost:8000/api";
+      const logEl = document.getElementById("log");
+      const statusEl = document.getElementById("status");
+
+      function log(msg, ok) {
+        logEl.textContent = typeof msg === "string" ? msg : JSON.stringify(msg, null, 2);
+        statusEl.className = ok === true ? "ok" : ok === false ? "err" : "";
+        statusEl.textContent = typeof msg === "string" ? msg : "";
+      }
+
+      document.getElementById("pay").addEventListener("click", async () => {
+        try {
+          log("Creating order…");
+          const orderRes = await fetch(API + "/create-order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount: 1000,
+              currency: "INR",
+              receipt: "hm_test_" + Date.now(),
+            }),
+          });
+          const order = await orderRes.json();
+          if (!orderRes.ok) throw new Error(order.detail || "Create order failed");
+
+          log({ step: "order_created", order });
+
+          const rzp = new Razorpay({
+            key: order.key_id,
+            amount: order.amount,
+            currency: order.currency,
+            name: "HomeMakers",
+            description: "Test transaction",
+            order_id: order.order_id,
+            theme: { color: "#C85F2B" },
+            handler: async (response) => {
+              log({ step: "payment_success", response });
+              const verifyRes = await fetch(API + "/verify-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(response),
+              });
+              const verified = await verifyRes.json();
+              if (!verifyRes.ok) throw new Error(verified.detail || "Verify failed");
+              log({ step: "verified", verified }, true);
+              statusEl.textContent = "Payment verified successfully.";
+            },
+            modal: {
+              ondismiss: () => log("Checkout closed.", false),
+            },
+          });
+          rzp.on("payment.failed", (r) => log(r?.error || r, false));
+          rzp.open();
+        } catch (e) {
+          log(e.message || String(e), false);
+        }
+      });
+    </script>
+  </body>
+</html>

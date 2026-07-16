@@ -44,6 +44,13 @@ const PATHS = [
   },
 ];
 
+const JOURNEY = [
+  { title: "Share your vision", text: "Capture the home, style, budget, and constraints in one brief." },
+  { title: "Compare directions", text: "Review AI concepts, floor-plan directions, and estimate ranges." },
+  { title: "Choose your team", text: "Match with professionals or bring the architect and contractor you trust." },
+  { title: "Run the project", text: "Manage schedules, tasks, documents, materials, and approvals together." },
+];
+
 export default function LandingHomeQuickLinks() {
   const navigate = useNavigate();
 
@@ -97,6 +104,14 @@ export default function LandingHomeQuickLinks() {
               </button>
             );
           })}
+        </div>
+        <div id="how-it-works" className="mt-14 border-t border-border/60 pt-12">
+          <span className="section-kicker">How it works</span>
+          <h2 className="mt-4 font-display text-3xl font-semibold leading-tight text-foreground md:text-4xl">From first sketch to keys in hand</h2>
+          <p className="mt-3 max-w-2xl font-body text-sm leading-relaxed text-muted-foreground md:text-base">AI helps where it saves time. Homeowners and qualified professionals remain in control of every important decision.</p>
+          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {JOURNEY.map((step, index) => <article key={step.title} className="rounded-2xl border border-border/60 bg-white/80 p-5"><span className="font-body text-xs font-bold text-copper">0{index + 1}</span><h3 className="mt-3 font-display text-lg font-semibold text-foreground">{step.title}</h3><p className="mt-2 font-body text-sm leading-relaxed text-muted-foreground">{step.text}</p></article>)}
+          </div>
         </div>
       </div>
     </section>
